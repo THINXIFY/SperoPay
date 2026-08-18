@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "phase-1a-foundation",
-    "slug": "phase-1a-foundation",
+    "name": "ThinxPay",
+    "slug": "thinxpay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
