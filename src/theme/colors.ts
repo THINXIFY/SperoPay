@@ -1,37 +1,4 @@
-type ColorShape = {
-  readonly background: string;
-  readonly surface: string;
-  readonly surfaceRaised: string;
-  readonly heroSurface: string;
-  readonly heroSurfaceText: string;
-  readonly textPrimary: string;
-  readonly textSecondary: string;
-  readonly textMuted: string;
-  readonly border: string;
-  readonly primaryAction: string;
-  readonly primaryActionPressed: string;
-  readonly primaryActionText: string;
-  readonly tabBarBackground: string;
-  readonly tabBarIcon: string;
-  readonly tabBarIconMuted: string;
-  readonly tabBarIconActive: string;
-  readonly softMint: string;
-  readonly softMintText: string;
-  readonly softLavender: string;
-  readonly softLavenderText: string;
-  readonly softBlue: string;
-  readonly softBlueText: string;
-  readonly softRed: string;
-  readonly softRedText: string;
-  readonly success: string;
-  readonly pending: string;
-  readonly error: string;
-  readonly expired: string;
-};
-
-export type ThemeColors = ColorShape;
-
-export const lightColors: ThemeColors = {
+export const lightColors = {
   background: '#F5F6F4',
   surface: '#FFFFFF',
   surfaceRaised: '#FFFFFF',
@@ -61,6 +28,8 @@ export const lightColors: ThemeColors = {
   error: '#EF4444',
   expired: '#D9848E',
 } as const;
+
+export type ThemeColors = Readonly<Record<keyof typeof lightColors, string>>;
 
 export const darkColors: ThemeColors = {
   background: '#050505',
