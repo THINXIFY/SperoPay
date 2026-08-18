@@ -20,6 +20,7 @@ export function IconButton({ name, onPress, variant = 'default', size = 20, acce
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      hitSlop={4}
       style={({ pressed }) => [
         styles.base,
         {
