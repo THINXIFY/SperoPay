@@ -24,7 +24,9 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const { colors, spacing, typography, radius } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const visibleRoutes = state.routes.filter((route) => route.name !== 'request-action');
+  const visibleRoutes = state.routes.filter(
+    (route) => route.name !== 'request-action' && route.name !== 'requests/[id]'
+  );
   const leftRoutes = visibleRoutes.slice(0, 2);
   const rightRoutes = visibleRoutes.slice(2);
 
