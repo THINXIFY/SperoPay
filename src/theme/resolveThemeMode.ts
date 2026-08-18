@@ -1,10 +1,10 @@
 import type { ColorSchemeName } from 'react-native';
+import type { ThemePreference } from '../types';
 
-type ThemePreferenceInput = 'light' | 'dark' | 'system';
 export type ResolvedThemeMode = 'light' | 'dark';
 
 export function resolveThemeMode(
-  preference: ThemePreferenceInput | null,
+  preference: ThemePreference | null,
   deviceScheme: ColorSchemeName | null
 ): ResolvedThemeMode {
   if (preference === null) return 'light';
