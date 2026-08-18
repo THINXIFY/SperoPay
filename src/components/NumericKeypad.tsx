@@ -20,6 +20,8 @@ export function NumericKeypad({ onKeyPress, onDelete }: NumericKeypadProps) {
           key={key}
           onPress={() => (key === 'delete' ? onDelete() : onKeyPress(key))}
           style={({ pressed }) => [styles.key, { opacity: pressed ? 0.5 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={key === '.' ? 'Decimal point' : key === 'delete' ? 'Delete' : `Digit ${key}`}
         >
           {key === 'delete' ? (
             <Ionicons name="backspace-outline" size={24} color={colors.textPrimary} />

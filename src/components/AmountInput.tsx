@@ -9,6 +9,7 @@ interface AmountInputProps {
 }
 
 const MAX_DECIMAL_PLACES = 2;
+const MAX_INTEGER_DIGITS = 9;
 
 export function AmountInput({ value, onChange }: AmountInputProps) {
   const { colors, spacing, typography } = useTheme();
@@ -16,8 +17,10 @@ export function AmountInput({ value, onChange }: AmountInputProps) {
   function handleKeyPress(key: string) {
     if (key === '.' && value.includes('.')) return;
 
-    const [, decimals] = value.split('.');
+    const [integer, decimals] = value.split('.');
     if (decimals && decimals.length >= MAX_DECIMAL_PLACES) return;
+
+    if (key !== '.' && !value.includes('.') && integer.length >= MAX_INTEGER_DIGITS) return;
 
     if (value === '0' && key !== '.') {
       onChange(key);
@@ -34,7 +37,14 @@ export function AmountInput({ value, onChange }: AmountInputProps) {
   return (
     <View>
       <View style={[styles.display, { marginBottom: spacing.xl }]}>
-        <Text style={[typography.display, { color: colors.textPrimary }]}>${value}</Text>
+        <Text
+          style={[typography.display, { color: colors.textPrimary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.5}
+        >
+          ${value}
+        </Text>
       </View>
       <NumericKeypad onKeyPress={handleKeyPress} onDelete={handleDelete} />
     </View>
