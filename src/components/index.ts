@@ -16,3 +16,4 @@ export * from './EmptyState';
 export * from './SkeletonLoader';
 export * from './ConfirmationModal';
 export * from './AppBottomSheet';
+export * from './Logo';
