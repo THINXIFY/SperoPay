@@ -16,6 +16,9 @@ export function SelectableCard({ icon, label, selected, onPress }: SelectableCar
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
       style={[
         styles.card,
         {

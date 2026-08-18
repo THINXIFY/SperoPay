@@ -29,10 +29,7 @@ export function ConfirmationModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={[styles.backdrop, { padding: spacing.xl }]}>
         <View
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl },
-          ]}
+          style={[{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl }]}
         >
           <Text style={[typography.h3, { color: colors.textPrimary }]}>{title}</Text>
           <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.sm }]}>
@@ -50,5 +47,4 @@ export function ConfirmationModal({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(5,5,5,0.5)', alignItems: 'stretch', justifyContent: 'center' },
-  sheet: {},
 });
