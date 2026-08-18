@@ -15,7 +15,11 @@ export function SectionHeader({ title, actionLabel, onActionPress }: SectionHead
     <View style={[styles.row, { marginBottom: spacing.md }]}>
       <Text style={[typography.h3, { color: colors.textPrimary }]}>{title}</Text>
       {actionLabel ? (
-        <Pressable onPress={onActionPress}>
+        <Pressable
+          onPress={onActionPress}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
           <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>{actionLabel}</Text>
         </Pressable>
       ) : null}

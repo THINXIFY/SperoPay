@@ -21,6 +21,8 @@ export function RequestCard({ title, description, amount, currency, status, date
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${formatCurrency(amount)} ${currency}, ${status}`}
       style={({ pressed }) => [
         styles.card,
         {

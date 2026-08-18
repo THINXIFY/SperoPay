@@ -9,7 +9,7 @@ const LABELS: Record<PaymentRequestStatus, string> = {
   expired: 'Expired',
 };
 
-const COLOR_KEYS: Record<PaymentRequestStatus, 'pending' | 'success' | 'expired'> = {
+export const COLOR_KEYS: Record<PaymentRequestStatus, 'pending' | 'success' | 'expired'> = {
   pending: 'pending',
   paid: 'success',
   expired: 'expired',
