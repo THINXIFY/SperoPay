@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, Text, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -19,6 +19,7 @@ export default function ForgotPasswordScreen() {
   const [sent, setSent] = useState(false);
 
   async function handleSubmit() {
+    if (isLoading || sent) return;
     if (!isValidEmail(email)) {
       setError('Enter a valid email');
       return;
@@ -31,22 +32,27 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Reset Password" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, flexGrow: 1 }}>
-        <TextField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          error={error}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={!sent}
-        />
-        {sent ? (
-          <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.sm }]}>
-            If an account exists for that email, a reset link is on its way.
-          </Text>
-        ) : null}
-      </ScrollView>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <TextField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            error={error}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={!sent}
+          />
+          {sent ? (
+            <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.sm }]}>
+              If an account exists for that email, a reset link is on its way.
+            </Text>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
       <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
         <PrimaryButton label="Send Reset Link" onPress={handleSubmit} loading={isLoading} disabled={sent} />
       </View>

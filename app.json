@@ -7,6 +7,9 @@
     "icon": "./assets/icon.png",
     "scheme": "thinxpay",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#050505"
+    },
     "ios": {
       "supportsTablet": true
     },
