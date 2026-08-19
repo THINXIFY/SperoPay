@@ -1,16 +1,22 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { StatusBadge } from '../../../src/components/StatusBadge';
+import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { SecondaryButton } from '../../../src/components/SecondaryButton';
+import { ConfirmationModal } from '../../../src/components/ConfirmationModal';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestEventStore } from '../../../src/store/requestEventStore';
 import { useWalletStore } from '../../../src/store/walletStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
+import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
 import type { RequestEventType } from '../../../src/types';
 
 const EVENT_LABELS: Record<RequestEventType, string> = {
@@ -49,6 +55,34 @@ export default function RequestDetailScreen() {
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const events = useRequestEventStore((state) => (id ? state.getEventsForRequest(id) : []));
   const wallet = useWalletStore((state) => state.wallet);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const cancelRequest = useRequestStore((state) => state.cancelRequest);
+  const addEvent = useRequestEventStore((state) => state.addEvent);
+
+  async function handleShareAgain() {
+    if (!request) return;
+    await Share.share({ message: request.paymentLink, url: request.paymentLink });
+  }
+
+  async function handleSendReminder() {
+    if (!request) return;
+    const message = buildReminderMessage(request, customer);
+    await Share.share({ message });
+    addEvent(request.id, 'reminder_sent');
+  }
+
+  async function handleCopyReminder() {
+    if (!request) return;
+    const message = buildReminderMessage(request, customer);
+    await Clipboard.setStringAsync(message);
+    Alert.alert('Copied', 'Reminder message copied to clipboard.');
+  }
+
+  function handleConfirmCancel() {
+    if (!request) return;
+    cancelRequest(request.id);
+    setCancelModalVisible(false);
+  }
 
   if (!request) {
     return (
@@ -148,7 +182,26 @@ export default function RequestDetailScreen() {
             ))
           )}
         </ThemeAwareCard>
+
+        {request.status === 'pending' ? (
+          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+            <PrimaryButton label="Share Again" onPress={handleShareAgain} />
+            <SecondaryButton label="Send Reminder" onPress={handleSendReminder} />
+            <SecondaryButton label="Copy Reminder Message" onPress={handleCopyReminder} />
+            <SecondaryButton label="Cancel Request" onPress={() => setCancelModalVisible(true)} />
+          </View>
+        ) : null}
       </ScrollView>
+
+      <ConfirmationModal
+        visible={cancelModalVisible}
+        title="Cancel this request?"
+        description="The customer will no longer be able to pay this request. This can't be undone."
+        confirmLabel="Cancel Request"
+        cancelLabel="Keep Request"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setCancelModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
