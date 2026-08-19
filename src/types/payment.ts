@@ -1,4 +1,4 @@
-export type PaymentRequestStatus = 'pending' | 'paid' | 'expired';
+export type PaymentRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 
 export type ExpiryOption = '1h' | '24h' | '7d' | 'never';
 
@@ -29,7 +29,14 @@ export interface Transaction {
   paidAt: string;
 }
 
-export type RequestEventType = 'created' | 'viewed' | 'paid' | 'expired';
+export type RequestEventType =
+  | 'created'
+  | 'shared'
+  | 'payment_detected'
+  | 'payment_confirmed'
+  | 'reminder_sent'
+  | 'cancelled'
+  | 'expired';
 
 export interface RequestEvent {
   id: string;

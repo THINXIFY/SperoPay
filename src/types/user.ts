@@ -14,6 +14,9 @@ export interface Profile {
   country: string;
   website?: string;
   avatarUri?: string;
+  businessEmail?: string;
+  businessDescription?: string;
+  businessLogoUri?: string;
 }
 
 export interface Wallet {

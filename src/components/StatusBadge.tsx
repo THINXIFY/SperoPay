@@ -7,12 +7,14 @@ const LABELS: Record<PaymentRequestStatus, string> = {
   pending: 'Pending',
   paid: 'Paid',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
-export const COLOR_KEYS: Record<PaymentRequestStatus, 'pending' | 'success' | 'expired'> = {
+export const COLOR_KEYS: Record<PaymentRequestStatus, 'pending' | 'success' | 'expired' | 'error'> = {
   pending: 'pending',
   paid: 'success',
   expired: 'expired',
+  cancelled: 'error',
 };
 
 export function StatusBadge({ status }: { status: PaymentRequestStatus }) {
