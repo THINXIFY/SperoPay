@@ -9,13 +9,16 @@ import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useCustomerStore } from '../../../src/store/customerStore';
+import { useRequestStore } from '../../../src/store/requestStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
+import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { isValidEmail } from '../../../src/utils/validators';
 
 export default function CustomersScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
+  const requests = useRequestStore((state) => state.requests);
 
   const sheetRef = useRef<BottomSheet>(null);
   const [name, setName] = useState('');
@@ -27,7 +30,7 @@ export default function CustomersScreen() {
       setError('Enter a name and valid email');
       return;
     }
-    addCustomer(name.trim(), email.trim());
+    addCustomer({ name: name.trim(), email: email.trim() });
     setName('');
     setEmail('');
     setError(undefined);
@@ -52,23 +55,27 @@ export default function CustomersScreen() {
         data={customers}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.base }}
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <CustomerAvatar name={item.name} color={item.avatarColor} />
-            <View style={{ marginLeft: spacing.md, flex: 1 }}>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{item.name}</Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>{item.email}</Text>
+        renderItem={({ item }) => {
+          const stats = getCustomerStats(item.id, requests);
+          const totalAmount = stats.totalReceived + stats.outstanding;
+          return (
+            <View style={styles.row}>
+              <CustomerAvatar name={item.name} color={item.avatarColor} />
+              <View style={{ marginLeft: spacing.md, flex: 1 }}>
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{item.name}</Text>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{item.email}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+                  {stats.totalRequests} {stats.totalRequests === 1 ? 'Request' : 'Requests'}
+                </Text>
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+                  {formatCurrency(totalAmount)}
+                </Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
-                {item.totalRequests} {item.totalRequests === 1 ? 'Request' : 'Requests'}
-              </Text>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                {formatCurrency(item.totalAmount)}
-              </Text>
-            </View>
-          </View>
-        )}
+          );
+        }}
       />
 
       <AppBottomSheet ref={sheetRef}>

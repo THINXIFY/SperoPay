@@ -5,9 +5,17 @@ import type { Customer } from '../types';
 import { mockCustomers } from '../data/customers';
 import { generateId } from '../utils/ids';
 
+export interface AddCustomerInput {
+  name: string;
+  email: string;
+  company?: string;
+  notes?: string;
+}
+
 interface CustomerState {
   customers: Customer[];
-  addCustomer: (name: string, email: string) => Customer;
+  addCustomer: (input: AddCustomerInput) => Customer;
+  updateCustomer: (id: string, patch: Partial<Omit<Customer, 'id'>>) => void;
   getCustomerById: (id: string) => Customer | undefined;
 }
 
@@ -17,18 +25,22 @@ export const useCustomerStore = create<CustomerState>()(
   persist(
     (set, get) => ({
       customers: mockCustomers,
-      addCustomer: (name, email) => {
+      addCustomer: (input) => {
         const customer: Customer = {
           id: generateId(),
-          name,
-          email,
+          name: input.name,
+          email: input.email,
+          company: input.company,
+          notes: input.notes,
           avatarColor: AVATAR_COLORS[get().customers.length % AVATAR_COLORS.length],
-          totalRequests: 0,
-          totalAmount: 0,
         };
         set((state) => ({ customers: [customer, ...state.customers] }));
         return customer;
       },
+      updateCustomer: (id, patch) =>
+        set((state) => ({
+          customers: state.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
       getCustomerById: (id) => get().customers.find((c) => c.id === id),
     }),
     { name: 'speropay/customers', storage: createJSONStorage(() => AsyncStorage) }

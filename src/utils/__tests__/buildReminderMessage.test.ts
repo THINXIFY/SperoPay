@@ -16,16 +16,11 @@ const request: PaymentRequest = {
   paymentLink: 'https://pay.speropay.app/r/req-1',
 };
 
-// NOTE: Customer still declares `totalRequests`/`totalAmount` as required fields as of
-// this task (Task 5 of the plan removes them later). They are included here only to
-// satisfy the current type shape; buildReminderMessage does not use them.
 const customer: Customer = {
   id: 'cust-1',
   name: 'John Doe',
   email: 'john@doe.com',
   avatarColor: 'blue',
-  totalRequests: 0,
-  totalAmount: 0,
 };
 
 describe('buildReminderMessage', () => {

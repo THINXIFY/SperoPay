@@ -62,7 +62,7 @@ export default function DetailsScreen() {
       setNewCustomerError('Enter a name and valid email');
       return;
     }
-    const customer = addCustomer(newCustomerName.trim(), newCustomerEmail.trim());
+    const customer = addCustomer({ name: newCustomerName.trim(), email: newCustomerEmail.trim() });
     setCustomerId(customer.id);
     setNewCustomerName('');
     setNewCustomerEmail('');
