@@ -15,6 +15,7 @@ import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestEventStore } from '../../../src/store/requestEventStore';
 import { useWalletStore } from '../../../src/store/walletStore';
+import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
 import type { RequestEventType } from '../../../src/types';
@@ -56,8 +57,11 @@ export default function RequestDetailScreen() {
   const events = useRequestEventStore((state) => (id ? state.getEventsForRequest(id) : []));
   const wallet = useWalletStore((state) => state.wallet);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const cancelRequest = useRequestStore((state) => state.cancelRequest);
+  const deleteRequest = useRequestStore((state) => state.deleteRequest);
   const addEvent = useRequestEventStore((state) => state.addEvent);
+  const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
 
   async function handleShareAgain() {
     if (!request) return;
@@ -82,6 +86,25 @@ export default function RequestDetailScreen() {
     if (!request) return;
     cancelRequest(request.id);
     setCancelModalVisible(false);
+  }
+
+  function handleCreateAgain() {
+    if (!request) return;
+    prefillDraft({
+      amount: String(request.amount),
+      description: request.description,
+      customerId: request.customerId,
+      expiryOption: request.expiryOption,
+      note: request.note,
+    });
+    router.push('/request/amount');
+  }
+
+  function handleConfirmDelete() {
+    if (!request) return;
+    deleteRequest(request.id);
+    setDeleteModalVisible(false);
+    router.replace('/(app)/requests');
   }
 
   if (!request) {
@@ -191,6 +214,22 @@ export default function RequestDetailScreen() {
             <SecondaryButton label="Cancel Request" onPress={() => setCancelModalVisible(true)} />
           </View>
         ) : null}
+
+        {request.status === 'paid' ? (
+          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+            <SecondaryButton
+              label="View Receipt"
+              onPress={() => Alert.alert('Receipt', 'Receipts are coming in a future update.')}
+            />
+          </View>
+        ) : null}
+
+        {request.status === 'expired' || request.status === 'cancelled' ? (
+          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+            <PrimaryButton label="Create Again" onPress={handleCreateAgain} />
+            <SecondaryButton label="Delete" onPress={() => setDeleteModalVisible(true)} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <ConfirmationModal
@@ -201,6 +240,16 @@ export default function RequestDetailScreen() {
         cancelLabel="Keep Request"
         onConfirm={handleConfirmCancel}
         onCancel={() => setCancelModalVisible(false)}
+      />
+
+      <ConfirmationModal
+        visible={deleteModalVisible}
+        title="Delete this request?"
+        description="This will permanently remove the request from your history. This can't be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteModalVisible(false)}
       />
     </SafeAreaView>
   );
