@@ -12,6 +12,8 @@ import { ActivityRow } from '../../src/components/ActivityRow';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
+import { useRequestDraftStore } from '../../src/store/requestDraftStore';
+import { usePaymentDefaultsStore } from '../../src/store/paymentDefaultsStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
 const HERO_AMOUNT = 12540.25;
@@ -30,6 +32,8 @@ export default function HomeScreen() {
   const profile = useProfileStore((state) => state.profile);
   const requests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
+  const startFresh = useRequestDraftStore((state) => state.startFresh);
+  const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
 
   const paidCount = useMemo(() => requests.filter((r) => r.status === 'paid').length, [requests]);
   const pendingCount = useMemo(() => requests.filter((r) => r.status === 'pending').length, [requests]);
@@ -92,7 +96,13 @@ export default function HomeScreen() {
         </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.base, gap: spacing.sm }}>
-          <PrimaryButton label="Request Payment →" onPress={() => router.push('/request/amount')} />
+          <PrimaryButton
+            label="Request Payment →"
+            onPress={() => {
+              startFresh(defaultExpiryOption);
+              router.push('/request/amount');
+            }}
+          />
           <SecondaryButton
             label="Send Payment →"
             onPress={() => Alert.alert('Coming soon', 'Send Payment will be available in a future update.')}

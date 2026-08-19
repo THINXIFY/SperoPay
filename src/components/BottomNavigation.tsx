@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { useTheme } from '../theme/useTheme';
+import { useRequestDraftStore } from '../store/requestDraftStore';
+import { usePaymentDefaultsStore } from '../store/paymentDefaultsStore';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: 'home-outline',
@@ -23,6 +25,8 @@ const LABELS: Record<string, string> = {
 export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const { colors, spacing, typography, radius } = useTheme();
   const insets = useSafeAreaInsets();
+  const startFresh = useRequestDraftStore((state) => state.startFresh);
+  const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
 
   const visibleRoutes = state.routes.filter((route) => route.name !== 'request-action');
   const leftRoutes = visibleRoutes.slice(0, 2);
@@ -65,7 +69,10 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
 
       <View style={styles.centerWrap}>
         <Pressable
-          onPress={() => router.push('/request/amount')}
+          onPress={() => {
+            startFresh(defaultExpiryOption);
+            router.push('/request/amount');
+          }}
           style={[styles.centerButton, { backgroundColor: colors.primaryAction, borderRadius: radius.full }]}
           accessibilityRole="button"
           accessibilityLabel="Request payment"

@@ -16,6 +16,7 @@ interface RequestDraftState {
   setLastCreatedRequestId: (id: string | null) => void;
   prefillFrom: (values: { amount?: string; description?: string; customerId?: string; expiryOption?: ExpiryOption; note?: string }) => void;
   reset: () => void;
+  startFresh: (defaultExpiryOption: ExpiryOption) => void;
 }
 
 const initialState = {
@@ -44,4 +45,5 @@ export const useRequestDraftStore = create<RequestDraftState>()((set) => ({
       note: values.note ?? initialState.note,
     })),
   reset: () => set({ ...initialState }),
+  startFresh: (defaultExpiryOption) => set({ ...initialState, expiryOption: defaultExpiryOption }),
 }));
