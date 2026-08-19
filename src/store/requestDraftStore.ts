@@ -40,6 +40,8 @@ export const useRequestDraftStore = create<RequestDraftState>()((set) => ({
       ...initialState,
       ...values,
       amount: values.amount ?? initialState.amount,
+      description: values.description ?? initialState.description,
+      note: values.note ?? initialState.note,
     })),
   reset: () => set({ ...initialState }),
 }));

@@ -95,7 +95,7 @@ export default function RequestDetailScreen() {
       description: request.description,
       customerId: request.customerId,
       expiryOption: request.expiryOption,
-      note: request.note ?? '',
+      note: request.note,
     });
     router.push('/request/amount');
   }
