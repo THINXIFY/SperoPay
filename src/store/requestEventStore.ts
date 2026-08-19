@@ -9,6 +9,7 @@ interface RequestEventState {
   events: RequestEvent[];
   addEvent: (requestId: string, type: RequestEventType) => RequestEvent;
   getEventsForRequest: (requestId: string) => RequestEvent[];
+  removeEventsForRequest: (requestId: string) => void;
 }
 
 export const useRequestEventStore = create<RequestEventState>()(
@@ -29,6 +30,8 @@ export const useRequestEventStore = create<RequestEventState>()(
         get()
           .events.filter((e) => e.requestId === requestId)
           .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime()),
+      removeEventsForRequest: (requestId) =>
+        set((state) => ({ events: state.events.filter((e) => e.requestId !== requestId) })),
     }),
     { name: 'speropay/requestEvents', storage: createJSONStorage(() => AsyncStorage) }
   )

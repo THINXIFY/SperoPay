@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,7 +54,16 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = useRequestStore((state) => state.requests.find((r) => r.id === id));
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
-  const events = useRequestEventStore((state) => (id ? state.getEventsForRequest(id) : []));
+  const allEvents = useRequestEventStore((state) => state.events);
+  const events = useMemo(
+    () =>
+      id
+        ? allEvents
+            .filter((e) => e.requestId === id)
+            .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
+        : [],
+    [allEvents, id]
+  );
   const wallet = useWalletStore((state) => state.wallet);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -66,6 +75,7 @@ export default function RequestDetailScreen() {
   async function handleShareAgain() {
     if (!request) return;
     await Share.share({ message: request.paymentLink, url: request.paymentLink });
+    addEvent(request.id, 'shared');
   }
 
   async function handleSendReminder() {

@@ -8,7 +8,8 @@ import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
-import type { PaymentRequest, PaymentRequestStatus } from '../../../src/types';
+import { getDateLabel } from '../../../src/utils/getDateLabel';
+import type { PaymentRequestStatus } from '../../../src/types';
 
 type Filter = 'all' | PaymentRequestStatus;
 
@@ -19,19 +20,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'expired', label: 'Expired' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
-
-function getDateLabel(request: PaymentRequest): string {
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  if (request.status === 'paid') return `Paid on ${formatDate(request.createdAt)}`;
-  if (request.status === 'cancelled') return 'Cancelled';
-  if (request.status === 'expired') return `Expired on ${request.expiresAt ? formatDate(request.expiresAt) : formatDate(request.createdAt)}`;
-  if (!request.expiresAt) return 'No expiry';
-
-  const daysLeft = Math.ceil((new Date(request.expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  return daysLeft <= 0 ? 'Expires today' : `Expires in ${daysLeft}d`;
-}
 
 export default function RequestsScreen() {
   const { colors, spacing, radius, typography } = useTheme();

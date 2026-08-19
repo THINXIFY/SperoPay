@@ -39,7 +39,10 @@ export const useRequestStore = create<RequestState>()(
         }));
         useRequestEventStore.getState().addEvent(id, 'cancelled');
       },
-      deleteRequest: (id) => set((state) => ({ requests: state.requests.filter((r) => r.id !== id) })),
+      deleteRequest: (id) => {
+        set((state) => ({ requests: state.requests.filter((r) => r.id !== id) }));
+        useRequestEventStore.getState().removeEventsForRequest(id);
+      },
     }),
     { name: 'speropay/requests', storage: createJSONStorage(() => AsyncStorage) }
   )

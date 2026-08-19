@@ -15,20 +15,11 @@ import { TextField } from '../../../src/components/TextField';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
+import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
+import { getDateLabel } from '../../../src/utils/getDateLabel';
 import { isValidEmail } from '../../../src/utils/validators';
-import type { PaymentRequest } from '../../../src/types';
-
-function getDateLabel(request: PaymentRequest): string {
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  if (request.status === 'paid') return `Paid on ${formatDate(request.createdAt)}`;
-  if (request.status === 'cancelled') return 'Cancelled';
-  if (request.status === 'expired') return `Expired on ${request.expiresAt ? formatDate(request.expiresAt) : formatDate(request.createdAt)}`;
-  return `Requested ${formatDate(request.createdAt)}`;
-}
 
 export default function CustomerDetailScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -37,6 +28,7 @@ export default function CustomerDetailScreen() {
   const requests = useRequestStore((state) => state.requests);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
+  const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
 
   const history = useMemo(
     () =>
@@ -51,7 +43,8 @@ export default function CustomerDetailScreen() {
   const [editEmail, setEditEmail] = useState('');
   const [editCompany, setEditCompany] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [editError, setEditError] = useState<string | undefined>();
+  const [editNameError, setEditNameError] = useState<string | undefined>();
+  const [editEmailError, setEditEmailError] = useState<string | undefined>();
 
   if (!customer) {
     return (
@@ -65,7 +58,7 @@ export default function CustomerDetailScreen() {
   const customerId = customer.id;
 
   function handleRequestPayment() {
-    prefillDraft({ customerId });
+    prefillDraft({ customerId, expiryOption: defaultExpiryOption });
     router.push('/request/amount');
   }
 
@@ -75,15 +68,18 @@ export default function CustomerDetailScreen() {
     setEditEmail(customer.email);
     setEditCompany(customer.company ?? '');
     setEditNotes(customer.notes ?? '');
-    setEditError(undefined);
+    setEditNameError(undefined);
+    setEditEmailError(undefined);
     editSheetRef.current?.expand();
   }
 
   function handleSaveEdit() {
-    if (editName.trim().length === 0 || !isValidEmail(editEmail)) {
-      setEditError('Enter a name and valid email');
-      return;
-    }
+    const nameError = editName.trim().length === 0 ? 'Enter a name' : undefined;
+    const emailError = !isValidEmail(editEmail) ? 'Enter a valid email' : undefined;
+    setEditNameError(nameError);
+    setEditEmailError(emailError);
+    if (nameError || emailError) return;
+
     updateCustomer(customerId, {
       name: editName.trim(),
       email: editEmail.trim(),
@@ -159,8 +155,15 @@ export default function CustomerDetailScreen() {
       />
       <AppBottomSheet ref={editSheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
-        <TextField label="Name" value={editName} onChangeText={setEditName} error={editError} />
-        <TextField label="Email" value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" />
+        <TextField label="Name" value={editName} onChangeText={setEditName} error={editNameError} />
+        <TextField
+          label="Email"
+          value={editEmail}
+          onChangeText={setEditEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={editEmailError}
+        />
         <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} />
         <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
         <PrimaryButton label="Save Changes" onPress={handleSaveEdit} />

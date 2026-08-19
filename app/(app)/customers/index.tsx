@@ -27,7 +27,8 @@ export default function CustomersScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
-  const [error, setError] = useState<string | undefined>();
+  const [nameError, setNameError] = useState<string | undefined>();
+  const [emailError, setEmailError] = useState<string | undefined>();
 
   const filtered = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -38,15 +39,18 @@ export default function CustomersScreen() {
   }, [customers, query]);
 
   function handleAdd() {
-    if (name.trim().length === 0 || !isValidEmail(email)) {
-      setError('Enter a name and valid email');
-      return;
-    }
+    const nextNameError = name.trim().length === 0 ? 'Enter a name' : undefined;
+    const nextEmailError = !isValidEmail(email) ? 'Enter a valid email' : undefined;
+    setNameError(nextNameError);
+    setEmailError(nextEmailError);
+    if (nextNameError || nextEmailError) return;
+
     addCustomer({ name: name.trim(), email: email.trim(), company: company.trim() || undefined });
     setName('');
     setEmail('');
     setCompany('');
-    setError(undefined);
+    setNameError(undefined);
+    setEmailError(undefined);
     sheetRef.current?.close();
   }
 
@@ -120,14 +124,14 @@ export default function CustomersScreen() {
 
       <AppBottomSheet ref={sheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
-        <TextField label="Name" value={name} onChangeText={setName} />
+        <TextField label="Name" value={name} onChangeText={setName} error={nameError} />
         <TextField
           label="Email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
-          error={error}
+          error={emailError}
         />
         <TextField label="Company (Optional)" value={company} onChangeText={setCompany} />
         <PrimaryButton label="Add Customer" onPress={handleAdd} />
