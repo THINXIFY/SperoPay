@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -8,13 +8,29 @@ import { IconButton } from '../../src/components/IconButton';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
+import { useCustomerStore } from '../../src/store/customerStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+
+type Stage = 'idle' | 'detecting' | 'confirming' | 'received' | 'failed';
+
+const STAGE_LABELS: Record<'detecting' | 'confirming' | 'received', string> = {
+  detecting: 'Payment detected…',
+  confirming: 'Confirming payment…',
+  received: 'Payment received!',
+};
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function DemoPaymentScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = useRequestStore((state) => state.requests.find((r) => r.id === id));
-  const [isProcessing, setIsProcessing] = useState(false);
+  const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
+  const beginPaymentConfirmation = useRequestStore((state) => state.beginPaymentConfirmation);
+  const completePayment = useRequestStore((state) => state.completePayment);
+  const [stage, setStage] = useState<Stage>('idle');
 
   if (!request) {
     return (
@@ -33,19 +49,125 @@ export default function DemoPaymentScreen() {
     );
   }
 
-  if (isProcessing) {
+  if (stage === 'idle') {
+    if (request.status === 'paid') {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+          <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
+            <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
+          </View>
+          <View style={[styles.center, { padding: spacing.xl }]}>
+            <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+            <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.lg, textAlign: 'center' }]}>
+              This request has already been paid.
+            </Text>
+            <View style={{ marginTop: spacing.xl, width: '100%' }}>
+              <PrimaryButton
+                label="View Receipt"
+                onPress={() => router.replace(`/request/receipt?id=${request.id}`)}
+              />
+            </View>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (request.status === 'confirming') {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+          <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
+            <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
+          </View>
+          <View style={[styles.center, { padding: spacing.xl }]}>
+            <ActivityIndicator size="large" color={colors.primaryAction} />
+            <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.lg, textAlign: 'center' }]}>
+              This payment is already being confirmed.
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (request.status === 'expired' || request.status === 'cancelled') {
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+          <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
+            <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <EmptyState
+              icon={request.status === 'expired' ? 'time-outline' : 'close-circle-outline'}
+              title={
+                request.status === 'expired'
+                  ? 'This payment request has expired.'
+                  : 'This payment request is no longer active.'
+              }
+              description={
+                request.status === 'expired'
+                  ? 'Contact the requester for a new payment link.'
+                  : 'Payment is no longer possible for this request.'
+              }
+            />
+          </View>
+        </SafeAreaView>
+      );
+    }
+  }
+
+  async function handleContinue() {
+    setStage('detecting');
+    const started = beginPaymentConfirmation(request!.id);
+    if (!started) {
+      setStage('failed');
+      return;
+    }
+    await delay(700);
+
+    setStage('confirming');
+    await delay(900);
+
+    const transaction = completePayment(request!.id);
+    if (!transaction) {
+      setStage('failed');
+      return;
+    }
+
+    setStage('received');
+    Alert.alert('Payment received', `${formatCurrency(transaction.amount)} from ${customer?.name ?? 'your customer'}`);
+    await delay(500);
+    router.replace(`/pay/success?id=${request!.id}`);
+  }
+
+  function handleRetry() {
+    setStage('idle');
+  }
+
+  if (stage === 'detecting' || stage === 'confirming' || stage === 'received') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <View style={[styles.center, { padding: spacing.xl }]}>
           <ActivityIndicator size="large" color={colors.primaryAction} />
           <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.lg, textAlign: 'center' }]}>
-            Preparing your payment…
+            {STAGE_LABELS[stage]}
           </Text>
           <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' }]}>
-            In the full version, this would confirm your payment on Solana.
+            This is a simulated payment for the Spero prototype.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (stage === 'failed') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+        <View style={[styles.center, { padding: spacing.xl }]}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.error} />
+          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.lg, textAlign: 'center' }]}>
+            We couldn't confirm this payment. Try again.
           </Text>
           <View style={{ marginTop: spacing.xl, width: '100%' }}>
-            <PrimaryButton label="Back to Payment Request" onPress={() => router.back()} />
+            <PrimaryButton label="Try Again" onPress={handleRetry} />
           </View>
         </View>
       </SafeAreaView>
@@ -58,7 +180,12 @@ export default function DemoPaymentScreen() {
         <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
       </View>
       <View style={[styles.center, { padding: spacing.xl }]}>
-        <View style={[styles.badge, { backgroundColor: colors.softLavender, borderRadius: radius.full, marginBottom: spacing.lg }]}>
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: colors.softLavender, borderRadius: radius.full, marginBottom: spacing.lg },
+          ]}
+        >
           <Ionicons name="flask-outline" size={28} color={colors.softLavenderText} />
         </View>
         <Text style={[typography.h1, { color: colors.textPrimary, textAlign: 'center' }]}>Demo Payment</Text>
@@ -66,7 +193,12 @@ export default function DemoPaymentScreen() {
           This is a simulated payment for the Spero prototype. No real funds will move.
         </Text>
 
-        <View style={[styles.summaryCard, { borderColor: colors.border, borderRadius: radius.lg, padding: spacing.base, marginTop: spacing.xl }]}>
+        <View
+          style={[
+            styles.summaryCard,
+            { borderColor: colors.border, borderRadius: radius.lg, padding: spacing.base, marginTop: spacing.xl },
+          ]}
+        >
           <Text style={[typography.caption, { color: colors.textMuted }]}>You're paying</Text>
           <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.xs }]}>
             {formatCurrency(request.amount)}
@@ -77,7 +209,7 @@ export default function DemoPaymentScreen() {
         </View>
 
         <View style={{ marginTop: spacing.xl, width: '100%' }}>
-          <PrimaryButton label="Continue" onPress={() => setIsProcessing(true)} />
+          <PrimaryButton label="Continue" onPress={handleContinue} />
         </View>
       </View>
     </SafeAreaView>
