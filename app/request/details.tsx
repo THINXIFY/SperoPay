@@ -47,7 +47,8 @@ export default function DetailsScreen() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
-  const [newCustomerError, setNewCustomerError] = useState<string | undefined>();
+  const [newCustomerNameError, setNewCustomerNameError] = useState<string | undefined>();
+  const [newCustomerEmailError, setNewCustomerEmailError] = useState<string | undefined>();
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const expiryLabel = EXPIRY_OPTIONS.find((opt) => opt.value === expiryOption)?.label ?? '7 days';
@@ -58,15 +59,18 @@ export default function DetailsScreen() {
   }
 
   function handleAddCustomer() {
-    if (newCustomerName.trim().length === 0 || !isValidEmail(newCustomerEmail)) {
-      setNewCustomerError('Enter a name and valid email');
-      return;
-    }
+    const nextNameError = newCustomerName.trim().length === 0 ? 'Enter a name' : undefined;
+    const nextEmailError = !isValidEmail(newCustomerEmail) ? 'Enter a valid email' : undefined;
+    setNewCustomerNameError(nextNameError);
+    setNewCustomerEmailError(nextEmailError);
+    if (nextNameError || nextEmailError) return;
+
     const customer = addCustomer({ name: newCustomerName.trim(), email: newCustomerEmail.trim() });
     setCustomerId(customer.id);
     setNewCustomerName('');
     setNewCustomerEmail('');
-    setNewCustomerError(undefined);
+    setNewCustomerNameError(undefined);
+    setNewCustomerEmailError(undefined);
     setIsAddingCustomer(false);
     customerSheetRef.current?.close();
   }
@@ -189,14 +193,14 @@ export default function DetailsScreen() {
         {isAddingCustomer ? (
           <>
             <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
-            <TextField label="Name" value={newCustomerName} onChangeText={setNewCustomerName} />
+            <TextField label="Name" value={newCustomerName} onChangeText={setNewCustomerName} error={newCustomerNameError} />
             <TextField
               label="Email"
               value={newCustomerEmail}
               onChangeText={setNewCustomerEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              error={newCustomerError}
+              error={newCustomerEmailError}
             />
             <PrimaryButton label="Add Customer" onPress={handleAddCustomer} />
           </>
