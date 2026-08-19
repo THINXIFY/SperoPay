@@ -44,6 +44,6 @@ export function SelectableCard({ icon, label, selected, onPress }: SelectableCar
 }
 
 const styles = StyleSheet.create({
-  card: { flex: 1 },
+  card: { width: '100%' },
   iconWrap: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 });
