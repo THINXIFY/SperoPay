@@ -36,11 +36,13 @@ export default function ReceiptScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <AppHeader title="Receipt" onBackPress={() => router.back()} />
-        <EmptyState
-          icon="receipt-outline"
-          title="We couldn't load this receipt."
-          description="Receipts are only available for completed payments."
-        />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="receipt-outline"
+            title="We couldn't load this receipt."
+            description="Receipts are only available for completed payments."
+          />
+        </View>
       </SafeAreaView>
     );
   }

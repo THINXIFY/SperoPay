@@ -22,11 +22,13 @@ export default function DemoPaymentScreen() {
         <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
           <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
         </View>
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Request unavailable"
-          description="This payment request is no longer available."
-        />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Request unavailable"
+            description="This payment request is no longer available."
+          />
+        </View>
       </SafeAreaView>
     );
   }

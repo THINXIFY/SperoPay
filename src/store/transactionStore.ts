@@ -11,7 +11,7 @@ interface TransactionState {
 
 export const useTransactionStore = create<TransactionState>()(
   persist(
-    (set, get) => ({
+    (_set, get) => ({
       transactions: mockTransactions,
       getTransactionForRequest: (requestId) => get().transactions.find((t) => t.requestId === requestId),
     }),

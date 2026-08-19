@@ -39,11 +39,13 @@ export default function PublicPaymentScreen() {
         <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
           <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Go back" />
         </View>
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Request unavailable"
-          description="This payment request is no longer available."
-        />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Request unavailable"
+            description="This payment request is no longer available."
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -93,7 +95,7 @@ export default function PublicPaymentScreen() {
               Network: <Text style={{ color: colors.textPrimary }}>{request.network}</Text>
             </Text>
             <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.sm }]}>
-              Requested by {profile.displayName || 'Spero merchant'}
+              Requested by {profile.displayName || businessName}
             </Text>
             {request.expiresAt ? (
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>

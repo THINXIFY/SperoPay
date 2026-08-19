@@ -31,11 +31,13 @@ export default function InvoiceScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <AppHeader title="Invoice" onBackPress={() => router.back()} />
-        <EmptyState
-          icon="document-text-outline"
-          title="We couldn't load this invoice."
-          description="This invoice is no longer available."
-        />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="document-text-outline"
+            title="We couldn't load this invoice."
+            description="This invoice is no longer available."
+          />
+        </View>
       </SafeAreaView>
     );
   }
