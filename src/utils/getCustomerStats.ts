@@ -14,7 +14,7 @@ export function getCustomerStats(customerId: string, requests: PaymentRequest[])
     .reduce((sum, r) => sum + r.amount, 0);
 
   const outstanding = customerRequests
-    .filter((r) => r.status === 'pending')
+    .filter((r) => r.status === 'pending' || r.status === 'confirming')
     .reduce((sum, r) => sum + r.amount, 0);
 
   return {

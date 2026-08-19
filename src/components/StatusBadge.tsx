@@ -5,6 +5,7 @@ import type { PaymentRequestStatus } from '../types';
 
 const LABELS: Record<PaymentRequestStatus, string> = {
   pending: 'Pending',
+  confirming: 'Confirming',
   paid: 'Paid',
   expired: 'Expired',
   cancelled: 'Cancelled',
@@ -12,6 +13,7 @@ const LABELS: Record<PaymentRequestStatus, string> = {
 
 export const COLOR_KEYS: Record<PaymentRequestStatus, 'pending' | 'success' | 'expired' | 'error'> = {
   pending: 'pending',
+  confirming: 'pending',
   paid: 'success',
   expired: 'expired',
   cancelled: 'error',

@@ -5,6 +5,7 @@ export function getDateLabel(request: PaymentRequest): string {
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   if (request.status === 'paid') return `Paid on ${formatDate(request.createdAt)}`;
+  if (request.status === 'confirming') return 'Confirming payment…';
   if (request.status === 'cancelled') return 'Cancelled';
   if (request.status === 'expired')
     return `Expired on ${request.expiresAt ? formatDate(request.expiresAt) : formatDate(request.createdAt)}`;

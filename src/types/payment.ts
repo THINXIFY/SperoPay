@@ -1,4 +1,4 @@
-export type PaymentRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
+export type PaymentRequestStatus = 'pending' | 'confirming' | 'paid' | 'expired' | 'cancelled';
 
 export type ExpiryOption = '1h' | '24h' | '7d' | 'never';
 

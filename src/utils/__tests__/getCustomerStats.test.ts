@@ -51,4 +51,17 @@ describe('getCustomerStats', () => {
     expect(stats.totalReceived).toBe(0);
     expect(stats.outstanding).toBe(300);
   });
+
+  it('includes confirming requests in outstanding, alongside pending', () => {
+    const requests = [
+      makeRequest({ id: 'r1', customerId: 'cust-1', amount: 400, status: 'confirming' }),
+      makeRequest({ id: 'r2', customerId: 'cust-1', amount: 100, status: 'pending' }),
+    ];
+
+    const stats = getCustomerStats('cust-1', requests);
+
+    expect(stats.totalRequests).toBe(2);
+    expect(stats.totalReceived).toBe(0);
+    expect(stats.outstanding).toBe(500);
+  });
 });
