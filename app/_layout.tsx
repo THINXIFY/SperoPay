@@ -29,6 +29,7 @@ function RootNavigator() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(app)" />
         <Stack.Screen name="request" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pay" />
       </Stack>
     </>
   );
