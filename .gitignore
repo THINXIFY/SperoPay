@@ -42,3 +42,6 @@ yarn-error.*
 
 # git worktrees
 .worktrees/
+
+# temporary verification artifacts (e.g. `expo export --output-dir .tmp-verify-*`)
+.tmp-*/
