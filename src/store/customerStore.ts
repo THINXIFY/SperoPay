@@ -31,6 +31,6 @@ export const useCustomerStore = create<CustomerState>()(
       },
       getCustomerById: (id) => get().customers.find((c) => c.id === id),
     }),
-    { name: 'thinxpay/customers', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'speropay/customers', storage: createJSONStorage(() => AsyncStorage) }
   )
 );

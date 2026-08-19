@@ -9,5 +9,5 @@ export function generatePaymentCode(): string {
   for (let i = 0; i < 5; i++) {
     suffix += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   }
-  return `TP-${suffix}`;
+  return `SP-${suffix}`;
 }

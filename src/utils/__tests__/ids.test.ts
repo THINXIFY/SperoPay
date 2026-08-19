@@ -10,9 +10,9 @@ describe('generateId', () => {
 });
 
 describe('generatePaymentCode', () => {
-  it('generates a code matching the TP-XXXXX pattern', () => {
+  it('generates a code matching the SP-XXXXX pattern', () => {
     const code = generatePaymentCode();
-    expect(code).toMatch(/^TP-[A-Z0-9]{5}$/);
+    expect(code).toMatch(/^SP-[A-Z0-9]{5}$/);
   });
 
   it('generates different codes on subsequent calls', () => {

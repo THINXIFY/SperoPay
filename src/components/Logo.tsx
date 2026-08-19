@@ -17,7 +17,7 @@ export function Logo({ size = 64 }: { size?: number }) {
         },
       ]}
     >
-      <Text style={[styles.glyph, { fontSize: size * 0.42, color: colors.heroSurfaceText }]}>T</Text>
+      <Text style={[styles.glyph, { fontSize: size * 0.42, color: colors.heroSurfaceText }]}>S</Text>
       <View
         style={[
           styles.arrow,

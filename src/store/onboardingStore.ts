@@ -20,7 +20,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
-      name: 'thinxpay/onboarding',
+      name: 'speropay/onboarding',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state, error) => {
         if (error) {

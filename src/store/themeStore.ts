@@ -14,6 +14,6 @@ export const useThemeStore = create<ThemeState>()(
       preference: null,
       setPreference: (preference) => set({ preference }),
     }),
-    { name: 'thinxpay/theme', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'speropay/theme', storage: createJSONStorage(() => AsyncStorage) }
   )
 );

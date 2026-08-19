@@ -29,7 +29,7 @@ export default function UsageTypeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <View style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.xxl }}>
-        <Text style={[typography.h1, { color: colors.textPrimary }]}>How will you use ThinxPay?</Text>
+        <Text style={[typography.h1, { color: colors.textPrimary }]}>How will you use Spero?</Text>
         <View style={[styles.grid, { marginTop: spacing.xl, gap: spacing.md }]}>
           {OPTIONS.map((option) => (
             <View key={option.value} style={{ width: '47%' }}>

@@ -24,8 +24,8 @@ describe('buildPaymentRequest', () => {
     expect(request.status).toBe('pending');
     expect(request.createdAt).toBe(now.toISOString());
     expect(request.expiresAt).toBe('2026-08-25T12:00:00.000Z');
-    expect(request.paymentCode).toMatch(/^TP-[A-Z0-9]{5}$/);
-    expect(request.paymentLink).toBe(`https://pay.thinxpay.app/r/${request.id}`);
+    expect(request.paymentCode).toMatch(/^SP-[A-Z0-9]{5}$/);
+    expect(request.paymentLink).toBe(`https://pay.speropay.app/r/${request.id}`);
     expect(request.id.length).toBeGreaterThan(0);
   });
 

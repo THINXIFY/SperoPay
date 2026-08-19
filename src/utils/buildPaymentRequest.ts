@@ -26,6 +26,6 @@ export function buildPaymentRequest(input: CreateRequestInput, now: Date = new D
     note: input.note,
     status: 'pending',
     createdAt: now.toISOString(),
-    paymentLink: `https://pay.thinxpay.app/r/${id}`,
+    paymentLink: `https://pay.speropay.app/r/${id}`,
   };
 }

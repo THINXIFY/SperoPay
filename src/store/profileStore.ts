@@ -24,6 +24,6 @@ export const useProfileStore = create<ProfileState>()(
       setUsageType: (usageType) => set((state) => ({ profile: { ...state.profile, usageType } })),
       updateProfile: (patch) => set((state) => ({ profile: { ...state.profile, ...patch } })),
     }),
-    { name: 'thinxpay/profile', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'speropay/profile', storage: createJSONStorage(() => AsyncStorage) }
   )
 );

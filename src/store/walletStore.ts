@@ -15,6 +15,6 @@ export const useWalletStore = create<WalletState>()(
       setWalletAddress: (address) =>
         set({ wallet: { stablecoin: 'USDC', network: 'Solana', address } }),
     }),
-    { name: 'thinxpay/wallet', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'speropay/wallet', storage: createJSONStorage(() => AsyncStorage) }
   )
 );

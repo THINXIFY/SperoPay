@@ -48,7 +48,7 @@ export default function CreatedScreen() {
   }
 
   async function handleWhatsApp() {
-    const message = `You have a payment request for ${formatCurrency(request!.amount)} USDC: ${request!.paymentLink}`;
+    const message = `You have a payment request for ${formatCurrency(request!.amount)} USDC through Spero: ${request!.paymentLink}`;
     await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
   }
 

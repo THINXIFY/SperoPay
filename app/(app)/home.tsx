@@ -59,7 +59,7 @@ export default function HomeScreen() {
               <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
                 {getGreeting()}, {firstName} 👋
               </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Welcome back to ThinxPay</Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>Welcome back to Spero</Text>
             </View>
           </View>
           <Pressable

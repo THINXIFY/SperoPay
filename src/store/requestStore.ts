@@ -30,6 +30,6 @@ export const useRequestStore = create<RequestState>()(
       },
       getRequestById: (id) => get().requests.find((r) => r.id === id),
     }),
-    { name: 'thinxpay/requests', storage: createJSONStorage(() => AsyncStorage) }
+    { name: 'speropay/requests', storage: createJSONStorage(() => AsyncStorage) }
   )
 );

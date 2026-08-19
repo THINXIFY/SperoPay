@@ -73,7 +73,7 @@ export default function WalletSetupScreen() {
           >
             <Ionicons name="shield-checkmark-outline" size={18} color={colors.softBlueText} />
             <Text style={[typography.bodySmall, { color: colors.softBlueText, flex: 1 }]}>
-              ThinxPay never asks for your seed phrase or private key.
+              Spero never asks for your seed phrase or private key.
             </Text>
           </View>
         </ScrollView>

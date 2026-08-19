@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ThinxPay",
-    "slug": "thinxpay",
+    "name": "SperoPay",
+    "slug": "speropay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "thinxpay",
+    "scheme": "speropay",
     "userInterfaceStyle": "automatic",
     "splash": {
       "backgroundColor": "#050505"

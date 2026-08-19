@@ -50,7 +50,7 @@ export default function SplashScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.heroSurface }]}>
       <Logo size={72} />
-      <Text style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.lg }]}>ThinxPay</Text>
+      <Text style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.lg }]}>SperoPay</Text>
       <Text
         style={[
           typography.bodySmall,
