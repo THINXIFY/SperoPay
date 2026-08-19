@@ -16,6 +16,7 @@ import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestEventStore } from '../../../src/store/requestEventStore';
 import { useWalletStore } from '../../../src/store/walletStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
+import { useTransactionStore } from '../../../src/store/transactionStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
 import type { RequestEventType } from '../../../src/types';
@@ -65,6 +66,7 @@ export default function RequestDetailScreen() {
     [allEvents, id]
   );
   const wallet = useWalletStore((state) => state.wallet);
+  const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const cancelRequest = useRequestStore((state) => state.cancelRequest);
@@ -192,6 +194,22 @@ export default function RequestDetailScreen() {
               {request.paymentLink}
             </Text>
           </View>
+          {transaction ? (
+            <View>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>Paid Date</Text>
+              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+                {formatEventDate(transaction.paidAt)}
+              </Text>
+            </View>
+          ) : null}
+          {transaction ? (
+            <View>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>Transaction Hash</Text>
+              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+                {transaction.txHash.slice(0, 4)}...{transaction.txHash.slice(-4)}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm }]}>
@@ -219,6 +237,15 @@ export default function RequestDetailScreen() {
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
           <SecondaryButton label="View Invoice" onPress={() => router.push(`/request/invoice?id=${request.id}`)} />
         </View>
+
+        {request.status === 'confirming' ? (
+          <ThemeAwareCard style={{ marginTop: spacing.xl, alignItems: 'center' }}>
+            <Ionicons name="sync-outline" size={24} color={colors.textSecondary} />
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm, textAlign: 'center' }]}>
+              Confirming payment on the network…
+            </Text>
+          </ThemeAwareCard>
+        ) : null}
 
         {request.status === 'pending' ? (
           <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
