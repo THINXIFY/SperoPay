@@ -1,10 +1,17 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { PaymentRequest } from '../types';
+import type { PaymentRequest, Transaction } from '../types';
 import { mockRequests } from '../data/requests';
 import { buildPaymentRequest, type CreateRequestInput } from '../utils/buildPaymentRequest';
+import {
+  canBeginPaymentConfirmation,
+  canCompletePayment,
+  buildTransaction,
+  DEMO_PAYMENT_FAILURE_RATE,
+} from '../utils/paymentSimulation';
 import { useRequestEventStore } from './requestEventStore';
+import { useTransactionStore } from './transactionStore';
 
 interface RequestState {
   requests: PaymentRequest[];
@@ -13,6 +20,8 @@ interface RequestState {
   getRequestById: (id: string) => PaymentRequest | undefined;
   cancelRequest: (id: string) => void;
   deleteRequest: (id: string) => void;
+  beginPaymentConfirmation: (id: string) => boolean;
+  completePayment: (id: string, options?: { forceFailure?: boolean }) => Transaction | null;
 }
 
 function mockDelay(ms = 1400) {
@@ -42,6 +51,34 @@ export const useRequestStore = create<RequestState>()(
       deleteRequest: (id) => {
         set((state) => ({ requests: state.requests.filter((r) => r.id !== id) }));
         useRequestEventStore.getState().removeEventsForRequest(id);
+      },
+      beginPaymentConfirmation: (id) => {
+        const request = get().requests.find((r) => r.id === id);
+        if (!canBeginPaymentConfirmation(request)) return false;
+        set((state) => ({
+          requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'confirming' } : r)),
+        }));
+        useRequestEventStore.getState().addEvent(id, 'payment_detected');
+        return true;
+      },
+      completePayment: (id, options) => {
+        const request = get().requests.find((r) => r.id === id);
+        if (!canCompletePayment(request)) return null;
+
+        const shouldFail = options?.forceFailure ?? Math.random() < DEMO_PAYMENT_FAILURE_RATE;
+        if (shouldFail) {
+          set((state) => ({
+            requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'pending' } : r)),
+          }));
+          return null;
+        }
+
+        const transaction = useTransactionStore.getState().addTransaction(buildTransaction(request!));
+        set((state) => ({
+          requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'paid' } : r)),
+        }));
+        useRequestEventStore.getState().addEvent(id, 'payment_confirmed');
+        return transaction;
       },
     }),
     { name: 'speropay/requests', storage: createJSONStorage(() => AsyncStorage) }
