@@ -107,6 +107,18 @@ export default function PublicPaymentScreen() {
           </>
         ) : null}
 
+        {request.status === 'confirming' ? (
+          <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
+            <Ionicons name="sync-outline" size={32} color={colors.textSecondary} />
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm, textAlign: 'center' }]}>
+              Confirming your payment…
+            </Text>
+            <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs, textAlign: 'center' }]}>
+              This usually only takes a moment.
+            </Text>
+          </View>
+        ) : null}
+
         {request.status === 'paid' ? (
           <ThemeAwareCard style={{ width: '100%', marginTop: spacing.xl, alignItems: 'center' }}>
             <Ionicons name="checkmark-circle" size={32} color={colors.success} />
