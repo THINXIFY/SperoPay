@@ -3,11 +3,13 @@ import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type BottomSheet from '@gorhom/bottom-sheet';
+import { router } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useOnboardingStore } from '../../../src/store/onboardingStore';
 import { useThemeStore } from '../../../src/store/themeStore';
 import type { ThemePreference } from '../../../src/types';
 
@@ -45,12 +47,29 @@ export default function ProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
   const user = useAuthStore((state) => state.user);
+  const signOut = useAuthStore((state) => state.signOut);
+  const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
   const sheetRef = useRef<BottomSheet>(null);
 
   function comingSoon(label: string) {
     Alert.alert(label, 'This will be available in a future update.');
+  }
+
+  function handleSignOut() {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => {
+          signOut();
+          resetOnboarding();
+          router.replace('/(auth)/welcome');
+        },
+      },
+    ]);
   }
 
   const themeLabel = THEME_OPTIONS.find((opt) => opt.value === (preference ?? 'light'))?.label ?? 'Light';
@@ -98,6 +117,7 @@ export default function ProfileScreen() {
           <Row icon="lock-closed-outline" label="Security" onPress={() => comingSoon('Security')} />
           <Row icon="link-outline" label="Connected Wallets" onPress={() => comingSoon('Connected Wallets')} />
           <Row icon="help-circle-outline" label="Help & Support" onPress={() => comingSoon('Help & Support')} />
+          <Row icon="log-out-outline" label="Sign Out" onPress={handleSignOut} />
         </ThemeAwareCard>
       </ScrollView>
 
