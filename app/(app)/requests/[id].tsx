@@ -216,6 +216,10 @@ export default function RequestDetailScreen() {
           )}
         </ThemeAwareCard>
 
+        <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+          <SecondaryButton label="View Invoice" onPress={() => router.push(`/request/invoice?id=${request.id}`)} />
+        </View>
+
         {request.status === 'pending' ? (
           <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
             <PrimaryButton label="Share Again" onPress={handleShareAgain} />
@@ -229,7 +233,7 @@ export default function RequestDetailScreen() {
           <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
             <SecondaryButton
               label="View Receipt"
-              onPress={() => Alert.alert('Receipt', 'Receipts are coming in a future update.')}
+              onPress={() => router.push(`/request/receipt?id=${request.id}`)}
             />
           </View>
         ) : null}

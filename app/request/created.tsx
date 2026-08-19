@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { IconButton } from '../../src/components/IconButton';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
@@ -135,8 +136,9 @@ export default function CreatedScreen() {
         </View>
       </ScrollView>
 
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.sm }}>
         <PrimaryButton label="Share Link" onPress={handleShare} />
+        <SecondaryButton label="View Invoice" onPress={() => router.push(`/request/invoice?id=${request.id}`)} />
       </View>
 
       <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
