@@ -11,3 +11,4 @@ export * from './templateStore';
 export * from './notificationStore';
 export * from './paymentDefaultsStore';
 export * from './securityStore';
+export * from './transactionStore';
