@@ -8,25 +8,23 @@ import { useTheme } from '../theme/useTheme';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   home: 'home-outline',
-  'requests/index': 'document-text-outline',
-  'customers/index': 'people-outline',
-  'profile/index': 'person-outline',
+  requests: 'document-text-outline',
+  customers: 'people-outline',
+  profile: 'person-outline',
 };
 
 const LABELS: Record<string, string> = {
   home: 'Home',
-  'requests/index': 'Requests',
-  'customers/index': 'Customers',
-  'profile/index': 'Profile',
+  requests: 'Requests',
+  customers: 'Customers',
+  profile: 'Profile',
 };
 
 export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const { colors, spacing, typography, radius } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const visibleRoutes = state.routes.filter(
-    (route) => route.name !== 'request-action' && route.name !== 'requests/[id]'
-  );
+  const visibleRoutes = state.routes.filter((route) => route.name !== 'request-action');
   const leftRoutes = visibleRoutes.slice(0, 2);
   const rightRoutes = visibleRoutes.slice(2);
 

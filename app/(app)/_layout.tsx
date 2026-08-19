@@ -5,10 +5,10 @@ export default function AppTabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNavigation {...props} />}>
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="requests/index" />
+      <Tabs.Screen name="requests" />
       <Tabs.Screen name="request-action" />
-      <Tabs.Screen name="customers/index" />
-      <Tabs.Screen name="profile/index" />
+      <Tabs.Screen name="customers" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }
