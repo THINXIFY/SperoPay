@@ -11,3 +11,13 @@ export function generatePaymentCode(): string {
   }
   return `SP-${suffix}`;
 }
+
+const HASH_CHARS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+export function generateTxHash(): string {
+  let hash = '';
+  for (let i = 0; i < 43; i++) {
+    hash += HASH_CHARS[Math.floor(Math.random() * HASH_CHARS.length)];
+  }
+  return hash;
+}
