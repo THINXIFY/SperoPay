@@ -13,12 +13,9 @@ import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getInvoiceId } from '../../src/utils/documentIds';
 import { buildInvoiceShareMessage } from '../../src/utils/buildInvoiceShareMessage';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export default function InvoiceScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -111,13 +108,13 @@ export default function InvoiceScreen() {
           <View style={{ marginTop: spacing.md }}>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Issue Date</Text>
             <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {formatDate(request.createdAt)}
+              {formatDocumentDate(request.createdAt)}
             </Text>
           </View>
           <View style={{ marginTop: spacing.md }}>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Due / Expiry</Text>
             <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.expiresAt ? formatDate(request.expiresAt) : 'No expiry'}
+              {request.expiresAt ? formatDocumentDate(request.expiresAt) : 'No expiry'}
             </Text>
           </View>
           <View style={{ marginTop: spacing.md }}>

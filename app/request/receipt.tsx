@@ -13,12 +13,9 @@ import { useCustomerStore } from '../../src/store/customerStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getReceiptId } from '../../src/utils/documentIds';
 import { buildReceiptShareMessage } from '../../src/utils/buildReceiptShareMessage';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 function truncateHash(hash: string): string {
   return `${hash.slice(0, 4)}...${hash.slice(-4)}`;
@@ -120,7 +117,7 @@ export default function ReceiptScreen() {
               <View style={{ marginTop: spacing.md }}>
                 <Text style={[typography.caption, { color: colors.textMuted }]}>Paid Date</Text>
                 <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                  {formatDate(transaction.paidAt)}
+                  {formatDocumentDate(transaction.paidAt)}
                 </Text>
               </View>
               <View style={{ marginTop: spacing.md }}>

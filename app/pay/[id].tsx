@@ -19,10 +19,7 @@ import { useProfileStore } from '../../src/store/profileStore';
 import { useWalletStore } from '../../src/store/walletStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 
 export default function PublicPaymentScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -99,7 +96,7 @@ export default function PublicPaymentScreen() {
             </Text>
             {request.expiresAt ? (
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
-                Expires {formatDate(request.expiresAt)}
+                Expires {formatDocumentDate(request.expiresAt)}
               </Text>
             ) : null}
 
@@ -124,7 +121,7 @@ export default function PublicPaymentScreen() {
               {transaction ? (
                 <View style={styles.summaryRow}>
                   <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Paid Date</Text>
-                  <Text style={[typography.bodySmall, { color: colors.textPrimary }]}>{formatDate(transaction.paidAt)}</Text>
+                  <Text style={[typography.bodySmall, { color: colors.textPrimary }]}>{formatDocumentDate(transaction.paidAt)}</Text>
                 </View>
               ) : null}
               <View style={styles.summaryRow}>
