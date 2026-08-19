@@ -16,10 +16,7 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getReceiptId } from '../../src/utils/documentIds';
 import { buildReceiptShareMessage } from '../../src/utils/buildReceiptShareMessage';
-
-function truncateHash(hash: string): string {
-  return `${hash.slice(0, 4)}...${hash.slice(-4)}`;
-}
+import { truncateHash } from '../../src/utils/truncateHash';
 
 export default function ReceiptScreen() {
   const { colors, spacing, typography } = useTheme();
