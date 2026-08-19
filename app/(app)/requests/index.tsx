@@ -17,6 +17,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'paid', label: 'Paid' },
   { value: 'pending', label: 'Pending' },
+  { value: 'confirming', label: 'Confirming' },
   { value: 'expired', label: 'Expired' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
