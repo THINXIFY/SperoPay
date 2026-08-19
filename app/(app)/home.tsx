@@ -12,13 +12,10 @@ import { ActivityRow } from '../../src/components/ActivityRow';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
+import { useTransactionStore } from '../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../src/store/paymentDefaultsStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
-
-const HERO_AMOUNT = 12540.25;
-const HERO_GROWTH = '+18.6%';
-const HERO_SUPPORTING = '12 payments · vs last month';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -32,19 +29,36 @@ export default function HomeScreen() {
   const profile = useProfileStore((state) => state.profile);
   const requests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
+  const transactions = useTransactionStore((state) => state.transactions);
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
 
   const paidCount = useMemo(() => requests.filter((r) => r.status === 'paid').length, [requests]);
   const pendingCount = useMemo(() => requests.filter((r) => r.status === 'pending').length, [requests]);
 
+  const monthTransactions = useMemo(() => {
+    const now = new Date();
+    return transactions.filter((t) => {
+      const paidDate = new Date(t.paidAt);
+      return paidDate.getFullYear() === now.getFullYear() && paidDate.getMonth() === now.getMonth();
+    });
+  }, [transactions]);
+  const receivedThisMonth = useMemo(
+    () => monthTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [monthTransactions]
+  );
+
   const recentActivity = useMemo(
     () =>
       requests
         .filter((r) => r.status === 'paid')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((r) => ({
+          request: r,
+          activityAt: transactions.find((t) => t.requestId === r.id)?.paidAt ?? r.createdAt,
+        }))
+        .sort((a, b) => new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime())
         .slice(0, 4),
-    [requests]
+    [requests, transactions]
   );
 
   const firstName = (profile.displayName || 'there').split(' ')[0];
@@ -77,21 +91,11 @@ export default function HomeScreen() {
 
         <ThemeAwareCard variant="hero">
           <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Received this month</Text>
-          <View style={[styles.heroRow, { marginTop: spacing.xs }]}>
-            <Text style={[typography.heroNumber, { color: colors.heroSurfaceText }]}>
-              {formatCurrency(HERO_AMOUNT)}
-            </Text>
-            <View
-              style={[
-                styles.growthPill,
-                { backgroundColor: `${colors.success}26`, borderRadius: radius.full, marginLeft: spacing.sm },
-              ]}
-            >
-              <Text style={[typography.caption, { color: colors.success }]}>{HERO_GROWTH}</Text>
-            </View>
-          </View>
+          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
+            {formatCurrency(receivedThisMonth)}
+          </Text>
           <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
-            {HERO_SUPPORTING}
+            {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} this month
           </Text>
         </ThemeAwareCard>
 
@@ -126,7 +130,7 @@ export default function HomeScreen() {
             actionLabel="View All"
             onActionPress={() => router.push('/(app)/requests')}
           />
-          {recentActivity.map((request) => {
+          {recentActivity.map(({ request, activityAt }) => {
             const customer = customers.find((c) => c.id === request.customerId);
             return (
               <ActivityRow
@@ -136,7 +140,7 @@ export default function HomeScreen() {
                 amount={request.amount}
                 currency={request.currency}
                 status={request.status}
-                createdAt={request.createdAt}
+                createdAt={activityAt}
               />
             );
           })}
@@ -150,7 +154,5 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  heroRow: { flexDirection: 'row', alignItems: 'baseline' },
-  growthPill: { paddingHorizontal: 8, paddingVertical: 2 },
   statsRow: { flexDirection: 'row' },
 });
