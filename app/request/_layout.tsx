@@ -9,6 +9,7 @@ export default function RequestLayout() {
       <Stack.Screen name="amount" />
       <Stack.Screen name="details" />
       <Stack.Screen name="created" />
+      <Stack.Screen name="invoice" />
     </Stack>
   );
 }
