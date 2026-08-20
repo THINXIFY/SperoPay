@@ -15,6 +15,15 @@ describe('resolveInitialRoute', () => {
   it('routes to Home when authenticated and onboarded', () => {
     expect(resolveInitialRoute({ isAuthenticated: true, hasCompletedOnboarding: true })).toBe('/(app)/home');
   });
+
+  it('routes to Reset Password when a password recovery session is active, regardless of other state', () => {
+    expect(
+      resolveInitialRoute({ isAuthenticated: true, hasCompletedOnboarding: true, isPasswordRecovery: true })
+    ).toBe('/(auth)/reset-password');
+    expect(
+      resolveInitialRoute({ isAuthenticated: false, hasCompletedOnboarding: false, isPasswordRecovery: true })
+    ).toBe('/(auth)/reset-password');
+  });
 });
 
 describe('resolveAuthGateRedirect', () => {
@@ -43,5 +52,25 @@ describe('resolveAuthGateRedirect', () => {
     expect(
       resolveAuthGateRedirect('require-guest', { isAuthenticated: false, hasCompletedOnboarding: false })
     ).toBeNull();
+  });
+
+  it('require-guest allows a password-recovery session to stay put', () => {
+    expect(
+      resolveAuthGateRedirect('require-guest', {
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+        isPasswordRecovery: true,
+      })
+    ).toBeNull();
+  });
+
+  it('require-auth redirects a password-recovery session to Reset Password', () => {
+    expect(
+      resolveAuthGateRedirect('require-auth', {
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+        isPasswordRecovery: true,
+      })
+    ).toBe('/(auth)/reset-password');
   });
 });
