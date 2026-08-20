@@ -5,6 +5,7 @@ import { useTheme } from '../src/theme/useTheme';
 import { Logo } from '../src/components/Logo';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
+import { resolveInitialRoute } from '../src/utils/authRouting';
 
 const SPLASH_DURATION_MS = 1200;
 
@@ -38,13 +39,7 @@ export default function SplashScreen() {
       return;
     }
 
-    if (!isAuthenticated) {
-      router.replace('/(auth)/welcome');
-    } else if (!hasCompletedOnboarding) {
-      router.replace('/(onboarding)/usage-type');
-    } else {
-      router.replace('/(app)/home');
-    }
+    router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding }));
   }, [minDurationElapsed, storesHydrated, isAuthenticated, hasCompletedOnboarding]);
 
   return (
