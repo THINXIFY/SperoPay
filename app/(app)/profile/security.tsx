@@ -8,6 +8,7 @@ import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useSecurityStore } from '../../../src/store/securityStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { isValidPassword } from '../../../src/utils/validators';
 
 export default function SecurityScreen() {
@@ -16,34 +17,40 @@ export default function SecurityScreen() {
   const setBiometricLockEnabled = useSecurityStore((state) => state.setBiometricLockEnabled);
   const appLockEnabled = useSecurityStore((state) => state.appLockEnabled);
   const setAppLockEnabled = useSecurityStore((state) => state.setAppLockEnabled);
+  const updatePassword = useAuthStore((state) => state.updatePassword);
+  const authError = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
 
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | undefined>();
+  const [fieldError, setFieldError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleUpdatePassword() {
-    if (currentPassword.trim().length === 0) {
-      setError('Enter your current password');
-      return;
-    }
     if (!isValidPassword(newPassword)) {
-      setError('New password must be at least 8 characters');
+      setFieldError('New password must be at least 8 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      setFieldError('New passwords do not match');
       return;
     }
-    setError(undefined);
+    setFieldError(undefined);
+    clearError();
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setIsSaving(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    Alert.alert('Password Updated', 'Your password has been changed.');
+    try {
+      await updatePassword(newPassword);
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Password Updated', 'Your password has been changed.');
+    } catch {
+      // authStore.error already holds a user-friendly message, rendered below.
+      // If Supabase ever requires reauthentication for this, its error copy
+      // is generic ("couldn't update your password") rather than a fabricated
+      // local reauth check we can't actually verify.
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -52,8 +59,14 @@ export default function SecurityScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }} keyboardShouldPersistTaps="handled">
           <Text style={[typography.caption, { color: colors.textMuted }]}>CHANGE PASSWORD</Text>
-          <TextField label="Current Password" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
-          <TextField label="New Password" value={newPassword} onChangeText={setNewPassword} secureTextEntry error={error} />
+          {authError ? <Text style={[typography.bodySmall, { color: colors.error }]}>{authError}</Text> : null}
+          <TextField
+            label="New Password"
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            error={fieldError}
+          />
           <TextField label="Confirm New Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
           <PrimaryButton label="Update Password" onPress={handleUpdatePassword} loading={isSaving} />
 
