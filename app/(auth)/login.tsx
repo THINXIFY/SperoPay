@@ -7,7 +7,7 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
-import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { useHasCompletedOnboarding } from '../../src/store/onboardingStore';
 import { resolveInitialRoute } from '../../src/utils/authRouting';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
 
@@ -17,7 +17,7 @@ export default function LoginScreen() {
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
   const clearError = useAuthStore((state) => state.clearError);
-  const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
+  const hasCompletedOnboarding = useHasCompletedOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

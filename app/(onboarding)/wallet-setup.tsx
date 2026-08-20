@@ -10,12 +10,14 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { useWalletStore } from '../../src/store/walletStore';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { isValidWalletAddress } from '../../src/utils/validators';
 
 export default function WalletSetupScreen() {
   const { colors, spacing, typography } = useTheme();
   const setWalletAddress = useWalletStore((state) => state.setWalletAddress);
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -25,8 +27,9 @@ export default function WalletSetupScreen() {
       setError('Enter a valid Solana wallet address');
       return;
     }
+    if (!userId) return; // Onboarding is only reachable while authenticated.
     setWalletAddress(address.trim());
-    completeOnboarding();
+    completeOnboarding(userId);
     router.replace('/(app)/home');
   }
 
