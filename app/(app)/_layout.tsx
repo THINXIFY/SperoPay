@@ -1,14 +1,17 @@
 import { Tabs } from 'expo-router/js-tabs';
 import { BottomNavigation } from '../../src/components/BottomNavigation';
+import { AuthGate } from '../../src/components/AuthGate';
 
 export default function AppTabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNavigation {...props} />}>
-      <Tabs.Screen name="home" />
-      <Tabs.Screen name="requests" />
-      <Tabs.Screen name="request-action" />
-      <Tabs.Screen name="customers" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <AuthGate mode="require-auth">
+      <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNavigation {...props} />}>
+        <Tabs.Screen name="home" />
+        <Tabs.Screen name="requests" />
+        <Tabs.Screen name="request-action" />
+        <Tabs.Screen name="customers" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </AuthGate>
   );
 }
