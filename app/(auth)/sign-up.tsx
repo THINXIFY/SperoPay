@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -10,14 +10,16 @@ import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
 
 export default function SignUpScreen() {
-  const { colors, spacing } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const signUp = useAuthStore((state) => state.signUp);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const authError = useAuthStore((state) => state.error);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   async function handleSubmit() {
     const nextErrors: typeof errors = {};
@@ -27,8 +29,35 @@ export default function SignUpScreen() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0 || isLoading) return;
 
-    await signUp(fullName.trim(), email.trim(), password);
-    router.replace('/(onboarding)/usage-type');
+    try {
+      const { needsEmailConfirmation } = await signUp(fullName.trim(), email.trim(), password);
+      if (needsEmailConfirmation) {
+        setNeedsConfirmation(true);
+      } else {
+        router.replace('/(onboarding)/usage-type');
+      }
+    } catch {
+      // authStore.error already holds a user-friendly message, rendered below.
+    }
+  }
+
+  if (needsConfirmation) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+        <AppHeader title="Create Account" onBackPress={() => router.back()} />
+        <View style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
+          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center' }]}>Check your email</Text>
+          <Text
+            style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}
+          >
+            We've sent you a confirmation link. Confirm your email, then sign in to continue.
+          </Text>
+          <View style={{ marginTop: spacing.xl }}>
+            <PrimaryButton label="Go to Sign In" onPress={() => router.replace('/(auth)/login')} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -39,6 +68,14 @@ export default function SignUpScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
+          <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>
+            Create your Spero account
+          </Text>
+          {authError ? (
+            <Text style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}>
+              {authError}
+            </Text>
+          ) : null}
           <TextField
             label="Full Name"
             value={fullName}
