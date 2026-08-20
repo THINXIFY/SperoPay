@@ -9,6 +9,9 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail } from '../../src/utils/validators';
 
+// Sends a real Supabase password-reset email. The full recovery completion
+// flow (a working deep link back into the app + a reset-password screen) is
+// deferred to Phase 2A-2 — this screen only confirms the email was sent.
 export default function ForgotPasswordScreen() {
   const { colors, spacing, typography } = useTheme();
   const sendPasswordReset = useAuthStore((state) => state.sendPasswordReset);
@@ -25,8 +28,15 @@ export default function ForgotPasswordScreen() {
       return;
     }
     setError(undefined);
-    await sendPasswordReset(email.trim());
-    setSent(true);
+    try {
+      await sendPasswordReset(email.trim());
+      setSent(true);
+    } catch {
+      // Treat failures the same as success — the existing copy below is already
+      // deliberately non-committal about whether an email is registered, and
+      // reacting differently to an error here would leak that information.
+      setSent(true);
+    }
   }
 
   return (
