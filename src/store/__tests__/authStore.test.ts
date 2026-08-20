@@ -118,6 +118,21 @@ describe('signOut', () => {
     expect(mockedSupabase.auth.signOut).toHaveBeenCalled();
     expect(useAuthStore.getState().isLoading).toBe(false);
   });
+
+  it('sets a human-friendly error and rethrows when Supabase returns an error', async () => {
+    mockedSupabase.auth.signOut.mockResolvedValue({ error: new Error('Network error') } as never);
+
+    await expect(useAuthStore.getState().signOut()).rejects.toThrow();
+    expect(useAuthStore.getState().error).not.toBeNull();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+
+  it('still clears loading if supabase.auth.signOut rejects outright', async () => {
+    mockedSupabase.auth.signOut.mockRejectedValue(new Error('lock timeout'));
+
+    await expect(useAuthStore.getState().signOut()).rejects.toThrow();
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
 });
 
 describe('_setSession', () => {
@@ -158,6 +173,22 @@ describe('initializeAuthListener', () => {
     await Promise.resolve();
 
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('falls back to a signed-out session (still marking hydrated) if getSession() rejects', async () => {
+    mockedSupabase.auth.getSession.mockRejectedValue(new Error('storage read failed'));
+    mockedSupabase.auth.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    } as never);
+
+    initializeAuthListener();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.hasHydrated).toBe(true);
   });
 
   it('returns an unsubscribe function that calls through to the Supabase subscription', () => {

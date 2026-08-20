@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -8,6 +8,7 @@ import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { resolveInitialRoute } from '../../src/utils/authRouting';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
 
 export default function LoginScreen() {
@@ -15,11 +16,18 @@ export default function LoginScreen() {
   const signIn = useAuthStore((state) => state.signIn);
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  // Clears any error left over from another auth screen (e.g. Sign Up, or a
+  // swallowed Forgot Password failure) so it never renders here unearned.
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   async function handleSubmit() {
     const nextErrors: typeof errors = {};
@@ -30,7 +38,7 @@ export default function LoginScreen() {
 
     try {
       await signIn(email.trim(), password);
-      router.replace(hasCompletedOnboarding ? '/(app)/home' : '/(onboarding)/usage-type');
+      router.replace(resolveInitialRoute({ isAuthenticated: true, hasCompletedOnboarding }));
     } catch {
       // authStore.error already holds a user-friendly message, rendered below.
     }

@@ -16,6 +16,7 @@ export default function ForgotPasswordScreen() {
   const { colors, spacing, typography } = useTheme();
   const sendPasswordReset = useAuthStore((state) => state.sendPasswordReset);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const clearError = useAuthStore((state) => state.clearError);
 
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -35,6 +36,10 @@ export default function ForgotPasswordScreen() {
       // Treat failures the same as success — the existing copy below is already
       // deliberately non-committal about whether an email is registered, and
       // reacting differently to an error here would leak that information.
+      // Clear the store's error too: sendPasswordReset sets it internally, and
+      // left alone it would resurface on whatever auth screen is mounted
+      // behind this one (e.g. Login, reached here via router.push).
+      clearError();
       setSent(true);
     }
   }

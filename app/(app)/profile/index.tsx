@@ -9,7 +9,6 @@ import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
-import { useOnboardingStore } from '../../../src/store/onboardingStore';
 import { useThemeStore } from '../../../src/store/themeStore';
 import { useWalletStore } from '../../../src/store/walletStore';
 import type { ThemePreference } from '../../../src/types';
@@ -63,7 +62,6 @@ export default function ProfileScreen() {
   const profile = useProfileStore((state) => state.profile);
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
-  const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
   const wallet = useWalletStore((state) => state.wallet);
@@ -77,9 +75,12 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
-          resetOnboarding();
-          router.replace('/(auth)/welcome');
+          try {
+            await signOut();
+            router.replace('/(auth)/welcome');
+          } catch {
+            Alert.alert('Sign Out Failed', 'Something went wrong. Please try again.');
+          }
         },
       },
     ]);

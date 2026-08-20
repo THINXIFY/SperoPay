@@ -54,9 +54,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   signOut: async () => {
-    set({ isLoading: true });
-    await supabase.auth.signOut();
-    set({ isLoading: false });
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        set({ error: getAuthErrorMessage(error, 'sign-in') });
+        throw error;
+      }
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   sendPasswordReset: async (email) => {
@@ -90,9 +97,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
  * returned function unsubscribes.
  */
 export function initializeAuthListener(): () => void {
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    useAuthStore.getState()._setSession(session);
-  });
+  supabase.auth
+    .getSession()
+    .then(({ data: { session } }) => {
+      useAuthStore.getState()._setSession(session);
+    })
+    .catch(() => {
+      // A rejected getSession() (e.g. a storage read failure) must not leave
+      // hasHydrated stuck false forever — fall back to a signed-out session so
+      // AuthGate/splash routing can still proceed.
+      useAuthStore.getState()._setSession(null);
+    });
 
   const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
     useAuthStore.getState()._setSession(session);

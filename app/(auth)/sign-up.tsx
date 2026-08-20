@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -14,12 +14,19 @@ export default function SignUpScreen() {
   const signUp = useAuthStore((state) => state.signUp);
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+
+  // Clears any error left over from another auth screen (e.g. Sign In) so it
+  // never renders here unearned.
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   async function handleSubmit() {
     const nextErrors: typeof errors = {};
