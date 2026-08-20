@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, Text, StyleSheet, ActivityIndicator, GestureResponderEvent } from 'react-native';
+import { Pressable, Text, View, StyleSheet, ActivityIndicator, GestureResponderEvent } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/useTheme';
 
 interface PrimaryButtonProps {
@@ -7,9 +8,10 @@ interface PrimaryButtonProps {
   onPress: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   loading?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
 }
 
-export function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButtonProps) {
+export function PrimaryButton({ label, onPress, disabled, loading, icon }: PrimaryButtonProps) {
   const { colors, spacing, radius, typography } = useTheme();
   const isDisabled = disabled || loading;
 
@@ -34,7 +36,12 @@ export function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButt
       {loading ? (
         <ActivityIndicator color={colors.primaryActionText} />
       ) : (
-        <Text style={[typography.button, { color: colors.primaryActionText }]}>{label}</Text>
+        <View style={styles.content}>
+          <Text style={[typography.button, { color: colors.primaryActionText }]}>{label}</Text>
+          {icon ? (
+            <Ionicons name={icon} size={18} color={colors.primaryActionText} style={{ marginLeft: spacing.xs }} />
+          ) : null}
+        </View>
       )}
     </Pressable>
   );
@@ -42,4 +49,5 @@ export function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButt
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center' },
+  content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
 });

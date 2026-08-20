@@ -21,14 +21,16 @@ export function ActivityRow({ customerName, avatarColor, amount, currency, statu
   const amountColor = colors[COLOR_KEYS[status]];
 
   return (
-    <View style={[styles.row, { paddingVertical: spacing.md }]}>
-      <CustomerAvatar name={customerName} color={avatarColor} />
+    <View style={[styles.row, { paddingVertical: spacing.sm }]}>
+      <CustomerAvatar name={customerName} color={avatarColor} size={40} />
       <View style={[styles.middle, { marginLeft: spacing.md }]}>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customerName}</Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>{currency}</Text>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+          {customerName}
+        </Text>
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>{currency}</Text>
       </View>
       <View style={styles.right}>
-        <Text style={[typography.bodyMedium, { color: amountColor }]}>
+        <Text style={[typography.bodyMedium, { color: amountColor }]} numberOfLines={1}>
           {status === 'paid' ? '+' : ''}
           {formatCurrency(amount)}
         </Text>
@@ -45,7 +47,7 @@ export function ActivityRow({ customerName, avatarColor, amount, currency, statu
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  middle: { flex: 1 },
+  middle: { flex: 1, marginRight: 8 },
   right: { alignItems: 'flex-end' },
   rightMeta: { flexDirection: 'row', alignItems: 'center' },
 });

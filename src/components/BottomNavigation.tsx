@@ -22,6 +22,14 @@ const LABELS: Record<string, string> = {
   profile: 'Profile',
 };
 
+// Explicit, always-square dimensions — the radius is derived from the size so the
+// button can never render as anything but a perfect circle, on any screen or platform.
+const CENTER_BUTTON_SIZE = 50;
+const CENTER_BUTTON_RADIUS = CENTER_BUTTON_SIZE / 2;
+const CENTER_BUTTON_ICON_SIZE = 24;
+// How far the button's top edge pokes above the bar — a modest overlap, not a half-height float.
+const CENTER_BUTTON_OVERLAP = 56;
+
 export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const { colors, spacing, typography, radius } = useTheme();
   const insets = useSafeAreaInsets();
@@ -36,24 +44,31 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
     const routeIndex = state.routes.findIndex((r) => r.key === route.key);
     const isFocused = state.index === routeIndex;
     const icon = ICONS[route.name] ?? 'ellipse-outline';
+    const label = LABELS[route.name] ?? route.name;
+    const tintColor = isFocused ? colors.tabBarIconActive : colors.tabBarIcon;
 
     return (
       <Pressable
         key={route.key}
         onPress={() => navigation.navigate(route.name)}
-        style={styles.tab}
+        style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
-        accessibilityLabel={LABELS[route.name] ?? route.name}
+        accessibilityLabel={label}
+        accessibilityState={{ selected: isFocused }}
       >
-        <Ionicons name={icon} size={22} color={isFocused ? colors.tabBarIconActive : colors.tabBarIcon} />
+        <Ionicons name={icon} size={22} color={tintColor} />
         <Text
           style={[
             typography.caption,
             { color: isFocused ? colors.tabBarIconActive : colors.tabBarIconMuted, marginTop: spacing.xs / 2 },
           ]}
+          numberOfLines={1}
         >
-          {LABELS[route.name] ?? route.name}
+          {label}
         </Text>
+        <View
+          style={[styles.activeDot, { backgroundColor: isFocused ? colors.tabBarIconActive : 'transparent' }]}
+        />
       </Pressable>
     );
   }
@@ -62,22 +77,39 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.tabBarBackground, paddingBottom: insets.bottom || spacing.sm },
+        {
+          backgroundColor: colors.tabBarBackground,
+          borderTopLeftRadius: radius.xl,
+          borderTopRightRadius: radius.xl,
+          paddingTop: spacing.sm,
+          paddingBottom: insets.bottom + spacing.xs,
+          paddingHorizontal: spacing.sm,
+        },
       ]}
     >
       {leftRoutes.map(renderTab)}
 
+      {/* A normal flex item, same as every tab — this is what guarantees it sits exactly
+          centered between Requests and Customers, not floating off in some other position.
+          Only marginTop (not width/height/radius) is used to raise it slightly above the row. */}
       <View style={styles.centerWrap}>
         <Pressable
           onPress={() => {
             startFresh(defaultExpiryOption);
             router.push('/request/amount');
           }}
-          style={[styles.centerButton, { backgroundColor: colors.primaryAction, borderRadius: radius.full }]}
+          style={({ pressed }) => [
+            styles.centerButton,
+            {
+              backgroundColor: colors.primaryAction,
+              marginTop: -CENTER_BUTTON_OVERLAP,
+              transform: [{ scale: pressed ? 0.94 : 1 }],
+            },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Request payment"
         >
-          <Ionicons name="add" size={26} color={colors.primaryActionText} />
+          <Ionicons name="add" size={CENTER_BUTTON_ICON_SIZE} color={colors.primaryActionText} />
         </Pressable>
       </View>
 
@@ -87,8 +119,23 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'flex-end', paddingTop: 10, paddingHorizontal: 8 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  container: { flexDirection: 'row', alignItems: 'flex-end' },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
+  activeDot: { width: 4, height: 4, borderRadius: 2, marginTop: 3 },
+  // Same flex:1 share as each tab — this is the whole trick: it's the 3rd of 5 equal
+  // columns, so it's mathematically centered between the two left and two right tabs.
   centerWrap: { flex: 1, alignItems: 'center' },
-  centerButton: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: -24 },
+  // Shape only — always a fixed square with radius derived from that same size.
+  centerButton: {
+    width: CENTER_BUTTON_SIZE,
+    height: CENTER_BUTTON_SIZE,
+    borderRadius: CENTER_BUTTON_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
 });
