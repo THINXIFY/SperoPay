@@ -240,12 +240,17 @@ export default function RequestDetailScreen() {
         </View>
 
         {request.status === 'confirming' ? (
-          <ThemeAwareCard style={{ marginTop: spacing.xl, alignItems: 'center' }}>
-            <Ionicons name="sync-outline" size={24} color={colors.textSecondary} />
-            <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm, textAlign: 'center' }]}>
-              Confirming payment on the network…
-            </Text>
-          </ThemeAwareCard>
+          <>
+            <ThemeAwareCard style={{ marginTop: spacing.xl, alignItems: 'center' }}>
+              <Ionicons name="sync-outline" size={24} color={colors.textSecondary} />
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm, textAlign: 'center' }]}>
+                Confirming payment on the network…
+              </Text>
+            </ThemeAwareCard>
+            <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+              <SecondaryButton label="Cancel Request" onPress={() => setCancelModalVisible(true)} />
+            </View>
+          </>
         ) : null}
 
         {request.status === 'pending' ? (

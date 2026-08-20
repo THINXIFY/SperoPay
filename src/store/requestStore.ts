@@ -43,6 +43,10 @@ export const useRequestStore = create<RequestState>()(
       },
       getRequestById: (id) => get().requests.find((r) => r.id === id),
       cancelRequest: (id) => {
+        const request = get().requests.find((r) => r.id === id);
+        if (!request || request.status === 'paid' || request.status === 'expired' || request.status === 'cancelled') {
+          return;
+        }
         set((state) => ({
           requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'cancelled' } : r)),
         }));

@@ -30,6 +30,17 @@ describe('canBeginPaymentConfirmation', () => {
     expect(canBeginPaymentConfirmation(makeRequest({ status: 'cancelled' }))).toBe(false);
     expect(canBeginPaymentConfirmation(undefined)).toBe(false);
   });
+
+  it('is false for a pending request whose expiresAt has already passed', () => {
+    expect(
+      canBeginPaymentConfirmation(makeRequest({ status: 'pending', expiresAt: '2020-01-01T00:00:00.000Z' }))
+    ).toBe(false);
+  });
+
+  it('is true for a pending request whose expiresAt is still in the future', () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    expect(canBeginPaymentConfirmation(makeRequest({ status: 'pending', expiresAt: future }))).toBe(true);
+  });
 });
 
 describe('canCompletePayment', () => {

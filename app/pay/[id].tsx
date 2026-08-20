@@ -20,6 +20,7 @@ import { useWalletStore } from '../../src/store/walletStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
+import { isRequestExpired } from '../../src/utils/expiry';
 
 export default function PublicPaymentScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -86,7 +87,7 @@ export default function PublicPaymentScreen() {
           </Text>
         ) : null}
 
-        {request.status === 'pending' ? (
+        {request.status === 'pending' && !isRequestExpired(request) ? (
           <>
             <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.lg }]}>
               Network: <Text style={{ color: colors.textPrimary }}>{request.network}</Text>
@@ -151,7 +152,7 @@ export default function PublicPaymentScreen() {
           </ThemeAwareCard>
         ) : null}
 
-        {request.status === 'expired' ? (
+        {request.status === 'expired' || (request.status === 'pending' && isRequestExpired(request)) ? (
           <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
             <Ionicons name="time-outline" size={32} color={colors.textMuted} />
             <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm, textAlign: 'center' }]}>

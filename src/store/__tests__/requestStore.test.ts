@@ -99,6 +99,35 @@ describe('requestStore payment lifecycle', () => {
     expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
   });
 
+  it('cancelRequest on a paid request is a no-op and logs no cancelled event', () => {
+    const request = makeRequest({ id: 'req-9', status: 'paid' });
+    resetStores(request);
+
+    useRequestStore.getState().cancelRequest('req-9');
+
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-9')?.status).toBe('paid');
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'cancelled')).toHaveLength(0);
+  });
+
+  it('cancelRequest on a confirming request cancels it', () => {
+    const request = makeRequest({ id: 'req-10', status: 'confirming' });
+    resetStores(request);
+
+    useRequestStore.getState().cancelRequest('req-10');
+
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-10')?.status).toBe('cancelled');
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'cancelled')).toHaveLength(1);
+  });
+
+  it('cancelRequest on a pending request still cancels it', () => {
+    const request = makeRequest({ id: 'req-11', status: 'pending' });
+    resetStores(request);
+
+    useRequestStore.getState().cancelRequest('req-11');
+
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-11')?.status).toBe('cancelled');
+  });
+
   it('deleteRequest removes the request and cascades to its events and its transaction', () => {
     const request = makeRequest({ id: 'req-7', status: 'pending' });
     resetStores(request);

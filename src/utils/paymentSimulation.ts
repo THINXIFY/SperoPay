@@ -1,10 +1,12 @@
 import type { PaymentRequest, Transaction } from '../types';
 import { generateId, generateTxHash } from './ids';
+import { isRequestExpired } from './expiry';
 
 export const DEMO_PAYMENT_FAILURE_RATE = 0.12;
 
 export function canBeginPaymentConfirmation(request: PaymentRequest | undefined): boolean {
-  return request?.status === 'pending';
+  if (request?.status !== 'pending') return false;
+  return !isRequestExpired(request);
 }
 
 export function canCompletePayment(request: PaymentRequest | undefined): boolean {

@@ -14,3 +14,7 @@ export function calculateExpiresAt(option: ExpiryOption, now: Date = new Date())
       return null;
   }
 }
+
+export function isRequestExpired(request: { expiresAt: string | null }, now: Date = new Date()): boolean {
+  return request.expiresAt !== null && new Date(request.expiresAt).getTime() <= now.getTime();
+}

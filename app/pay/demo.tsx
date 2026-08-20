@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { isRequestExpired } from '../../src/utils/expiry';
 
 type Stage = 'idle' | 'detecting' | 'confirming' | 'received' | 'failed';
 
@@ -31,6 +32,12 @@ export default function DemoPaymentScreen() {
   const beginPaymentConfirmation = useRequestStore((state) => state.beginPaymentConfirmation);
   const completePayment = useRequestStore((state) => state.completePayment);
   const [stage, setStage] = useState<Stage>('idle');
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   if (!request) {
     return (
@@ -88,7 +95,10 @@ export default function DemoPaymentScreen() {
       );
     }
 
-    if (request.status === 'expired' || request.status === 'cancelled') {
+    if (request.status === 'expired' || request.status === 'cancelled' || isRequestExpired(request)) {
+      // A request still marked 'pending' but past its expiry window reuses the expired copy,
+      // not the cancelled copy.
+      const showExpired = request.status !== 'cancelled';
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
           <View style={[styles.topRow, { paddingHorizontal: spacing.base, paddingTop: spacing.sm }]}>
@@ -96,14 +106,14 @@ export default function DemoPaymentScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <EmptyState
-              icon={request.status === 'expired' ? 'time-outline' : 'close-circle-outline'}
+              icon={showExpired ? 'time-outline' : 'close-circle-outline'}
               title={
-                request.status === 'expired'
+                showExpired
                   ? 'This payment request has expired.'
                   : 'This payment request is no longer active.'
               }
               description={
-                request.status === 'expired'
+                showExpired
                   ? 'Contact the requester for a new payment link.'
                   : 'Payment is no longer possible for this request.'
               }
@@ -123,18 +133,22 @@ export default function DemoPaymentScreen() {
     }
     await delay(700);
 
-    setStage('confirming');
+    // The payment itself must still resolve even if the user backs out mid-flight, so the
+    // store mutations below are never gated. Only UI-visible effects check the mount flag.
+    if (isMountedRef.current) setStage('confirming');
     await delay(900);
 
     const transaction = completePayment(request!.id);
     if (!transaction) {
-      setStage('failed');
+      if (isMountedRef.current) setStage('failed');
       return;
     }
 
+    if (!isMountedRef.current) return;
     setStage('received');
     Alert.alert('Payment received', `${formatCurrency(transaction.amount)} from ${customer?.name ?? 'your customer'}`);
     await delay(500);
+    if (!isMountedRef.current) return;
     router.replace(`/pay/success?id=${request!.id}`);
   }
 
