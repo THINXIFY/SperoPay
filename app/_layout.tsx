@@ -14,6 +14,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { useTheme } from '../src/theme/useTheme';
+import { initializeAuthListener } from '../src/store/authStore';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,6 +50,11 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    const unsubscribe = initializeAuthListener();
+    return unsubscribe;
+  }, []);
 
   if (!fontsLoaded) {
     return null;
