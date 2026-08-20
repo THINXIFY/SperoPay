@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useTheme } from '../src/theme/useTheme';
 import { Logo } from '../src/components/Logo';
 import { useAuthStore } from '../src/store/authStore';
-import { useOnboardingStore } from '../src/store/onboardingStore';
+import { useHasCompletedOnboarding, useOnboardingStore } from '../src/store/onboardingStore';
 import { resolveInitialRoute } from '../src/utils/authRouting';
 
 const SPLASH_DURATION_MS = 1200;
@@ -13,8 +13,9 @@ export default function SplashScreen() {
   const { colors, spacing, typography } = useTheme();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const authHasHydrated = useAuthStore((state) => state.hasHydrated);
-  const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
+  const hasCompletedOnboarding = useHasCompletedOnboarding();
   const onboardingHasHydrated = useOnboardingStore((state) => state.hasHydrated);
+  const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
 
   // Two independent gates must both clear before we redirect:
   //  1. A minimum-duration timer, so the branded splash never flashes by too
@@ -39,8 +40,8 @@ export default function SplashScreen() {
       return;
     }
 
-    router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding }));
-  }, [minDurationElapsed, storesHydrated, isAuthenticated, hasCompletedOnboarding]);
+    router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding, isPasswordRecovery }));
+  }, [minDurationElapsed, storesHydrated, isAuthenticated, hasCompletedOnboarding, isPasswordRecovery]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.heroSurface }]}>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
-import { useOnboardingStore } from '../store/onboardingStore';
+import { useHasCompletedOnboarding, useOnboardingStore } from '../store/onboardingStore';
 import { resolveAuthGateRedirect, type AuthGateMode } from '../utils/authRouting';
 
 interface AuthGateProps {
@@ -19,7 +19,8 @@ interface AuthGateProps {
 export function AuthGate({ mode, children }: AuthGateProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const authHasHydrated = useAuthStore((state) => state.hasHydrated);
-  const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
+  const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
+  const hasCompletedOnboarding = useHasCompletedOnboarding();
   const onboardingHasHydrated = useOnboardingStore((state) => state.hasHydrated);
 
   // Both stores must be hydrated before a redirect decision can be trusted.
@@ -33,7 +34,7 @@ export function AuthGate({ mode, children }: AuthGateProps) {
     return null;
   }
 
-  const redirectTo = resolveAuthGateRedirect(mode, { isAuthenticated, hasCompletedOnboarding });
+  const redirectTo = resolveAuthGateRedirect(mode, { isAuthenticated, hasCompletedOnboarding, isPasswordRecovery });
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
