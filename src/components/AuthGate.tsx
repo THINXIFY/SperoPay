@@ -18,10 +18,18 @@ interface AuthGateProps {
  */
 export function AuthGate({ mode, children }: AuthGateProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const authHasHydrated = useAuthStore((state) => state.hasHydrated);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
+  const onboardingHasHydrated = useOnboardingStore((state) => state.hasHydrated);
 
-  if (!hasHydrated) {
+  // Both stores must be hydrated before a redirect decision can be trusted.
+  // `resolveAuthGateRedirect`'s require-guest branch routes on
+  // `hasCompletedOnboarding`, which reads `false` until the onboarding store
+  // finishes rehydrating. Deciding on that default would send an already-
+  // onboarded user into the onboarding flow, where re-entering the business
+  // profile overwrites it — and nothing re-evaluates afterwards to undo it.
+  // This mirrors the two-store gate `app/index.tsx` already applies.
+  if (!authHasHydrated || !onboardingHasHydrated) {
     return null;
   }
 
