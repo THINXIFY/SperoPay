@@ -51,6 +51,7 @@ export const useRequestStore = create<RequestState>()(
       deleteRequest: (id) => {
         set((state) => ({ requests: state.requests.filter((r) => r.id !== id) }));
         useRequestEventStore.getState().removeEventsForRequest(id);
+        useTransactionStore.getState().removeTransactionForRequest(id);
       },
       beginPaymentConfirmation: (id) => {
         const request = get().requests.find((r) => r.id === id);

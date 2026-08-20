@@ -98,4 +98,33 @@ describe('requestStore payment lifecycle', () => {
     expect(useTransactionStore.getState().transactions).toHaveLength(0);
     expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
   });
+
+  it('deleteRequest removes the request and cascades to its events and its transaction', () => {
+    const request = makeRequest({ id: 'req-7', status: 'pending' });
+    resetStores(request);
+
+    useRequestStore.getState().beginPaymentConfirmation('req-7');
+    useRequestStore.getState().completePayment('req-7', { forceFailure: false });
+    expect(useTransactionStore.getState().transactions).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.length).toBeGreaterThan(0);
+
+    useRequestStore.getState().deleteRequest('req-7');
+
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-7')).toBeUndefined();
+    expect(useRequestEventStore.getState().events.filter((e) => e.requestId === 'req-7')).toHaveLength(0);
+    expect(useTransactionStore.getState().transactions.filter((t) => t.requestId === 'req-7')).toHaveLength(0);
+  });
+
+  it('deleteRequest leaves other requests transactions and events untouched', () => {
+    const request = makeRequest({ id: 'req-8', status: 'pending' });
+    resetStores(request);
+
+    useRequestStore.getState().beginPaymentConfirmation('req-8');
+    useRequestStore.getState().completePayment('req-8', { forceFailure: false });
+
+    useRequestStore.getState().deleteRequest('req-does-not-exist');
+
+    expect(useTransactionStore.getState().transactions.filter((t) => t.requestId === 'req-8')).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.filter((e) => e.requestId === 'req-8').length).toBeGreaterThan(0);
+  });
 });

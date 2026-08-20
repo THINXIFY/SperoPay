@@ -19,6 +19,7 @@ import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
+import { truncateHash } from '../../../src/utils/truncateHash';
 import type { RequestEventType } from '../../../src/types';
 
 const EVENT_LABELS: Record<RequestEventType, string> = {
@@ -206,7 +207,7 @@ export default function RequestDetailScreen() {
             <View>
               <Text style={[typography.caption, { color: colors.textMuted }]}>Transaction Hash</Text>
               <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
-                {transaction.txHash.slice(0, 4)}...{transaction.txHash.slice(-4)}
+                {truncateHash(transaction.txHash)}
               </Text>
             </View>
           ) : null}

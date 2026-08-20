@@ -8,6 +8,7 @@ interface TransactionState {
   transactions: Transaction[];
   getTransactionForRequest: (requestId: string) => Transaction | undefined;
   addTransaction: (transaction: Transaction) => Transaction;
+  removeTransactionForRequest: (requestId: string) => void;
 }
 
 export const useTransactionStore = create<TransactionState>()(
@@ -19,6 +20,8 @@ export const useTransactionStore = create<TransactionState>()(
         set((state) => ({ transactions: [transaction, ...state.transactions] }));
         return transaction;
       },
+      removeTransactionForRequest: (requestId) =>
+        set((state) => ({ transactions: state.transactions.filter((t) => t.requestId !== requestId) })),
     }),
     { name: 'speropay/transactions', storage: createJSONStorage(() => AsyncStorage) }
   )
