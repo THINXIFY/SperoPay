@@ -99,6 +99,29 @@ describe('requestStore payment lifecycle', () => {
     expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
   });
 
+  it('a failed attempt logs payment_failed, and a successful retry logs a second payment_detected plus one payment_confirmed with no duplicate noise', () => {
+    const request = makeRequest({ id: 'req-retry', status: 'pending' });
+    resetStores(request);
+
+    useRequestStore.getState().beginPaymentConfirmation('req-retry');
+    useRequestStore.getState().completePayment('req-retry', { forceFailure: true });
+
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-retry')?.status).toBe('pending');
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_detected')).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_failed')).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
+
+    useRequestStore.getState().beginPaymentConfirmation('req-retry');
+    const transaction = useRequestStore.getState().completePayment('req-retry', { forceFailure: false });
+
+    expect(transaction).not.toBeNull();
+    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-retry')?.status).toBe('paid');
+    expect(useTransactionStore.getState().transactions).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_detected')).toHaveLength(2);
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_failed')).toHaveLength(1);
+    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(1);
+  });
+
   it('cancelRequest on a paid request is a no-op and logs no cancelled event', () => {
     const request = makeRequest({ id: 'req-9', status: 'paid' });
     resetStores(request);

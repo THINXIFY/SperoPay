@@ -14,6 +14,7 @@ import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { TextField } from '../../../src/components/TextField';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
+import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
@@ -26,6 +27,7 @@ export default function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === id));
   const requests = useRequestStore((state) => state.requests);
+  const transactions = useTransactionStore((state) => state.transactions);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
@@ -142,16 +144,19 @@ export default function CustomerDetailScreen() {
         ListEmptyComponent={
           <EmptyState icon="document-text-outline" title="No requests yet" description="Requests sent to this customer will show up here." />
         }
-        renderItem={({ item }) => (
-          <RequestCard
-            title={item.description || item.paymentCode}
-            amount={item.amount}
-            currency={item.currency}
-            status={item.status}
-            dateLabel={getDateLabel(item)}
-            onPress={() => router.push(`/(app)/requests/${item.id}`)}
-          />
-        )}
+        renderItem={({ item }) => {
+          const transaction = transactions.find((t) => t.requestId === item.id);
+          return (
+            <RequestCard
+              title={item.description || item.paymentCode}
+              amount={item.amount}
+              currency={item.currency}
+              status={item.status}
+              dateLabel={getDateLabel(item, transaction)}
+              onPress={() => router.push(`/(app)/requests/${item.id}`)}
+            />
+          );
+        }}
       />
       <AppBottomSheet ref={editSheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>

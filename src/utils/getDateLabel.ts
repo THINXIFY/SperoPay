@@ -1,10 +1,10 @@
-import type { PaymentRequest } from '../types';
+import type { PaymentRequest, Transaction } from '../types';
 
-export function getDateLabel(request: PaymentRequest): string {
+export function getDateLabel(request: PaymentRequest, transaction?: Transaction): string {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  if (request.status === 'paid') return `Paid on ${formatDate(request.createdAt)}`;
+  if (request.status === 'paid') return `Paid on ${formatDate(transaction?.paidAt ?? request.createdAt)}`;
   if (request.status === 'confirming') return 'Confirming payment…';
   if (request.status === 'cancelled') return 'Cancelled';
   if (request.status === 'expired')

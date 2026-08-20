@@ -34,6 +34,7 @@ export type RequestEventType =
   | 'shared'
   | 'payment_detected'
   | 'payment_confirmed'
+  | 'payment_failed'
   | 'reminder_sent'
   | 'cancelled'
   | 'expired';

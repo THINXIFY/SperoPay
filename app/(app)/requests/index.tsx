@@ -8,6 +8,7 @@ import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
+import { useTransactionStore } from '../../../src/store/transactionStore';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
 import type { PaymentRequestStatus } from '../../../src/types';
 
@@ -26,6 +27,7 @@ export default function RequestsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const requests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
+  const transactions = useTransactionStore((state) => state.transactions);
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
@@ -118,6 +120,7 @@ export default function RequestsScreen() {
         }
         renderItem={({ item }) => {
           const customer = customers.find((c) => c.id === item.customerId);
+          const transaction = transactions.find((t) => t.requestId === item.id);
           return (
             <RequestCard
               title={customer?.name ?? 'No customer'}
@@ -125,7 +128,7 @@ export default function RequestsScreen() {
               amount={item.amount}
               currency={item.currency}
               status={item.status}
-              dateLabel={getDateLabel(item)}
+              dateLabel={getDateLabel(item, transaction)}
               onPress={() => router.push(`/(app)/requests/${item.id}`)}
             />
           );

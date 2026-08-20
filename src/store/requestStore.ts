@@ -75,6 +75,7 @@ export const useRequestStore = create<RequestState>()(
           set((state) => ({
             requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'pending' } : r)),
           }));
+          useRequestEventStore.getState().addEvent(id, 'payment_failed');
           return null;
         }
 
