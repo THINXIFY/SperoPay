@@ -8,14 +8,16 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useProfileStore } from '../../src/store/profileStore';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function ProfileSetupScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
   const updateProfile = useProfileStore((state) => state.updateProfile);
+  const authFullName = useAuthStore((state) => state.user?.fullName);
 
   const [hasMockAvatar, setHasMockAvatar] = useState(false);
-  const [displayName, setDisplayName] = useState(profile.displayName);
+  const [displayName, setDisplayName] = useState(profile.displayName || authFullName || '');
   const [businessName, setBusinessName] = useState(profile.businessName ?? '');
   const [country, setCountry] = useState(profile.country);
   const [website, setWebsite] = useState(profile.website ?? '');
