@@ -5,10 +5,17 @@ jest.mock('../../lib/supabase', () => ({
       signInWithPassword: jest.fn(),
       signOut: jest.fn(),
       resetPasswordForEmail: jest.fn(),
+      updateUser: jest.fn(),
+      resend: jest.fn(),
+      exchangeCodeForSession: jest.fn(),
       getSession: jest.fn(),
       onAuthStateChange: jest.fn(),
     },
   },
+}));
+
+jest.mock('../../utils/authDeepLink', () => ({
+  getAuthCallbackUrl: () => 'speropay://auth/callback',
 }));
 
 import { supabase } from '../../lib/supabase';
@@ -45,6 +52,8 @@ beforeEach(() => {
     isLoading: false,
     hasHydrated: false,
     error: null,
+    isPasswordRecovery: false,
+    sessionExpiredNotice: false,
   });
 });
 
@@ -85,7 +94,7 @@ describe('signUp', () => {
     expect(mockedSupabase.auth.signUp).toHaveBeenCalledWith({
       email: 'jane@example.com',
       password: 'password123',
-      options: { data: { full_name: 'Jane Doe' } },
+      options: { data: { full_name: 'Jane Doe' }, emailRedirectTo: 'speropay://auth/callback' },
     });
   });
 
@@ -132,6 +141,145 @@ describe('signOut', () => {
 
     await expect(useAuthStore.getState().signOut()).rejects.toThrow();
     expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+});
+
+describe('sendPasswordReset', () => {
+  it('passes the centralized callback URL as redirectTo', async () => {
+    mockedSupabase.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().sendPasswordReset('jane@example.com');
+
+    expect(mockedSupabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      'jane@example.com',
+      expect.objectContaining({ redirectTo: expect.stringContaining('auth/callback') })
+    );
+  });
+});
+
+describe('updatePassword', () => {
+  it('calls updateUser with the new password and clears loading on success', async () => {
+    mockedSupabase.auth.updateUser.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().updatePassword('newpassword123');
+
+    expect(mockedSupabase.auth.updateUser).toHaveBeenCalledWith({ password: 'newpassword123' });
+    expect(useAuthStore.getState().isLoading).toBe(false);
+    expect(useAuthStore.getState().error).toBeNull();
+  });
+
+  it('sets a human-friendly error and rethrows on failure', async () => {
+    mockedSupabase.auth.updateUser.mockResolvedValue({ data: {}, error: new Error('weird failure') } as never);
+
+    await expect(useAuthStore.getState().updatePassword('newpassword123')).rejects.toThrow();
+    expect(useAuthStore.getState().error).toBe("We couldn't update your password right now. Please try again.");
+  });
+});
+
+describe('resendConfirmationEmail', () => {
+  it('calls resend with type signup and the centralized callback URL', async () => {
+    mockedSupabase.auth.resend.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().resendConfirmationEmail('jane@example.com');
+
+    expect(mockedSupabase.auth.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'jane@example.com',
+      options: { emailRedirectTo: expect.stringContaining('auth/callback') },
+    });
+  });
+});
+
+describe('exchangeAuthCode', () => {
+  it('calls exchangeCodeForSession and clears loading on success', async () => {
+    mockedSupabase.auth.exchangeCodeForSession.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().exchangeAuthCode('the-code');
+
+    expect(mockedSupabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('the-code');
+    expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+
+  it('sets an invalid-link error and rethrows on failure', async () => {
+    const pkceError = new Error('No code detected.');
+    pkceError.name = 'AuthPKCEGrantCodeExchangeError';
+    mockedSupabase.auth.exchangeCodeForSession.mockResolvedValue({ data: {}, error: pkceError } as never);
+
+    await expect(useAuthStore.getState().exchangeAuthCode('bad-code')).rejects.toThrow();
+    expect(useAuthStore.getState().error).toBe(
+      'This link is no longer valid. Request a new one and open it on this device.'
+    );
+  });
+});
+
+describe('password recovery state', () => {
+  it('sets isPasswordRecovery when onAuthStateChange reports PASSWORD_RECOVERY', async () => {
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } } as never);
+    let capturedCallback: ((event: string, session: unknown) => void) | undefined;
+    mockedSupabase.auth.onAuthStateChange.mockImplementation((cb) => {
+      capturedCallback = cb as never;
+      return { data: { subscription: { unsubscribe: jest.fn() } } } as never;
+    });
+
+    initializeAuthListener();
+    capturedCallback?.('PASSWORD_RECOVERY', makeSession());
+
+    expect(useAuthStore.getState().isPasswordRecovery).toBe(true);
+  });
+
+  it('clearPasswordRecovery resets the flag', () => {
+    useAuthStore.setState({ isPasswordRecovery: true });
+    useAuthStore.getState().clearPasswordRecovery();
+    expect(useAuthStore.getState().isPasswordRecovery).toBe(false);
+  });
+
+  it('signOut defensively clears isPasswordRecovery', async () => {
+    useAuthStore.setState({ isPasswordRecovery: true });
+    mockedSupabase.auth.signOut.mockResolvedValue({ error: null } as never);
+
+    await useAuthStore.getState().signOut();
+
+    expect(useAuthStore.getState().isPasswordRecovery).toBe(false);
+  });
+});
+
+describe('sessionExpiredNotice', () => {
+  it('is set when the SDK reports SIGNED_OUT without our own signOut() having been called', async () => {
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } } as never);
+    let capturedCallback: ((event: string, session: unknown) => void) | undefined;
+    mockedSupabase.auth.onAuthStateChange.mockImplementation((cb) => {
+      capturedCallback = cb as never;
+      return { data: { subscription: { unsubscribe: jest.fn() } } } as never;
+    });
+
+    initializeAuthListener();
+    capturedCallback?.('SIGNED_OUT', null);
+
+    expect(useAuthStore.getState().sessionExpiredNotice).toBe(true);
+  });
+
+  it('is NOT set when SIGNED_OUT follows our own explicit signOut()', async () => {
+    mockedSupabase.auth.getSession.mockResolvedValue({ data: { session: null } } as never);
+    let capturedCallback: ((event: string, session: unknown) => void) | undefined;
+    mockedSupabase.auth.onAuthStateChange.mockImplementation((cb) => {
+      capturedCallback = cb as never;
+      return { data: { subscription: { unsubscribe: jest.fn() } } } as never;
+    });
+    mockedSupabase.auth.signOut.mockImplementation(async () => {
+      capturedCallback?.('SIGNED_OUT', null);
+      return { error: null } as never;
+    });
+
+    initializeAuthListener();
+    await useAuthStore.getState().signOut();
+
+    expect(useAuthStore.getState().sessionExpiredNotice).toBe(false);
+  });
+
+  it('clearSessionExpiredNotice resets the flag', () => {
+    useAuthStore.setState({ sessionExpiredNotice: true });
+    useAuthStore.getState().clearSessionExpiredNotice();
+    expect(useAuthStore.getState().sessionExpiredNotice).toBe(false);
   });
 });
 
