@@ -1,76 +1,102 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import type { User } from '../types';
-import { generateId } from '../utils/ids';
+import { mapSupabaseUser } from '../utils/mapSupabaseUser';
+import { getAuthErrorMessage } from '../utils/authErrors';
 
 interface AuthState {
+  session: Session | null;
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
   hasHydrated: boolean;
-  signUp: (fullName: string, email: string, password: string) => Promise<void>;
+  error: string | null;
+  signUp: (fullName: string, email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
-  signOut: () => void;
-  setHasHydrated: (value: boolean) => void;
+  clearError: () => void;
+  _setSession: (session: Session | null) => void;
 }
 
-function mockDelay(ms = 900) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+export const useAuthStore = create<AuthState>()((set) => ({
+  session: null,
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  hasHydrated: false,
+  error: null,
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-      hasHydrated: false,
-
-      signUp: async (fullName, email, _password) => {
-        set({ isLoading: true, error: null });
-        await mockDelay();
-        set({
-          user: { id: generateId(), fullName, email, createdAt: new Date().toISOString() },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      },
-
-      signIn: async (email, _password) => {
-        set({ isLoading: true, error: null });
-        await mockDelay();
-        set({
-          user: { id: generateId(), fullName: 'Farhan Z.', email, createdAt: new Date().toISOString() },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      },
-
-      sendPasswordReset: async (_email) => {
-        set({ isLoading: true, error: null });
-        await mockDelay();
-        set({ isLoading: false });
-      },
-
-      signOut: () => set({ user: null, isAuthenticated: false }),
-
-      setHasHydrated: (value) => set({ hasHydrated: value }),
-    }),
-    {
-      name: 'speropay/auth',
-      storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state, error) => {
-        if (error) {
-          console.error('Failed to rehydrate auth store', error);
-        }
-        // Read from the store directly rather than relying on `state` so the
-        // flag is still flipped even if rehydration errored out.
-        useAuthStore.getState().setHasHydrated(true);
-      },
+  signUp: async (fullName, email, password) => {
+    set({ isLoading: true, error: null });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    });
+    if (error) {
+      set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-up') });
+      throw error;
     }
-  )
-);
+    set({ isLoading: false });
+    return { needsEmailConfirmation: !data.session };
+  },
+
+  signIn: async (email, password) => {
+    set({ isLoading: true, error: null });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in') });
+      throw error;
+    }
+    set({ isLoading: false });
+  },
+
+  signOut: async () => {
+    set({ isLoading: true });
+    await supabase.auth.signOut();
+    set({ isLoading: false });
+  },
+
+  sendPasswordReset: async (email) => {
+    set({ isLoading: true, error: null });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) {
+      set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in') });
+      throw error;
+    }
+    set({ isLoading: false });
+  },
+
+  clearError: () => set({ error: null }),
+
+  _setSession: (session) => {
+    set({
+      session,
+      user: session ? mapSupabaseUser(session.user) : null,
+      isAuthenticated: !!session,
+      hasHydrated: true,
+    });
+  },
+}));
+
+/**
+ * Wires the store to Supabase's actual session state: one immediate read via
+ * getSession() (whatever Supabase already restored from its own persistence),
+ * then a continuous subscription for the app's lifetime. Both paths funnel
+ * through _setSession, so there is exactly one place that ever writes session/
+ * user/isAuthenticated/hasHydrated. Call once from the root layout; the
+ * returned function unsubscribes.
+ */
+export function initializeAuthListener(): () => void {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    useAuthStore.getState()._setSession(session);
+  });
+
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    useAuthStore.getState()._setSession(session);
+  });
+
+  return () => listener.subscription.unsubscribe();
+}
