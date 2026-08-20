@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const { colors, spacing, typography } = useTheme();
   const signIn = useAuthStore((state) => state.signIn);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const authError = useAuthStore((state) => state.error);
   const hasCompletedOnboarding = useOnboardingStore((state) => state.hasCompletedOnboarding);
 
   const [email, setEmail] = useState('');
@@ -27,8 +28,12 @@ export default function LoginScreen() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0 || isLoading) return;
 
-    await signIn(email.trim(), password);
-    router.replace(hasCompletedOnboarding ? '/(app)/home' : '/(onboarding)/usage-type');
+    try {
+      await signIn(email.trim(), password);
+      router.replace(hasCompletedOnboarding ? '/(app)/home' : '/(onboarding)/usage-type');
+    } catch {
+      // authStore.error already holds a user-friendly message, rendered below.
+    }
   }
 
   return (
@@ -39,6 +44,14 @@ export default function LoginScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
+          <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>
+            Welcome back to Spero
+          </Text>
+          {authError ? (
+            <Text style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}>
+              {authError}
+            </Text>
+          ) : null}
           <TextField
             label="Email"
             value={email}
