@@ -19,6 +19,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
+    // Appends a reserved `sb_flow_id` param to recovery/confirmation redirect
+    // URLs so a later exchangeCodeForSession(code, { flowId }) matches the
+    // exact PKCE verifier for that flow, rather than falling back to a single
+    // legacy verifier slot that only remembers the most recently started
+    // flow — without this, requesting a second reset/confirmation email
+    // before opening the first invalidates both.
+    experimental: { appendPkceFlowIdToRedirects: true },
   },
 });
 

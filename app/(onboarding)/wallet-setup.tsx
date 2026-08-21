@@ -15,11 +15,17 @@ import { isValidWalletAddress } from '../../src/utils/validators';
 
 export default function WalletSetupScreen() {
   const { colors, spacing, typography } = useTheme();
+  const wallet = useWalletStore((state) => state.wallet);
   const setWalletAddress = useWalletStore((state) => state.setWalletAddress);
   const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
   const userId = useAuthStore((state) => state.user?.id);
 
-  const [address, setAddress] = useState('');
+  // Pre-fill from any wallet already configured on this device — matters
+  // because per-user onboarding completion (unlike the old single global
+  // flag) can now genuinely send a user who previously finished setup
+  // through this screen again, and an empty field here would otherwise
+  // silently risk losing their real receiving address.
+  const [address, setAddress] = useState(wallet?.address ?? '');
   const [error, setError] = useState<string | undefined>();
 
   function handleComplete() {

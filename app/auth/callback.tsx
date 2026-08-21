@@ -16,7 +16,7 @@ import { resolveInitialRoute } from '../../src/utils/authRouting';
 // session) before we've had a chance to route the user anywhere.
 export default function AuthCallbackScreen() {
   const { colors, spacing, typography } = useTheme();
-  const params = useLocalSearchParams<{ code?: string }>();
+  const params = useLocalSearchParams<{ code?: string; sb_flow_id?: string }>();
   const exchangeAuthCode = useAuthStore((state) => state.exchangeAuthCode);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
@@ -34,10 +34,10 @@ export default function AuthCallbackScreen() {
       return;
     }
 
-    exchangeAuthCode(code).catch(() => {
+    exchangeAuthCode(code, params.sb_flow_id).catch(() => {
       setFailed(true);
     });
-  }, [params.code, exchangeAuthCode]);
+  }, [params.code, params.sb_flow_id, exchangeAuthCode]);
 
   useEffect(() => {
     if (failed || !isAuthenticated) return;

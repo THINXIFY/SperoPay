@@ -39,7 +39,10 @@ export default function ResetPasswordScreen() {
 
     try {
       await updatePassword(password);
-      clearPasswordRecovery();
+      // isPasswordRecovery stays true here deliberately — clearing it now
+      // would let AuthGate's require-guest gate treat this as an ordinary
+      // authenticated session and redirect away before the "Password
+      // updated" confirmation below ever has a chance to render.
       setDone(true);
     } catch {
       // authStore.error already holds a user-friendly message, rendered below.
@@ -47,13 +50,20 @@ export default function ResetPasswordScreen() {
   }
 
   function handleContinue() {
+    clearPasswordRecovery();
     router.replace(resolveInitialRoute({ isAuthenticated: true, hasCompletedOnboarding }));
   }
 
   async function handleCancel() {
-    clearPasswordRecovery();
-    await signOut().catch(() => {});
-    router.replace('/(auth)/welcome');
+    try {
+      await signOut();
+      router.replace('/(auth)/welcome');
+    } catch {
+      // authStore.error already holds a message. Stay put rather than
+      // navigate: signOut() failing (e.g. offline) means the recovery
+      // session is still live, and leaving this screen would let it be
+      // treated as an ordinary authenticated session elsewhere in the app.
+    }
   }
 
   if (done) {

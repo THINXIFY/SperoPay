@@ -53,9 +53,12 @@ export default function SignUpScreen() {
       const { needsEmailConfirmation } = await signUp(fullName.trim(), email.trim(), password);
       if (needsEmailConfirmation) {
         setNeedsConfirmation(true);
-      } else {
-        router.replace('/(onboarding)/usage-type');
       }
+      // No explicit navigation on the non-confirmation path: AuthGate
+      // (wrapping this whole (auth) group in require-guest mode) reactively
+      // redirects once isAuthenticated flips true, reading fresh state on
+      // its own render rather than a value closed over before this await —
+      // see the equivalent fix in login.tsx for why that distinction matters.
     } catch {
       // authStore.error already holds a user-friendly message, rendered below.
     }

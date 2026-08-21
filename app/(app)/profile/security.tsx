@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Switch, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -25,6 +25,12 @@ export default function SecurityScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+
+  // Clears any error left over from a previous visit to this screen so it
+  // never renders here unearned.
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
 
   async function handleUpdatePassword() {
     if (!isValidPassword(newPassword)) {

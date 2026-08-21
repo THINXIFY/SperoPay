@@ -21,7 +21,7 @@ interface AuthState {
   sendPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   resendConfirmationEmail: (email: string) => Promise<void>;
-  exchangeAuthCode: (code: string) => Promise<void>;
+  exchangeAuthCode: (code: string, flowId?: string) => Promise<void>;
   clearPasswordRecovery: () => void;
   clearSessionExpiredNotice: () => void;
   clearError: () => void;
@@ -78,8 +78,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
         set({ error: getAuthErrorMessage(error, 'sign-in') });
         throw error;
       }
+      // Only clear on a *confirmed* success — a failed call (e.g. offline)
+      // leaves the real session live, and clearing this unconditionally
+      // would make that still-live recovery session look like an ordinary
+      // authenticated one to AuthGate, granting full app access with the
+      // old password still valid.
+      set({ isPasswordRecovery: false });
     } finally {
-      set({ isLoading: false, isPasswordRecovery: false });
+      set({ isLoading: false });
       // Safety net: if Supabase's own SIGNED_OUT event never reaches our
       // listener for this call (e.g. it errored before emitting one), this
       // flag must not stay `true` and incorrectly suppress a *future*,
@@ -122,9 +128,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({ isLoading: false });
   },
 
-  exchangeAuthCode: async (code) => {
+  exchangeAuthCode: async (code, flowId) => {
     set({ isLoading: true, error: null });
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code, flowId ? { flowId } : undefined);
     if (error) {
       set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in') });
       throw error;

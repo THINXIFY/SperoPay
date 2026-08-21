@@ -196,8 +196,16 @@ describe('exchangeAuthCode', () => {
 
     await useAuthStore.getState().exchangeAuthCode('the-code');
 
-    expect(mockedSupabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('the-code');
+    expect(mockedSupabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('the-code', undefined);
     expect(useAuthStore.getState().isLoading).toBe(false);
+  });
+
+  it('passes a flowId through when provided (matches a specific PKCE verifier instead of the legacy single-slot fallback)', async () => {
+    mockedSupabase.auth.exchangeCodeForSession.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().exchangeAuthCode('the-code', 'flow-123');
+
+    expect(mockedSupabase.auth.exchangeCodeForSession).toHaveBeenCalledWith('the-code', { flowId: 'flow-123' });
   });
 
   it('sets an invalid-link error and rethrows on failure', async () => {
@@ -233,13 +241,22 @@ describe('password recovery state', () => {
     expect(useAuthStore.getState().isPasswordRecovery).toBe(false);
   });
 
-  it('signOut defensively clears isPasswordRecovery', async () => {
+  it('signOut clears isPasswordRecovery on confirmed success', async () => {
     useAuthStore.setState({ isPasswordRecovery: true });
     mockedSupabase.auth.signOut.mockResolvedValue({ error: null } as never);
 
     await useAuthStore.getState().signOut();
 
     expect(useAuthStore.getState().isPasswordRecovery).toBe(false);
+  });
+
+  it('does NOT clear isPasswordRecovery when signOut fails (e.g. offline) — the session is still live', async () => {
+    useAuthStore.setState({ isPasswordRecovery: true });
+    mockedSupabase.auth.signOut.mockRejectedValue(new Error('Network request failed'));
+
+    await expect(useAuthStore.getState().signOut()).rejects.toThrow();
+
+    expect(useAuthStore.getState().isPasswordRecovery).toBe(true);
   });
 });
 

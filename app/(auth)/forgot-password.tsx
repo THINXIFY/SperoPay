@@ -9,9 +9,8 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail } from '../../src/utils/validators';
 
-// Sends a real Supabase password-reset email. The full recovery completion
-// flow (a working deep link back into the app + a reset-password screen) is
-// deferred to Phase 2A-2 — this screen only confirms the email was sent.
+// Sends a real Supabase password-reset email; app/auth/callback.tsx and
+// app/(auth)/reset-password.tsx handle the rest of the recovery flow.
 export default function ForgotPasswordScreen() {
   const { colors, spacing, typography } = useTheme();
   const sendPasswordReset = useAuthStore((state) => state.sendPasswordReset);
