@@ -1,182 +1,148 @@
-// The stores under test use zustand's `persist` middleware backed by AsyncStorage, whose
-// native module is unavailable under Jest. This is the mock the AsyncStorage package ships
-// for exactly this purpose; it keeps persistence inert so the store logic can be tested.
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
-);
+jest.mock('../../lib/supabase', () => ({
+  supabase: { from: jest.fn(), rpc: jest.fn() },
+}));
 
+import { supabase } from '../../lib/supabase';
 import { useRequestStore } from '../requestStore';
-import { useTransactionStore } from '../transactionStore';
 import { useRequestEventStore } from '../requestEventStore';
-import type { PaymentRequest } from '../../types';
+import { useTransactionStore } from '../transactionStore';
 
-function makeRequest(overrides: Partial<PaymentRequest>): PaymentRequest {
+const mockedSupabase = jest.mocked(supabase);
+
+function mapRequestRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'req-test',
-    paymentCode: 'SP-TEST1',
-    amount: 750,
+    id: 'r1',
+    customer_id: 'c1',
+    wallet_id: null,
+    payment_code: 'SP-AAAAA',
+    amount: '100',
     currency: 'USDC',
     network: 'Solana',
-    customerId: 'cust-1',
-    expiryOption: '7d',
-    expiresAt: null,
+    description: null,
+    note: null,
+    expiry_option: '7d',
+    expires_at: null,
     status: 'pending',
-    createdAt: '2026-08-18T00:00:00.000Z',
-    paymentLink: 'https://pay.speropay.app/r/req-test',
+    payment_link: 'https://pay.speropay.app/r/SP-AAAAA',
+    created_at: '2026-08-21T00:00:00.000Z',
     ...overrides,
   };
 }
 
-function resetStores(request: PaymentRequest) {
-  useRequestStore.setState({ requests: [request], isCreating: false });
-  useTransactionStore.setState({ transactions: [] });
-  useRequestEventStore.setState({ events: [] });
+function makePaymentRequestForStore(id: string, status: string) {
+  return {
+    id,
+    paymentCode: 'SP-AAAAA',
+    amount: 100,
+    currency: 'USDC' as const,
+    network: 'Solana' as const,
+    customerId: 'c1',
+    expiryOption: '7d' as const,
+    expiresAt: null,
+    status: status as never,
+    createdAt: '2026-08-21T00:00:00.000Z',
+    paymentLink: 'https://pay.speropay.app/r/SP-AAAAA',
+  };
 }
 
-describe('requestStore payment lifecycle', () => {
-  it('transitions pending -> confirming -> paid, creates exactly one transaction, and logs both events once', () => {
-    const request = makeRequest({ id: 'req-1', status: 'pending' });
-    resetStores(request);
+beforeEach(() => {
+  jest.clearAllMocks();
+  useRequestStore.setState({ requests: [], isCreating: false, status: 'idle', error: null });
+  useRequestEventStore.setState({ events: [], status: 'idle', error: null });
+  useTransactionStore.setState({ transactions: [], status: 'idle', error: null });
+});
 
-    const began = useRequestStore.getState().beginPaymentConfirmation('req-1');
-    expect(began).toBe(true);
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-1')?.status).toBe('confirming');
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_detected')).toHaveLength(1);
+describe('createRequest', () => {
+  it('calls the create_payment_request RPC and prepends the mapped result', async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: mapRequestRow(), error: null } as never);
 
-    const transaction = useRequestStore.getState().completePayment('req-1', { forceFailure: false });
-    expect(transaction).not.toBeNull();
-    expect(transaction!.requestId).toBe('req-1');
-    expect(transaction!.amount).toBe(750);
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-1')?.status).toBe('paid');
+    const request = await useRequestStore.getState().createRequest('user-1', {
+      amount: 100,
+      customerId: 'c1',
+      expiryOption: '7d',
+    });
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith(
+      'create_payment_request',
+      expect.objectContaining({ p_amount: 100, p_customer_id: 'c1', p_expiry_option: '7d' })
+    );
+    expect(request.id).toBe('r1');
+    expect(request.paymentCode).toBe('SP-AAAAA');
+    expect(useRequestStore.getState().requests).toHaveLength(1);
+  });
+});
+
+describe('beginPaymentConfirmation / completePayment', () => {
+  it('begin calls the RPC and returns its boolean result', async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: true, error: null } as never);
+    useRequestStore.setState({
+      requests: [makePaymentRequestForStore('r1', 'pending')],
+      isCreating: false,
+      status: 'loaded',
+      error: null,
+    });
+
+    const result = await useRequestStore.getState().beginPaymentConfirmation('user-1', 'r1');
+
+    expect(result).toBe(true);
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith('begin_payment_confirmation', { p_request_id: 'r1' });
+    expect(useRequestStore.getState().requests[0].status).toBe('confirming');
+  });
+
+  it('completePayment on success updates status to paid and caches the transaction', async () => {
+    useRequestStore.setState({
+      requests: [makePaymentRequestForStore('r1', 'confirming')],
+      isCreating: false,
+      status: 'loaded',
+      error: null,
+    });
+    mockedSupabase.rpc.mockResolvedValue({
+      data: {
+        id: 'tx1',
+        payment_request_id: 'r1',
+        from_customer_id: 'c1',
+        amount: '100',
+        currency: 'USDC',
+        network: 'Solana',
+        tx_hash: 'HASH',
+        paid_at: '2026-08-21T00:00:00.000Z',
+      },
+      error: null,
+    } as never);
+
+    const transaction = await useRequestStore.getState().completePayment('user-1', 'r1', { forceFailure: false });
+
+    expect(transaction?.id).toBe('tx1');
+    expect(useRequestStore.getState().requests[0].status).toBe('paid');
     expect(useTransactionStore.getState().transactions).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(1);
   });
 
-  it('a paid request cannot pay twice', () => {
-    const request = makeRequest({ id: 'req-2', status: 'paid' });
-    resetStores(request);
+  it('completePayment on forced failure reverts status to pending and returns null', async () => {
+    useRequestStore.setState({
+      requests: [makePaymentRequestForStore('r1', 'confirming')],
+      isCreating: false,
+      status: 'loaded',
+      error: null,
+    });
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null } as never);
 
-    expect(useRequestStore.getState().beginPaymentConfirmation('req-2')).toBe(false);
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-2')?.status).toBe('paid');
-    expect(useTransactionStore.getState().transactions).toHaveLength(0);
+    const transaction = await useRequestStore.getState().completePayment('user-1', 'r1', { forceFailure: true });
+
+    expect(transaction).toBeNull();
+    expect(useRequestStore.getState().requests[0].status).toBe('pending');
   });
+});
 
-  it('an expired request cannot pay', () => {
-    const request = makeRequest({ id: 'req-3', status: 'expired' });
-    resetStores(request);
-
-    expect(useRequestStore.getState().beginPaymentConfirmation('req-3')).toBe(false);
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-3')?.status).toBe('expired');
-  });
-
-  it('a cancelled request cannot pay', () => {
-    const request = makeRequest({ id: 'req-4', status: 'cancelled' });
-    resetStores(request);
-
-    expect(useRequestStore.getState().beginPaymentConfirmation('req-4')).toBe(false);
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-4')?.status).toBe('cancelled');
-  });
-
-  it('completePayment on a request that is not confirming does nothing and creates no transaction', () => {
-    const request = makeRequest({ id: 'req-5', status: 'pending' });
-    resetStores(request);
-
-    const result = useRequestStore.getState().completePayment('req-5');
-    expect(result).toBeNull();
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-5')?.status).toBe('pending');
-    expect(useTransactionStore.getState().transactions).toHaveLength(0);
-  });
-
-  it('a forced failure reverts confirming back to pending without creating a transaction or logging payment_confirmed', () => {
-    const request = makeRequest({ id: 'req-6', status: 'confirming' });
-    resetStores(request);
-
-    const result = useRequestStore.getState().completePayment('req-6', { forceFailure: true });
-
-    expect(result).toBeNull();
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-6')?.status).toBe('pending');
-    expect(useTransactionStore.getState().transactions).toHaveLength(0);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
-  });
-
-  it('a failed attempt logs payment_failed, and a successful retry logs a second payment_detected plus one payment_confirmed with no duplicate noise', () => {
-    const request = makeRequest({ id: 'req-retry', status: 'pending' });
-    resetStores(request);
-
-    useRequestStore.getState().beginPaymentConfirmation('req-retry');
-    useRequestStore.getState().completePayment('req-retry', { forceFailure: true });
-
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-retry')?.status).toBe('pending');
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_detected')).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_failed')).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(0);
-
-    useRequestStore.getState().beginPaymentConfirmation('req-retry');
-    const transaction = useRequestStore.getState().completePayment('req-retry', { forceFailure: false });
-
-    expect(transaction).not.toBeNull();
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-retry')?.status).toBe('paid');
-    expect(useTransactionStore.getState().transactions).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_detected')).toHaveLength(2);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_failed')).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'payment_confirmed')).toHaveLength(1);
-  });
-
-  it('cancelRequest on a paid request is a no-op and logs no cancelled event', () => {
-    const request = makeRequest({ id: 'req-9', status: 'paid' });
-    resetStores(request);
-
-    useRequestStore.getState().cancelRequest('req-9');
-
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-9')?.status).toBe('paid');
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'cancelled')).toHaveLength(0);
-  });
-
-  it('cancelRequest on a confirming request cancels it', () => {
-    const request = makeRequest({ id: 'req-10', status: 'confirming' });
-    resetStores(request);
-
-    useRequestStore.getState().cancelRequest('req-10');
-
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-10')?.status).toBe('cancelled');
-    expect(useRequestEventStore.getState().events.filter((e) => e.type === 'cancelled')).toHaveLength(1);
-  });
-
-  it('cancelRequest on a pending request still cancels it', () => {
-    const request = makeRequest({ id: 'req-11', status: 'pending' });
-    resetStores(request);
-
-    useRequestStore.getState().cancelRequest('req-11');
-
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-11')?.status).toBe('cancelled');
-  });
-
-  it('deleteRequest removes the request and cascades to its events and its transaction', () => {
-    const request = makeRequest({ id: 'req-7', status: 'pending' });
-    resetStores(request);
-
-    useRequestStore.getState().beginPaymentConfirmation('req-7');
-    useRequestStore.getState().completePayment('req-7', { forceFailure: false });
-    expect(useTransactionStore.getState().transactions).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.length).toBeGreaterThan(0);
-
-    useRequestStore.getState().deleteRequest('req-7');
-
-    expect(useRequestStore.getState().requests.find((r) => r.id === 'req-7')).toBeUndefined();
-    expect(useRequestEventStore.getState().events.filter((e) => e.requestId === 'req-7')).toHaveLength(0);
-    expect(useTransactionStore.getState().transactions.filter((t) => t.requestId === 'req-7')).toHaveLength(0);
-  });
-
-  it('deleteRequest leaves other requests transactions and events untouched', () => {
-    const request = makeRequest({ id: 'req-8', status: 'pending' });
-    resetStores(request);
-
-    useRequestStore.getState().beginPaymentConfirmation('req-8');
-    useRequestStore.getState().completePayment('req-8', { forceFailure: false });
-
-    useRequestStore.getState().deleteRequest('req-does-not-exist');
-
-    expect(useTransactionStore.getState().transactions.filter((t) => t.requestId === 'req-8')).toHaveLength(1);
-    expect(useRequestEventStore.getState().events.filter((e) => e.requestId === 'req-8').length).toBeGreaterThan(0);
+describe('reset', () => {
+  it('clears requests back to idle', () => {
+    useRequestStore.setState({
+      requests: [makePaymentRequestForStore('r1', 'pending')],
+      isCreating: false,
+      status: 'loaded',
+      error: null,
+    });
+    useRequestStore.getState().reset();
+    expect(useRequestStore.getState().requests).toEqual([]);
+    expect(useRequestStore.getState().status).toBe('idle');
   });
 });

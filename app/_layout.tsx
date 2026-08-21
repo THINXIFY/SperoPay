@@ -19,10 +19,10 @@ import { useProfileStore } from '../src/store/profileStore';
 import { useWalletStore } from '../src/store/walletStore';
 import { useCustomerStore } from '../src/store/customerStore';
 import { useTemplateStore } from '../src/store/templateStore';
+import { useRequestStore } from '../src/store/requestStore';
+import { useRequestEventStore } from '../src/store/requestEventStore';
+import { useTransactionStore } from '../src/store/transactionStore';
 import { resetAllUserData } from '../src/store/dataLifecycle';
-// Task 11 adds useRequestStore/useRequestEventStore/useTransactionStore
-// imports here, and their loadForUser(userId) calls alongside the others
-// below, once requestStore is migrated.
 
 SplashScreen.preventAutoHideAsync();
 
@@ -87,6 +87,9 @@ export default function RootLayout() {
     useWalletStore.getState().loadForUser(userId);
     useCustomerStore.getState().loadForUser(userId);
     useTemplateStore.getState().loadForUser(userId);
+    useRequestStore.getState().loadForUser(userId);
+    useRequestEventStore.getState().loadForUser(userId);
+    useTransactionStore.getState().loadForUser(userId);
   }, [authHasHydrated, userId, fullName]);
 
   if (!fontsLoaded) {

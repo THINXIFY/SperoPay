@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -26,6 +26,8 @@ const FILTERS: { value: Filter; label: string }[] = [
 export default function RequestsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const requests = useRequestStore((state) => state.requests);
+  const status = useRequestStore((state) => state.status);
+  const error = useRequestStore((state) => state.error);
   const customers = useCustomerStore((state) => state.customers);
   const transactions = useTransactionStore((state) => state.transactions);
   const [filter, setFilter] = useState<Filter>('all');
@@ -108,15 +110,25 @@ export default function RequestsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
         ListEmptyComponent={
-          <EmptyState
-            icon="document-text-outline"
-            title={query.length > 0 ? 'No matching requests' : 'No requests yet'}
-            description={
-              query.length > 0
-                ? 'Try a different search term or filter.'
-                : 'Create your first payment request and share it with a customer.'
-            }
-          />
+          status === 'loading' ? (
+            <ActivityIndicator color={colors.primaryAction} style={{ marginTop: spacing.xl }} />
+          ) : status === 'error' ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Couldn't load requests"
+              description={error ?? 'Something went wrong. Try again.'}
+            />
+          ) : (
+            <EmptyState
+              icon="document-text-outline"
+              title={query.length > 0 ? 'No matching requests' : 'No requests yet'}
+              description={
+                query.length > 0
+                  ? 'Try a different search term or filter.'
+                  : 'Create your first payment request and share it with a customer.'
+              }
+            />
+          )
         }
         renderItem={({ item }) => {
           const customer = customers.find((c) => c.id === item.customerId);

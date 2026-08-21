@@ -17,6 +17,8 @@ import { useRequestEventStore } from '../../../src/store/requestEventStore';
 import { useWalletStore } from '../../../src/store/walletStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
+import { useAuthStore } from '../../../src/store/authStore';
+import { supabase } from '../../../src/lib/supabase';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
 import { truncateHash } from '../../../src/utils/truncateHash';
@@ -74,20 +76,34 @@ export default function RequestDetailScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const cancelRequest = useRequestStore((state) => state.cancelRequest);
   const deleteRequest = useRequestStore((state) => state.deleteRequest);
-  const addEvent = useRequestEventStore((state) => state.addEvent);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
+  const userId = useAuthStore((state) => state.user?.id);
+
+  async function recordEvent(requestId: string, type: 'shared' | 'reminder_sent') {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('request_events')
+      .insert({ user_id: userId, payment_request_id: requestId, event_type: type })
+      .select('*')
+      .single();
+    if (!error && data) {
+      useRequestEventStore
+        .getState()
+        .addLocal({ id: data.id, requestId: data.payment_request_id, type: data.event_type, occurredAt: data.occurred_at });
+    }
+  }
 
   async function handleShareAgain() {
     if (!request) return;
     await Share.share({ message: request.paymentLink, url: request.paymentLink });
-    addEvent(request.id, 'shared');
+    await recordEvent(request.id, 'shared');
   }
 
   async function handleSendReminder() {
     if (!request) return;
     const message = buildReminderMessage(request, customer);
     await Share.share({ message });
-    addEvent(request.id, 'reminder_sent');
+    await recordEvent(request.id, 'reminder_sent');
   }
 
   async function handleCopyReminder() {
@@ -97,9 +113,9 @@ export default function RequestDetailScreen() {
     Alert.alert('Copied', 'Reminder message copied to clipboard.');
   }
 
-  function handleConfirmCancel() {
-    if (!request) return;
-    cancelRequest(request.id);
+  async function handleConfirmCancel() {
+    if (!request || !userId) return;
+    await cancelRequest(userId, request.id).catch(() => {});
     setCancelModalVisible(false);
   }
 
@@ -115,9 +131,9 @@ export default function RequestDetailScreen() {
     router.push('/request/amount');
   }
 
-  function handleConfirmDelete() {
-    if (!request) return;
-    deleteRequest(request.id);
+  async function handleConfirmDelete() {
+    if (!request || !userId) return;
+    await deleteRequest(userId, request.id).catch(() => {});
     setDeleteModalVisible(false);
     router.replace('/(app)/requests');
   }

@@ -9,6 +9,7 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { isRequestExpired } from '../../src/utils/expiry';
 
@@ -31,6 +32,7 @@ export default function DemoPaymentScreen() {
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const beginPaymentConfirmation = useRequestStore((state) => state.beginPaymentConfirmation);
   const completePayment = useRequestStore((state) => state.completePayment);
+  const userId = useAuthStore((state) => state.user?.id);
   const [stage, setStage] = useState<Stage>('idle');
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -125,8 +127,9 @@ export default function DemoPaymentScreen() {
   }
 
   async function handleContinue() {
+    if (!userId) return;
     setStage('detecting');
-    const started = beginPaymentConfirmation(request!.id);
+    const started = await beginPaymentConfirmation(userId, request!.id).catch(() => false);
     if (!started) {
       setStage('failed');
       return;
@@ -138,7 +141,7 @@ export default function DemoPaymentScreen() {
     if (isMountedRef.current) setStage('confirming');
     await delay(900);
 
-    const transaction = completePayment(request!.id);
+    const transaction = await completePayment(userId, request!.id).catch(() => null);
     if (!transaction) {
       if (isMountedRef.current) setStage('failed');
       return;
