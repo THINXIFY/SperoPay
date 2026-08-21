@@ -86,7 +86,15 @@ export default function RequestDetailScreen() {
       .insert({ user_id: userId, payment_request_id: requestId, event_type: type })
       .select('*')
       .single();
-    if (!error && data) {
+    if (error) {
+      // Not user-facing: the share/reminder itself already happened via the
+      // native share sheet by the time this runs, so failing loudly here
+      // would be confusing. Still worth a dev-visible trace rather than a
+      // fully silent swallow.
+      if (__DEV__) console.warn(`Failed to record ${type} event for request ${requestId}:`, error);
+      return;
+    }
+    if (data) {
       useRequestEventStore
         .getState()
         .addLocal({ id: data.id, requestId: data.payment_request_id, type: data.event_type, occurredAt: data.occurred_at });
@@ -115,8 +123,13 @@ export default function RequestDetailScreen() {
 
   async function handleConfirmCancel() {
     if (!request || !userId) return;
-    await cancelRequest(userId, request.id).catch(() => {});
-    setCancelModalVisible(false);
+    try {
+      await cancelRequest(userId, request.id);
+      setCancelModalVisible(false);
+    } catch {
+      setCancelModalVisible(false);
+      Alert.alert('Couldn\'t Cancel', "We couldn't cancel this request. Check your connection and try again.");
+    }
   }
 
   function handleCreateAgain() {
@@ -133,9 +146,14 @@ export default function RequestDetailScreen() {
 
   async function handleConfirmDelete() {
     if (!request || !userId) return;
-    await deleteRequest(userId, request.id).catch(() => {});
-    setDeleteModalVisible(false);
-    router.replace('/(app)/requests');
+    try {
+      await deleteRequest(userId, request.id);
+      setDeleteModalVisible(false);
+      router.replace('/(app)/requests');
+    } catch {
+      setDeleteModalVisible(false);
+      Alert.alert('Couldn\'t Delete', "We couldn't delete this request. Check your connection and try again.");
+    }
   }
 
   if (!request) {

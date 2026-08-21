@@ -22,10 +22,26 @@ create or replace function public.create_payment_request(
 ) returns public.payment_requests
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 declare
   v_request public.payment_requests;
 begin
+  -- FK constraints alone don't check ownership (they only check the row
+  -- exists, and FK validation runs with elevated privilege regardless of
+  -- RLS) — an authenticated caller who guessed another user's customer/
+  -- wallet UUID could otherwise attach it to their own request.
+  if p_customer_id is not null and not exists (
+    select 1 from public.customers where id = p_customer_id and user_id = auth.uid()
+  ) then
+    raise exception 'customer not found';
+  end if;
+  if p_wallet_id is not null and not exists (
+    select 1 from public.wallets where id = p_wallet_id and user_id = auth.uid()
+  ) then
+    raise exception 'wallet not found';
+  end if;
+
   insert into public.payment_requests (
     user_id, customer_id, wallet_id, payment_code, amount, description, note,
     expiry_option, expires_at, payment_link
@@ -46,6 +62,7 @@ create or replace function public.begin_payment_confirmation(p_request_id uuid)
 returns boolean
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 declare
   v_updated int;
@@ -69,13 +86,21 @@ begin
 end;
 $$;
 
+-- returns setof (not a bare composite): PostgREST invokes non-setof
+-- composite-returning functions as `select * from f()`, and in Postgres
+-- `select * from f()` where f `return null`s a bare composite yields ONE
+-- row with every column null — not zero rows. That would make the client
+-- see a truthy, all-null "transaction" on both the not-found and
+-- p_should_fail branches. setof + a bare `return;` (no `return next`)
+-- gives an unambiguous empty result set instead.
 create or replace function public.complete_payment(
   p_request_id uuid,
   p_should_fail boolean,
   p_tx_hash text
-) returns public.transactions
+) returns setof public.transactions
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 declare
   v_request public.payment_requests;
@@ -87,14 +112,14 @@ begin
   for update;
 
   if not found then
-    return null;
+    return;
   end if;
 
   if p_should_fail then
     update public.payment_requests set status = 'pending' where id = p_request_id;
     insert into public.request_events (user_id, payment_request_id, event_type)
     values (auth.uid(), p_request_id, 'payment_failed');
-    return null;
+    return;
   end if;
 
   insert into public.transactions (user_id, payment_request_id, from_customer_id, amount, currency, network, tx_hash)
@@ -106,7 +131,7 @@ begin
   insert into public.request_events (user_id, payment_request_id, event_type)
   values (auth.uid(), p_request_id, 'payment_confirmed');
 
-  return v_transaction;
+  return next v_transaction;
 end;
 $$;
 
@@ -114,6 +139,7 @@ create or replace function public.cancel_payment_request(p_request_id uuid)
 returns boolean
 language plpgsql
 security invoker
+set search_path = ''
 as $$
 declare
   v_updated int;

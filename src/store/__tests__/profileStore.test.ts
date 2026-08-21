@@ -60,12 +60,10 @@ describe('loadForUser', () => {
   });
 
   it('creates a minimum valid profile if none exists yet, seeded from the auth full name', async () => {
-    const profilesBuilder = makeQueryBuilder({ data: null, error: { code: 'PGRST116' } });
+    const profilesBuilder = makeQueryBuilder({ data: null, error: null });
     const insertedProfile = { id: 'user-2', display_name: 'New User', country: '', usage_type: null, avatar_url: null, onboarding_completed: false };
-    profilesBuilder.single
-      .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } })
-      .mockResolvedValueOnce({ data: insertedProfile, error: null });
-    const businessBuilder = makeQueryBuilder({ data: null, error: { code: 'PGRST116' } });
+    profilesBuilder.single.mockResolvedValueOnce({ data: insertedProfile, error: null });
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
     mockedSupabase.from.mockImplementation((table: string) =>
       (table === 'profiles' ? profilesBuilder : businessBuilder) as never
     );
@@ -87,6 +85,44 @@ describe('loadForUser', () => {
     const state = useProfileStore.getState();
     expect(state.status).toBe('error');
     expect(state.error).toBe("We couldn't load your profile. Try again.");
+  });
+
+  it('discards a stale response from a previous loadForUser call that resolves after a newer one', async () => {
+    // Simulates User A's fetch stalling, User B signing in and their (faster)
+    // fetch landing first, then User A's late response finally arriving —
+    // it must NOT overwrite User B's already-loaded profile.
+    let resolveUserA: (value: { data: unknown; error: null }) => void = () => {};
+    const userAProfilePromise = new Promise((resolve) => {
+      resolveUserA = resolve;
+    });
+    const userABuilder = makeQueryBuilder({ data: null, error: null });
+    userABuilder.maybeSingle.mockImplementation(() => userAProfilePromise as never);
+    const userBBuilder = makeQueryBuilder({
+      data: { id: 'user-B', display_name: 'Bob', country: '', usage_type: null, avatar_url: null, onboarding_completed: true },
+      error: null,
+    });
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
+    let currentUser: 'A' | 'B' = 'A';
+
+    mockedSupabase.from.mockImplementation((table: string) => {
+      if (table === 'business_profiles') return businessBuilder as never;
+      // First call (User A) gets the stalling builder; second call
+      // onward (User B) gets the fast one — matches from() being called
+      // fresh on each loadForUser invocation.
+      return currentUser === 'A' ? (userABuilder as never) : (userBBuilder as never);
+    });
+
+    const loadA = useProfileStore.getState().loadForUser('user-A');
+
+    currentUser = 'B';
+    await useProfileStore.getState().loadForUser('user-B');
+    expect(useProfileStore.getState().profile?.displayName).toBe('Bob');
+
+    // User A's stalled response finally arrives.
+    resolveUserA({ data: { id: 'user-A', display_name: 'Alice', country: '', usage_type: null, avatar_url: null, onboarding_completed: true }, error: null });
+    await loadA;
+
+    expect(useProfileStore.getState().profile?.displayName).toBe('Bob');
   });
 });
 

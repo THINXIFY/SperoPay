@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
+import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { Profile, UsageType } from '../types';
 
@@ -47,15 +48,26 @@ function mergeProfileRows(
   };
 }
 
+// Guards loadForUser() against overwriting fresher state — a stalled
+// response from a previous user's session, or one that resolves after a
+// local mutation already ran — see staleGuard.ts.
+const guard = createStaleGuard();
+
 export const useProfileStore = create<ProfileState>()((set, get) => ({
   profile: null,
   status: 'idle',
   error: null,
 
   loadForUser: async (userId, fallbackFullName) => {
+    const token = guard.next();
     set({ status: 'loading', error: null });
     try {
-      let { data: profileRow } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      let { data: profileRow, error: selectError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (selectError) throw selectError;
       if (!profileRow) {
         const { data: created, error: insertError } = await supabase
           .from('profiles')
@@ -72,13 +84,16 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         .eq('user_id', userId)
         .maybeSingle();
 
+      if (!guard.isCurrent(token)) return;
       set({ profile: mergeProfileRows(profileRow, businessRow ?? null), status: 'loaded' });
     } catch (error) {
+      if (!guard.isCurrent(token)) return;
       set({ status: 'error', error: getDataErrorMessage(error, 'profile') });
     }
   },
 
   updateProfile: async (userId, patch) => {
+    guard.next(); // invalidate any in-flight load — this write must win
     const personalPatch: Record<string, unknown> = {};
     const businessPatch: Record<string, unknown> = {};
 
@@ -114,6 +129,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   },
 
   setUsageType: async (userId, usageType) => {
+    guard.next();
     const { error } = await supabase.from('profiles').update({ usage_type: usageType }).eq('id', userId);
     if (error) {
       set({ error: getDataErrorMessage(error, 'profile', 'save') });
@@ -124,6 +140,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   },
 
   completeOnboarding: async (userId) => {
+    guard.next();
     const { error } = await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', userId);
     if (error) {
       set({ error: getDataErrorMessage(error, 'profile', 'save') });
@@ -133,7 +150,10 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
     if (current) set({ profile: { ...current, onboardingCompleted: true } });
   },
 
-  reset: () => set({ profile: null, status: 'idle', error: null }),
+  reset: () => {
+    guard.next();
+    set({ profile: null, status: 'idle', error: null });
+  },
 }));
 
 registerResettable(() => useProfileStore.getState().reset());

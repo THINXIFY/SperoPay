@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
+import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { PaymentRequest, Transaction } from '../types';
 import { buildPaymentRequestPayload, type CreateRequestInput } from '../utils/buildPaymentRequest';
@@ -25,6 +26,8 @@ interface RequestState {
   completePayment: (userId: string, id: string, options?: { forceFailure?: boolean }) => Promise<Transaction | null>;
   reset: () => void;
 }
+
+const guard = createStaleGuard();
 
 function mapRequestRow(row: {
   id: string;
@@ -87,6 +90,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
   error: null,
 
   loadForUser: async (userId) => {
+    const token = guard.next();
     set({ status: 'loading', error: null });
     try {
       const { data, error } = await supabase
@@ -95,13 +99,16 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
+      if (!guard.isCurrent(token)) return;
       set({ requests: (data ?? []).map(mapRequestRow), status: 'loaded' });
     } catch (error) {
+      if (!guard.isCurrent(token)) return;
       set({ status: 'error', error: getDataErrorMessage(error, 'requests') });
     }
   },
 
   createRequest: async (userId, input) => {
+    guard.next(); // invalidate any in-flight load — this optimistic write must survive it
     set({ isCreating: true });
     try {
       const payload = buildPaymentRequestPayload(input);
@@ -136,6 +143,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
     if (!request || request.status === 'paid' || request.status === 'expired' || request.status === 'cancelled') {
       return;
     }
+    guard.next();
     const { data: succeeded, error } = await supabase.rpc('cancel_payment_request', { p_request_id: id });
     if (error) {
       set({ error: getDataErrorMessage(error, 'requests', 'save') });
@@ -149,6 +157,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
   },
 
   deleteRequest: async (userId, id) => {
+    guard.next();
     // Plain RLS-guarded delete — ON DELETE CASCADE on request_events and
     // transactions removes both atomically, no RPC needed (design doc 3.3).
     const { error } = await supabase.from('payment_requests').delete().eq('id', id).eq('user_id', userId);
@@ -165,6 +174,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
     const request = get().requests.find((r) => r.id === id);
     if (!canBeginPaymentConfirmation(request)) return false;
 
+    guard.next();
     const { data: succeeded, error } = await supabase.rpc('begin_payment_confirmation', { p_request_id: id });
     if (error) {
       set({ error: getDataErrorMessage(error, 'requests', 'save') });
@@ -183,6 +193,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
     const request = get().requests.find((r) => r.id === id);
     if (!canCompletePayment(request)) return null;
 
+    guard.next();
     const shouldFail = options?.forceFailure ?? Math.random() < DEMO_PAYMENT_FAILURE_RATE;
     const { data, error } = await supabase.rpc('complete_payment', {
       p_request_id: id,
@@ -194,7 +205,13 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
       throw error;
     }
 
-    if (!data) {
+    // complete_payment is a `returns setof` function, so data is an array —
+    // empty on both the not-found and simulated-failure branches. Checking
+    // the array (not a bare `!data`) matters: a `returns` (non-setof)
+    // composite function that `return null`s would otherwise come back from
+    // PostgREST as one row of all-null columns, which is truthy.
+    const transactionRow = Array.isArray(data) ? data[0] : data;
+    if (!transactionRow || !transactionRow.id) {
       set((state) => ({ requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'pending' } : r)) }));
       useRequestEventStore
         .getState()
@@ -202,7 +219,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
       return null;
     }
 
-    const transaction = mapTransactionRow(data);
+    const transaction = mapTransactionRow(transactionRow);
     useTransactionStore.getState().addLocal(transaction);
     set((state) => ({ requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'paid' } : r)) }));
     useRequestEventStore
@@ -211,7 +228,10 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
     return transaction;
   },
 
-  reset: () => set({ requests: [], isCreating: false, status: 'idle', error: null }),
+  reset: () => {
+    guard.next();
+    set({ requests: [], isCreating: false, status: 'idle', error: null });
+  },
 }));
 
 registerResettable(() => useRequestStore.getState().reset());

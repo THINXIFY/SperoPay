@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -84,15 +84,19 @@ export default function DetailsScreen() {
 
   async function handleCreateRequest() {
     if (isCreating || !userId) return;
-    const request = await createRequest(userId, {
-      amount: Number(amount),
-      description: description.trim() || undefined,
-      customerId,
-      expiryOption,
-      note: note.trim() || undefined,
-    });
-    setLastCreatedRequestId(request.id);
-    router.replace(`/request/created?id=${request.id}`);
+    try {
+      const request = await createRequest(userId, {
+        amount: Number(amount),
+        description: description.trim() || undefined,
+        customerId,
+        expiryOption,
+        note: note.trim() || undefined,
+      });
+      setLastCreatedRequestId(request.id);
+      router.replace(`/request/created?id=${request.id}`);
+    } catch {
+      Alert.alert('Something went wrong', "We couldn't create this request. Check your connection and try again.");
+    }
   }
 
   return (

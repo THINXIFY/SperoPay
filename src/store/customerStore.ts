@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
+import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { Customer } from '../types';
 
@@ -26,6 +27,8 @@ interface CustomerState {
 
 const AVATAR_COLORS: Customer['avatarColor'][] = ['mint', 'lavender', 'blue', 'red'];
 
+const guard = createStaleGuard();
+
 function mapRow(row: {
   id: string;
   name: string;
@@ -50,6 +53,7 @@ export const useCustomerStore = create<CustomerState>()((set, get) => ({
   error: null,
 
   loadForUser: async (userId) => {
+    const token = guard.next();
     set({ status: 'loading', error: null });
     try {
       const { data, error } = await supabase
@@ -58,13 +62,16 @@ export const useCustomerStore = create<CustomerState>()((set, get) => ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
+      if (!guard.isCurrent(token)) return;
       set({ customers: (data ?? []).map(mapRow), status: 'loaded' });
     } catch (error) {
+      if (!guard.isCurrent(token)) return;
       set({ status: 'error', error: getDataErrorMessage(error, 'customers') });
     }
   },
 
   addCustomer: async (userId, input) => {
+    guard.next(); // invalidate any in-flight load — this optimistic write must survive it
     const avatarColor = AVATAR_COLORS[get().customers.length % AVATAR_COLORS.length];
     const { data, error } = await supabase
       .from('customers')
@@ -88,6 +95,7 @@ export const useCustomerStore = create<CustomerState>()((set, get) => ({
   },
 
   updateCustomer: async (userId, id, patch) => {
+    guard.next();
     const dbPatch: Record<string, unknown> = {};
     if ('name' in patch) dbPatch.name = patch.name;
     if ('email' in patch) dbPatch.email = patch.email;
@@ -104,7 +112,10 @@ export const useCustomerStore = create<CustomerState>()((set, get) => ({
 
   getCustomerById: (id) => get().customers.find((c) => c.id === id),
 
-  reset: () => set({ customers: [], status: 'idle', error: null }),
+  reset: () => {
+    guard.next();
+    set({ customers: [], status: 'idle', error: null });
+  },
 }));
 
 registerResettable(() => useCustomerStore.getState().reset());

@@ -89,24 +89,28 @@ describe('beginPaymentConfirmation / completePayment', () => {
     expect(useRequestStore.getState().requests[0].status).toBe('confirming');
   });
 
-  it('completePayment on success updates status to paid and caches the transaction', async () => {
+  it('completePayment on success updates status to paid and caches the transaction (setof array shape)', async () => {
     useRequestStore.setState({
       requests: [makePaymentRequestForStore('r1', 'confirming')],
       isCreating: false,
       status: 'loaded',
       error: null,
     });
+    // complete_payment is `returns setof public.transactions` — PostgREST
+    // delivers this as an array, not a bare object.
     mockedSupabase.rpc.mockResolvedValue({
-      data: {
-        id: 'tx1',
-        payment_request_id: 'r1',
-        from_customer_id: 'c1',
-        amount: '100',
-        currency: 'USDC',
-        network: 'Solana',
-        tx_hash: 'HASH',
-        paid_at: '2026-08-21T00:00:00.000Z',
-      },
+      data: [
+        {
+          id: 'tx1',
+          payment_request_id: 'r1',
+          from_customer_id: 'c1',
+          amount: '100',
+          currency: 'USDC',
+          network: 'Solana',
+          tx_hash: 'HASH',
+          paid_at: '2026-08-21T00:00:00.000Z',
+        },
+      ],
       error: null,
     } as never);
 
@@ -117,19 +121,68 @@ describe('beginPaymentConfirmation / completePayment', () => {
     expect(useTransactionStore.getState().transactions).toHaveLength(1);
   });
 
-  it('completePayment on forced failure reverts status to pending and returns null', async () => {
+  it('completePayment on forced failure reverts status to pending and returns null (empty setof array)', async () => {
     useRequestStore.setState({
       requests: [makePaymentRequestForStore('r1', 'confirming')],
       isCreating: false,
       status: 'loaded',
       error: null,
     });
-    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null } as never);
+    mockedSupabase.rpc.mockResolvedValue({ data: [], error: null } as never);
 
     const transaction = await useRequestStore.getState().completePayment('user-1', 'r1', { forceFailure: true });
 
     expect(transaction).toBeNull();
     expect(useRequestStore.getState().requests[0].status).toBe('pending');
+  });
+
+  it('treats an all-null composite object as failure too, not just an empty array or null', async () => {
+    // Defensive coverage for the exact bug the setof fix closes: if a
+    // non-setof function ever returns a NULL composite, PostgREST delivers
+    // one row of all-null columns — truthy under a naive `if (!data)` check.
+    useRequestStore.setState({
+      requests: [makePaymentRequestForStore('r1', 'confirming')],
+      isCreating: false,
+      status: 'loaded',
+      error: null,
+    });
+    mockedSupabase.rpc.mockResolvedValue({
+      data: { id: null, payment_request_id: null, amount: null, tx_hash: null },
+      error: null,
+    } as never);
+
+    const transaction = await useRequestStore.getState().completePayment('user-1', 'r1', { forceFailure: true });
+
+    expect(transaction).toBeNull();
+    expect(useRequestStore.getState().requests[0].status).toBe('pending');
+  });
+});
+
+describe('stale-response guard', () => {
+  it('a loadForUser that resolves after a mutation does not overwrite the mutation', async () => {
+    let resolveLoad: (value: { data: unknown; error: null }) => void = () => {};
+    const stalledSelect = new Promise((resolve) => {
+      resolveLoad = resolve;
+    });
+    const selectBuilder: Record<string, jest.Mock> = {};
+    selectBuilder.select = jest.fn(() => selectBuilder);
+    selectBuilder.eq = jest.fn(() => selectBuilder);
+    selectBuilder.order = jest.fn(() => stalledSelect);
+    mockedSupabase.from.mockReturnValue(selectBuilder as never);
+
+    const load = useRequestStore.getState().loadForUser('user-1');
+
+    mockedSupabase.rpc.mockResolvedValue({ data: mapRequestRow({ id: 'r-new' }), error: null } as never);
+    await useRequestStore.getState().createRequest('user-1', { amount: 50, expiryOption: '7d' });
+    expect(useRequestStore.getState().requests).toHaveLength(1);
+
+    // The stalled loadForUser (issued before the create) finally resolves
+    // with an empty list — it must not wipe out the optimistically-added request.
+    resolveLoad({ data: [], error: null });
+    await load;
+
+    expect(useRequestStore.getState().requests).toHaveLength(1);
+    expect(useRequestStore.getState().requests[0].id).toBe('r-new');
   });
 });
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
+import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { Transaction } from '../types';
 
@@ -15,6 +16,8 @@ interface TransactionState {
   addLocal: (transaction: Transaction) => void;
   reset: () => void;
 }
+
+const guard = createStaleGuard();
 
 function mapRow(row: {
   id: string;
@@ -44,6 +47,7 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
   error: null,
 
   loadForUser: async (userId) => {
+    const token = guard.next();
     set({ status: 'loading', error: null });
     try {
       const { data, error } = await supabase
@@ -52,8 +56,10 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
         .eq('user_id', userId)
         .order('paid_at', { ascending: false });
       if (error) throw error;
+      if (!guard.isCurrent(token)) return;
       set({ transactions: (data ?? []).map(mapRow), status: 'loaded' });
     } catch (error) {
+      if (!guard.isCurrent(token)) return;
       set({ status: 'error', error: getDataErrorMessage(error, 'requests') });
     }
   },
@@ -62,9 +68,15 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
 
   // Written server-side only (inside complete_payment) — this merges the
   // RPC's returned row into the local cache, it never inserts directly.
-  addLocal: (transaction) => set((state) => ({ transactions: [transaction, ...state.transactions] })),
+  addLocal: (transaction) => {
+    guard.next(); // invalidate any in-flight load — this write must survive it
+    set((state) => ({ transactions: [transaction, ...state.transactions] }));
+  },
 
-  reset: () => set({ transactions: [], status: 'idle', error: null }),
+  reset: () => {
+    guard.next();
+    set({ transactions: [], status: 'idle', error: null });
+  },
 }));
 
 registerResettable(() => useTransactionStore.getState().reset());

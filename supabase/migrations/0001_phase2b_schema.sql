@@ -26,9 +26,13 @@ create table if not exists public.business_profiles (
   updated_at timestamptz not null default now()
 );
 
+-- V1 is single-wallet-per-user (the table stays flexible for a future
+-- multi-wallet feature via is_default, but the app only ever maintains one
+-- row per user for now via an upsert keyed on user_id, hence the unique
+-- constraint here rather than a separate ALTER TABLE).
 create table if not exists public.wallets (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null unique references auth.users(id) on delete cascade,
   network text not null default 'Solana',
   stablecoin text not null default 'USDC',
   address text not null,
@@ -101,7 +105,7 @@ create table if not exists public.transactions (
 );
 
 create index if not exists idx_business_profiles_user_id on public.business_profiles(user_id);
-create index if not exists idx_wallets_user_id on public.wallets(user_id);
+-- wallets.user_id already has an index via its unique constraint above.
 create index if not exists idx_customers_user_id on public.customers(user_id);
 create index if not exists idx_payment_templates_user_id on public.payment_templates(user_id);
 create index if not exists idx_payment_requests_user_id on public.payment_requests(user_id);
@@ -120,20 +124,23 @@ begin
 end;
 $$;
 
+-- drop-then-create so this migration can be pasted more than once (e.g. a
+-- retry after a partial failure) without erroring on "trigger already exists".
+drop trigger if exists trg_profiles_updated_at on public.profiles;
 create trigger trg_profiles_updated_at before update on public.profiles
   for each row execute function public.set_updated_at();
+drop trigger if exists trg_business_profiles_updated_at on public.business_profiles;
 create trigger trg_business_profiles_updated_at before update on public.business_profiles
   for each row execute function public.set_updated_at();
+drop trigger if exists trg_wallets_updated_at on public.wallets;
 create trigger trg_wallets_updated_at before update on public.wallets
   for each row execute function public.set_updated_at();
+drop trigger if exists trg_customers_updated_at on public.customers;
 create trigger trg_customers_updated_at before update on public.customers
   for each row execute function public.set_updated_at();
+drop trigger if exists trg_payment_templates_updated_at on public.payment_templates;
 create trigger trg_payment_templates_updated_at before update on public.payment_templates
   for each row execute function public.set_updated_at();
+drop trigger if exists trg_payment_requests_updated_at on public.payment_requests;
 create trigger trg_payment_requests_updated_at before update on public.payment_requests
   for each row execute function public.set_updated_at();
-
--- V1 is single-wallet-per-user (the table stays flexible for a future
--- multi-wallet feature via is_default, but the app only ever maintains one
--- row per user for now via an upsert keyed on user_id).
-alter table public.wallets add constraint wallets_user_id_key unique (user_id);

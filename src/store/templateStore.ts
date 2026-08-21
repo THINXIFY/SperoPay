@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
+import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { Template } from '../types';
 
@@ -16,6 +17,8 @@ interface TemplateState {
   deleteTemplate: (userId: string, id: string) => Promise<void>;
   reset: () => void;
 }
+
+const guard = createStaleGuard();
 
 function mapRow(row: {
   id: string;
@@ -39,6 +42,7 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
   error: null,
 
   loadForUser: async (userId) => {
+    const token = guard.next();
     set({ status: 'loading', error: null });
     try {
       const { data, error } = await supabase
@@ -47,13 +51,16 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
+      if (!guard.isCurrent(token)) return;
       set({ templates: (data ?? []).map(mapRow), status: 'loaded' });
     } catch (error) {
+      if (!guard.isCurrent(token)) return;
       set({ status: 'error', error: getDataErrorMessage(error, 'templates') });
     }
   },
 
   addTemplate: async (userId, input) => {
+    guard.next();
     const { data, error } = await supabase
       .from('payment_templates')
       .insert({
@@ -75,6 +82,7 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
   },
 
   updateTemplate: async (userId, id, patch) => {
+    guard.next();
     const dbPatch: Record<string, unknown> = {};
     if ('name' in patch) dbPatch.name = patch.name;
     if ('amount' in patch) dbPatch.amount = patch.amount;
@@ -90,6 +98,7 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
   },
 
   deleteTemplate: async (userId, id) => {
+    guard.next();
     const { error } = await supabase.from('payment_templates').delete().eq('id', id).eq('user_id', userId);
     if (error) {
       set({ error: getDataErrorMessage(error, 'templates', 'save') });
@@ -98,7 +107,10 @@ export const useTemplateStore = create<TemplateState>()((set) => ({
     set((state) => ({ templates: state.templates.filter((t) => t.id !== id) }));
   },
 
-  reset: () => set({ templates: [], status: 'idle', error: null }),
+  reset: () => {
+    guard.next();
+    set({ templates: [], status: 'idle', error: null });
+  },
 }));
 
 registerResettable(() => useTemplateStore.getState().reset());
