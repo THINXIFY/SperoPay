@@ -1,11 +1,11 @@
-jest.mock('expo-linking', () => ({
-  createURL: jest.fn((path: string) => `speropay://${path.replace(/^\//, '')}`),
-}));
-
-import { getAuthCallbackUrl } from '../authDeepLink';
+import { getAuthCallbackUrl, AUTH_CALLBACK_URL } from '../authDeepLink';
 
 describe('getAuthCallbackUrl', () => {
-  it('builds the auth callback deep link via expo-linking', () => {
+  it('returns the app\'s literal native scheme callback URL', () => {
     expect(getAuthCallbackUrl()).toBe('speropay://auth/callback');
+  });
+
+  it('matches the AUTH_CALLBACK_URL constant (single source of truth)', () => {
+    expect(getAuthCallbackUrl()).toBe(AUTH_CALLBACK_URL);
   });
 });

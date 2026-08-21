@@ -22,17 +22,21 @@ export default function AuthCallbackScreen() {
   const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
   const hasCompletedOnboarding = useHasCompletedOnboarding();
   const [failed, setFailed] = useState(false);
-  const attempted = useRef(false);
+  // Keyed on the code itself, not a bare boolean: a second, genuinely
+  // different deep link tapped while this screen is still mounted (e.g. the
+  // user requested two reset emails) must still be processed, while a
+  // duplicate delivery of the exact same code must not be re-submitted.
+  const attemptedCode = useRef<string | null>(null);
 
   useEffect(() => {
-    if (attempted.current) return;
-    attempted.current = true;
-
     const code = params.code;
     if (!code) {
       setFailed(true);
       return;
     }
+    if (attemptedCode.current === code) return;
+    attemptedCode.current = code;
+    setFailed(false);
 
     exchangeAuthCode(code, params.sb_flow_id).catch(() => {
       setFailed(true);
