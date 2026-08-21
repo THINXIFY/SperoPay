@@ -7,8 +7,6 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
-import { useHasCompletedOnboarding } from '../../src/store/onboardingStore';
-import { resolveInitialRoute } from '../../src/utils/authRouting';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
 
 export default function LoginScreen() {
@@ -17,7 +15,6 @@ export default function LoginScreen() {
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
   const clearError = useAuthStore((state) => state.clearError);
-  const hasCompletedOnboarding = useHasCompletedOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +35,12 @@ export default function LoginScreen() {
 
     try {
       await signIn(email.trim(), password);
-      router.replace(resolveInitialRoute({ isAuthenticated: true, hasCompletedOnboarding }));
+      // No explicit navigation here: `hasCompletedOnboarding` for the just-
+      // authenticated user can't be read correctly from this closure (it was
+      // captured while `user` was still null, before signIn() resolved).
+      // AuthGate (wrapping this whole (auth) group in require-guest mode)
+      // re-renders reactively once isAuthenticated flips true and redirects
+      // using a fresh, correct value — see src/components/AuthGate.tsx.
     } catch {
       // authStore.error already holds a user-friendly message, rendered below.
     }
