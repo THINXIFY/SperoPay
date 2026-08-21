@@ -9,7 +9,7 @@ import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { useWalletStore } from '../../src/store/walletStore';
-import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { useProfileStore } from '../../src/store/profileStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidWalletAddress } from '../../src/utils/validators';
 
@@ -17,7 +17,7 @@ export default function WalletSetupScreen() {
   const { colors, spacing, typography } = useTheme();
   const wallet = useWalletStore((state) => state.wallet);
   const setWalletAddress = useWalletStore((state) => state.setWalletAddress);
-  const completeOnboarding = useOnboardingStore((state) => state.completeOnboarding);
+  const completeOnboarding = useProfileStore((state) => state.completeOnboarding);
   const userId = useAuthStore((state) => state.user?.id);
 
   // Pre-fill from any wallet already configured on this device — matters
@@ -28,15 +28,19 @@ export default function WalletSetupScreen() {
   const [address, setAddress] = useState(wallet?.address ?? '');
   const [error, setError] = useState<string | undefined>();
 
-  function handleComplete() {
+  async function handleComplete() {
     if (!isValidWalletAddress(address.trim())) {
       setError('Enter a valid Solana wallet address');
       return;
     }
     if (!userId) return; // Onboarding is only reachable while authenticated.
-    setWalletAddress(address.trim());
-    completeOnboarding(userId);
-    router.replace('/(app)/home');
+    try {
+      await setWalletAddress(userId, address.trim());
+      await completeOnboarding(userId);
+      router.replace('/(app)/home');
+    } catch {
+      setError("We couldn't finish setup. Check your connection and try again.");
+    }
   }
 
   return (

@@ -11,12 +11,14 @@ import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../../src/components/SecondaryButton';
 import { useWalletStore } from '../../../src/store/walletStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { isValidWalletAddress } from '../../../src/utils/validators';
 
 export default function WalletSettingsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const wallet = useWalletStore((state) => state.wallet);
   const setWalletAddress = useWalletStore((state) => state.setWalletAddress);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const [isEditing, setIsEditing] = useState(false);
   const [address, setAddress] = useState(wallet?.address ?? '');
@@ -34,13 +36,18 @@ export default function WalletSettingsScreen() {
     setIsEditing(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!isValidWalletAddress(address.trim())) {
       setError('Enter a valid Solana wallet address');
       return;
     }
-    setWalletAddress(address.trim());
-    setIsEditing(false);
+    if (!userId) return;
+    try {
+      await setWalletAddress(userId, address.trim());
+      setIsEditing(false);
+    } catch {
+      setError("We couldn't save that. Check your connection and try again.");
+    }
   }
 
   return (
