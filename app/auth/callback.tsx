@@ -6,7 +6,7 @@ import { useTheme } from '../../src/theme/useTheme';
 import { Logo } from '../../src/components/Logo';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
-import { useHasCompletedOnboarding } from '../../src/store/onboardingStore';
+import { useProfileStore } from '../../src/store/profileStore';
 import { resolveInitialRoute } from '../../src/utils/authRouting';
 
 // The single landing point for both password-recovery and sign-up-confirmation
@@ -20,7 +20,7 @@ export default function AuthCallbackScreen() {
   const exchangeAuthCode = useAuthStore((state) => state.exchangeAuthCode);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
-  const hasCompletedOnboarding = useHasCompletedOnboarding();
+  const hasCompletedOnboarding = useProfileStore((state) => state.profile?.onboardingCompleted ?? false);
   const [failed, setFailed] = useState(false);
   // Keyed on the code itself, not a bare boolean: a second, genuinely
   // different deep link tapped while this screen is still mounted (e.g. the

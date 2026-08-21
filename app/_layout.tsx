@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +14,14 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { useTheme } from '../src/theme/useTheme';
-import { initializeAuthListener } from '../src/store/authStore';
+import { initializeAuthListener, useAuthStore } from '../src/store/authStore';
+import { useProfileStore } from '../src/store/profileStore';
+import { useWalletStore } from '../src/store/walletStore';
+import { resetAllUserData } from '../src/store/dataLifecycle';
+// Task 9-11 add useCustomerStore/useTemplateStore/useRequestStore/
+// useRequestEventStore/useTransactionStore imports here, and their
+// loadForUser(userId) calls alongside profile/wallet's below, as each store
+// is migrated.
 
 SplashScreen.preventAutoHideAsync();
 
@@ -55,6 +62,29 @@ export default function RootLayout() {
     const unsubscribe = initializeAuthListener();
     return unsubscribe;
   }, []);
+
+  const userId = useAuthStore((state) => state.user?.id);
+  const authHasHydrated = useAuthStore((state) => state.hasHydrated);
+  const fullName = useAuthStore((state) => state.user?.fullName);
+  const lastLoadedUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!authHasHydrated) return;
+
+    if (!userId) {
+      if (lastLoadedUserId.current !== null) {
+        resetAllUserData();
+        lastLoadedUserId.current = null;
+      }
+      return;
+    }
+
+    if (lastLoadedUserId.current === userId) return;
+    resetAllUserData();
+    lastLoadedUserId.current = userId;
+    useProfileStore.getState().loadForUser(userId, fullName);
+    useWalletStore.getState().loadForUser(userId);
+  }, [authHasHydrated, userId, fullName]);
 
   if (!fontsLoaded) {
     return null;

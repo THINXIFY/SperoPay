@@ -7,7 +7,7 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
-import { useHasCompletedOnboarding } from '../../src/store/onboardingStore';
+import { useProfileStore } from '../../src/store/profileStore';
 import { resolveInitialRoute } from '../../src/utils/authRouting';
 import { isValidPassword } from '../../src/utils/validators';
 
@@ -19,7 +19,7 @@ export default function ResetPasswordScreen() {
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
   const clearError = useAuthStore((state) => state.clearError);
-  const hasCompletedOnboarding = useHasCompletedOnboarding();
+  const hasCompletedOnboarding = useProfileStore((state) => state.profile?.onboardingCompleted ?? false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
