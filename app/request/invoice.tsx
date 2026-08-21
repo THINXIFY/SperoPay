@@ -40,10 +40,10 @@ export default function InvoiceScreen() {
   }
 
   const invoiceId = getInvoiceId(request);
-  const businessName = profile.businessName?.trim() || profile.displayName || 'Your business';
+  const businessName = profile?.businessName?.trim() || profile?.displayName || 'Your business';
 
   async function handleShare() {
-    if (!request) return;
+    if (!request || !profile) return;
     await Share.share({ message: buildInvoiceShareMessage(request, profile) });
   }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -8,33 +8,40 @@ import { AppHeader } from '../../../src/components/AppHeader';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useProfileStore } from '../../../src/store/profileStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { isValidEmail } from '../../../src/utils/validators';
 
 export default function BusinessProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
   const updateProfile = useProfileStore((state) => state.updateProfile);
+  const userId = useAuthStore((state) => state.user?.id);
 
-  const [hasMockLogo, setHasMockLogo] = useState(Boolean(profile.businessLogoUri));
-  const [businessName, setBusinessName] = useState(profile.businessName ?? '');
-  const [website, setWebsite] = useState(profile.website ?? '');
-  const [businessEmail, setBusinessEmail] = useState(profile.businessEmail ?? '');
-  const [description, setDescription] = useState(profile.businessDescription ?? '');
+  const [hasMockLogo, setHasMockLogo] = useState(Boolean(profile?.businessLogoUri));
+  const [businessName, setBusinessName] = useState(profile?.businessName ?? '');
+  const [website, setWebsite] = useState(profile?.website ?? '');
+  const [businessEmail, setBusinessEmail] = useState(profile?.businessEmail ?? '');
+  const [description, setDescription] = useState(profile?.businessDescription ?? '');
   const [error, setError] = useState<string | undefined>();
 
-  function handleSave() {
+  async function handleSave() {
     if (businessEmail.trim().length > 0 && !isValidEmail(businessEmail)) {
       setError('Enter a valid business email');
       return;
     }
-    updateProfile({
-      businessName: businessName.trim() || undefined,
-      website: website.trim() || undefined,
-      businessEmail: businessEmail.trim() || undefined,
-      businessDescription: description.trim() || undefined,
-      businessLogoUri: hasMockLogo ? 'mock-logo' : undefined,
-    });
-    router.back();
+    if (!userId) return;
+    try {
+      await updateProfile(userId, {
+        businessName: businessName.trim() || undefined,
+        website: website.trim() || undefined,
+        businessEmail: businessEmail.trim() || undefined,
+        businessDescription: description.trim() || undefined,
+        businessLogoUri: hasMockLogo ? 'mock-logo' : undefined,
+      });
+      router.back();
+    } catch {
+      Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
+    }
   }
 
   return (

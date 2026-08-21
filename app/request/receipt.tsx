@@ -42,7 +42,7 @@ export default function ReceiptScreen() {
   }
 
   const receiptId = getReceiptId(request);
-  const businessName = profile.businessName?.trim() || profile.displayName || 'Your business';
+  const businessName = profile?.businessName?.trim() || profile?.displayName || 'Your business';
 
   async function handleShare() {
     if (!request) return;

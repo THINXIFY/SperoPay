@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { SelectableCard } from '../../src/components/SelectableCard';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useProfileStore } from '../../src/store/profileStore';
+import { useAuthStore } from '../../src/store/authStore';
 import type { UsageType } from '../../src/types';
 
 const OPTIONS: { value: UsageType; label: string; icon: 'briefcase-outline' | 'business-outline' | 'color-palette-outline' | 'person-outline' }[] = [
@@ -18,12 +19,17 @@ const OPTIONS: { value: UsageType; label: string; icon: 'briefcase-outline' | 'b
 export default function UsageTypeScreen() {
   const { colors, spacing, typography } = useTheme();
   const setUsageType = useProfileStore((state) => state.setUsageType);
+  const userId = useAuthStore((state) => state.user?.id);
   const [selected, setSelected] = useState<UsageType | null>(null);
 
-  function handleContinue() {
-    if (!selected) return;
-    setUsageType(selected);
-    router.push('/(onboarding)/profile');
+  async function handleContinue() {
+    if (!selected || !userId) return;
+    try {
+      await setUsageType(userId, selected);
+      router.push('/(onboarding)/profile');
+    } catch {
+      Alert.alert('Something went wrong', "We couldn't save that. Check your connection and try again.");
+    }
   }
 
   return (

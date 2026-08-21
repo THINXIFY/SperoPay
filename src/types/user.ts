@@ -17,6 +17,7 @@ export interface Profile {
   businessEmail?: string;
   businessDescription?: string;
   businessLogoUri?: string;
+  onboardingCompleted: boolean;
 }
 
 export interface Wallet {

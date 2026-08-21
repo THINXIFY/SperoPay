@@ -106,9 +106,9 @@ export default function HomeScreen() {
     [requests, transactions]
   );
 
-  const firstName = (resolveDisplayName(profile.displayName, authUser?.fullName, authUser?.email) || 'there').split(
-    ' '
-  )[0];
+  const firstName = (
+    resolveDisplayName(profile?.displayName, authUser?.fullName, authUser?.email) || 'there'
+  ).split(' ')[0];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>

@@ -48,7 +48,7 @@ export default function PublicPaymentScreen() {
     );
   }
 
-  const businessName = profile.businessName?.trim() || profile.displayName || 'Spero merchant';
+  const businessName = profile?.businessName?.trim() || profile?.displayName || 'Spero merchant';
 
   async function handleCopyWallet() {
     if (!wallet) return;
@@ -93,7 +93,7 @@ export default function PublicPaymentScreen() {
               Network: <Text style={{ color: colors.textPrimary }}>{request.network}</Text>
             </Text>
             <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.sm }]}>
-              Requested by {profile.displayName || businessName}
+              Requested by {profile?.displayName || businessName}
             </Text>
             {request.expiresAt ? (
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>

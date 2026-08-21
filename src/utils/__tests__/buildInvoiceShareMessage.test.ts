@@ -22,6 +22,7 @@ const profile: Profile = {
   businessName: 'THINXIFY',
   country: 'United Arab Emirates',
   website: undefined,
+  onboardingCompleted: true,
 };
 
 describe('buildInvoiceShareMessage', () => {

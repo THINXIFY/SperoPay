@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -8,30 +8,37 @@ import { AppHeader } from '../../../src/components/AppHeader';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { useProfileStore } from '../../../src/store/profileStore';
+import { useAuthStore } from '../../../src/store/authStore';
 
 export default function EditProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
   const updateProfile = useProfileStore((state) => state.updateProfile);
+  const userId = useAuthStore((state) => state.user?.id);
 
-  const [hasMockAvatar, setHasMockAvatar] = useState(Boolean(profile.avatarUri));
-  const [displayName, setDisplayName] = useState(profile.displayName);
-  const [country, setCountry] = useState(profile.country);
-  const [website, setWebsite] = useState(profile.website ?? '');
+  const [hasMockAvatar, setHasMockAvatar] = useState(Boolean(profile?.avatarUri));
+  const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
+  const [country, setCountry] = useState(profile?.country ?? '');
+  const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
 
-  function handleSave() {
+  async function handleSave() {
     if (displayName.trim().length === 0) {
       setError('Enter a display name');
       return;
     }
-    updateProfile({
-      displayName: displayName.trim(),
-      country: country.trim(),
-      website: website.trim() || undefined,
-      avatarUri: hasMockAvatar ? 'mock-avatar' : undefined,
-    });
-    router.back();
+    if (!userId) return;
+    try {
+      await updateProfile(userId, {
+        displayName: displayName.trim(),
+        country: country.trim(),
+        website: website.trim() || undefined,
+        avatarUri: hasMockAvatar ? 'mock-avatar' : undefined,
+      });
+      router.back();
+    } catch {
+      Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
+    }
   }
 
   return (

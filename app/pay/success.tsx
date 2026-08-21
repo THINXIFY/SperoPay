@@ -35,7 +35,7 @@ export default function PaymentSuccessScreen() {
     );
   }
 
-  const businessName = profile.businessName?.trim() || profile.displayName || 'Spero merchant';
+  const businessName = profile?.businessName?.trim() || profile?.displayName || 'Spero merchant';
 
   function handleDone() {
     router.replace('/(app)/home');

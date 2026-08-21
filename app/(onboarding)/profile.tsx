@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,26 +15,32 @@ export default function ProfileSetupScreen() {
   const profile = useProfileStore((state) => state.profile);
   const updateProfile = useProfileStore((state) => state.updateProfile);
   const authFullName = useAuthStore((state) => state.user?.fullName);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const [hasMockAvatar, setHasMockAvatar] = useState(false);
-  const [displayName, setDisplayName] = useState(profile.displayName || authFullName || '');
-  const [businessName, setBusinessName] = useState(profile.businessName ?? '');
-  const [country, setCountry] = useState(profile.country);
-  const [website, setWebsite] = useState(profile.website ?? '');
+  const [displayName, setDisplayName] = useState(profile?.displayName || authFullName || '');
+  const [businessName, setBusinessName] = useState(profile?.businessName ?? '');
+  const [country, setCountry] = useState(profile?.country ?? '');
+  const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
 
-  function handleContinue() {
+  async function handleContinue() {
     if (displayName.trim().length === 0) {
       setError('Enter a display name');
       return;
     }
-    updateProfile({
-      displayName: displayName.trim(),
-      businessName: businessName.trim() || undefined,
-      country: country.trim(),
-      website: website.trim() || undefined,
-    });
-    router.push('/(onboarding)/wallet-setup');
+    if (!userId) return;
+    try {
+      await updateProfile(userId, {
+        displayName: displayName.trim(),
+        businessName: businessName.trim() || undefined,
+        country: country.trim(),
+        website: website.trim() || undefined,
+      });
+      router.push('/(onboarding)/wallet-setup');
+    } catch {
+      Alert.alert('Something went wrong', "We couldn't save that. Check your connection and try again.");
+    }
   }
 
   return (

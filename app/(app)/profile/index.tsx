@@ -98,12 +98,12 @@ export default function ProfileScreen() {
           <View style={styles.row}>
             <View style={[styles.avatar, { backgroundColor: colors.softMint, borderRadius: radius.full }]}>
               <Text style={[typography.h3, { color: colors.softMintText }]}>
-                {(profile.displayName || 'F').slice(0, 1).toUpperCase()}
+                {(profile?.displayName || 'F').slice(0, 1).toUpperCase()}
               </Text>
             </View>
             <View style={{ marginLeft: spacing.md }}>
               <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
-                {resolveDisplayName(profile.displayName, user?.fullName, user?.email) || 'Your Name'}
+                {resolveDisplayName(profile?.displayName, user?.fullName, user?.email) || 'Your Name'}
               </Text>
               <Text style={[typography.caption, { color: colors.textMuted }]}>{user?.email}</Text>
             </View>

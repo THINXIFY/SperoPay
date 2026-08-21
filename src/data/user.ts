@@ -13,6 +13,7 @@ export const mockProfile: Profile = {
   businessName: 'THINXIFY',
   country: 'United Arab Emirates',
   website: 'https://thinxify.app',
+  onboardingCompleted: true,
 };
 
 export const mockWallet: Wallet = {
