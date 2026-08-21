@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
+import { useAuthStore } from '../../src/store/authStore';
 
 export function WelcomeVisual() {
   const { colors, radius } = useTheme();
@@ -34,10 +36,33 @@ export function WelcomeVisual() {
 
 export default function WelcomeScreen() {
   const { colors, spacing, typography } = useTheme();
+  const sessionExpiredNotice = useAuthStore((state) => state.sessionExpiredNotice);
+  const clearSessionExpiredNotice = useAuthStore((state) => state.clearSessionExpiredNotice);
+  // Captured once so the banner doesn't disappear mid-render the instant the
+  // effect below clears the store flag for next time.
+  const [showSessionExpiredNotice] = useState(sessionExpiredNotice);
+
+  useEffect(() => {
+    if (sessionExpiredNotice) {
+      clearSessionExpiredNotice();
+    }
+    // Intentionally runs once on mount only.
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.content, { paddingHorizontal: spacing.xl }]}>
+        {showSessionExpiredNotice ? (
+          <Text
+            style={[
+              typography.bodySmall,
+              { color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
+            ]}
+          >
+            Your session has ended. Please sign in again.
+          </Text>
+        ) : null}
         <WelcomeVisual />
         <Text style={[typography.h1, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
           Stablecoin payments made simple.
