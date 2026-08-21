@@ -1,10 +1,10 @@
-import { buildPaymentRequest } from '../buildPaymentRequest';
+import { buildPaymentRequestPayload } from '../buildPaymentRequest';
 
-describe('buildPaymentRequest', () => {
+describe('buildPaymentRequestPayload', () => {
   const now = new Date('2026-08-18T12:00:00.000Z');
 
-  it('builds a pending request with computed fields', () => {
-    const request = buildPaymentRequest(
+  it('builds an insert payload with computed fields', () => {
+    const payload = buildPaymentRequestPayload(
       {
         amount: 750,
         description: 'Website design service',
@@ -15,29 +15,25 @@ describe('buildPaymentRequest', () => {
       now
     );
 
-    expect(request.amount).toBe(750);
-    expect(request.currency).toBe('USDC');
-    expect(request.network).toBe('Solana');
-    expect(request.description).toBe('Website design service');
-    expect(request.customerId).toBe('cust-john-doe');
-    expect(request.note).toBe('Thank you for your business!');
-    expect(request.status).toBe('pending');
-    expect(request.createdAt).toBe(now.toISOString());
-    expect(request.expiresAt).toBe('2026-08-25T12:00:00.000Z');
-    expect(request.paymentCode).toMatch(/^SP-[A-Z0-9]{5}$/);
-    expect(request.paymentLink).toBe(`https://pay.speropay.app/r/${request.id}`);
-    expect(request.id.length).toBeGreaterThan(0);
+    expect(payload.amount).toBe(750);
+    expect(payload.description).toBe('Website design service');
+    expect(payload.customerId).toBe('cust-john-doe');
+    expect(payload.note).toBe('Thank you for your business!');
+    expect(payload.expiresAt).toBe('2026-08-25T12:00:00.000Z');
+    expect(payload.paymentCode).toMatch(/^SP-[A-Z0-9]{5}$/);
   });
 
   it('supports "never" expiry and omits optional fields', () => {
-    const request = buildPaymentRequest(
-      { amount: 320, expiryOption: 'never' },
-      now
-    );
+    const payload = buildPaymentRequestPayload({ amount: 320, expiryOption: 'never' }, now);
 
-    expect(request.expiresAt).toBeNull();
-    expect(request.description).toBeUndefined();
-    expect(request.customerId).toBeUndefined();
-    expect(request.note).toBeUndefined();
+    expect(payload.expiresAt).toBeNull();
+    expect(payload.description).toBeUndefined();
+    expect(payload.customerId).toBeUndefined();
+    expect(payload.note).toBeUndefined();
+  });
+
+  it('builds paymentLink from paymentCode, not a client-generated id', () => {
+    const payload = buildPaymentRequestPayload({ amount: 100, expiryOption: '7d' }, now);
+    expect(payload.paymentLink).toBe(`https://pay.speropay.app/r/${payload.paymentCode}`);
   });
 });
