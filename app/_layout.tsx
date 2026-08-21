@@ -17,11 +17,11 @@ import { useTheme } from '../src/theme/useTheme';
 import { initializeAuthListener, useAuthStore } from '../src/store/authStore';
 import { useProfileStore } from '../src/store/profileStore';
 import { useWalletStore } from '../src/store/walletStore';
+import { useCustomerStore } from '../src/store/customerStore';
 import { resetAllUserData } from '../src/store/dataLifecycle';
-// Task 9-11 add useCustomerStore/useTemplateStore/useRequestStore/
-// useRequestEventStore/useTransactionStore imports here, and their
-// loadForUser(userId) calls alongside profile/wallet's below, as each store
-// is migrated.
+// Task 10-11 add useTemplateStore/useRequestStore/useRequestEventStore/
+// useTransactionStore imports here, and their loadForUser(userId) calls
+// alongside profile/wallet/customers' below, as each store is migrated.
 
 SplashScreen.preventAutoHideAsync();
 
@@ -84,6 +84,7 @@ export default function RootLayout() {
     lastLoadedUserId.current = userId;
     useProfileStore.getState().loadForUser(userId, fullName);
     useWalletStore.getState().loadForUser(userId);
+    useCustomerStore.getState().loadForUser(userId);
   }, [authHasHydrated, userId, fullName]);
 
   if (!fontsLoaded) {

@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
+import { registerResettable } from './dataLifecycle';
+import { getDataErrorMessage } from '../utils/getDataErrorMessage';
 import type { Customer } from '../types';
-import { mockCustomers } from '../data/customers';
-import { generateId } from '../utils/ids';
+
+type Status = 'idle' | 'loading' | 'loaded' | 'error';
 
 export interface AddCustomerInput {
   name: string;
@@ -14,35 +15,96 @@ export interface AddCustomerInput {
 
 interface CustomerState {
   customers: Customer[];
-  addCustomer: (input: AddCustomerInput) => Customer;
-  updateCustomer: (id: string, patch: Partial<Omit<Customer, 'id'>>) => void;
+  status: Status;
+  error: string | null;
+  loadForUser: (userId: string) => Promise<void>;
+  addCustomer: (userId: string, input: AddCustomerInput) => Promise<Customer>;
+  updateCustomer: (userId: string, id: string, patch: Partial<Omit<Customer, 'id'>>) => Promise<void>;
   getCustomerById: (id: string) => Customer | undefined;
+  reset: () => void;
 }
 
 const AVATAR_COLORS: Customer['avatarColor'][] = ['mint', 'lavender', 'blue', 'red'];
 
-export const useCustomerStore = create<CustomerState>()(
-  persist(
-    (set, get) => ({
-      customers: mockCustomers,
-      addCustomer: (input) => {
-        const customer: Customer = {
-          id: generateId(),
-          name: input.name,
-          email: input.email,
-          company: input.company,
-          notes: input.notes,
-          avatarColor: AVATAR_COLORS[get().customers.length % AVATAR_COLORS.length],
-        };
-        set((state) => ({ customers: [customer, ...state.customers] }));
-        return customer;
-      },
-      updateCustomer: (id, patch) =>
-        set((state) => ({
-          customers: state.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        })),
-      getCustomerById: (id) => get().customers.find((c) => c.id === id),
-    }),
-    { name: 'speropay/customers', storage: createJSONStorage(() => AsyncStorage) }
-  )
-);
+function mapRow(row: {
+  id: string;
+  name: string;
+  email: string;
+  avatar_color: Customer['avatarColor'];
+  company: string | null;
+  notes: string | null;
+}): Customer {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    avatarColor: row.avatar_color,
+    company: row.company ?? undefined,
+    notes: row.notes ?? undefined,
+  };
+}
+
+export const useCustomerStore = create<CustomerState>()((set, get) => ({
+  customers: [],
+  status: 'idle',
+  error: null,
+
+  loadForUser: async (userId) => {
+    set({ status: 'loading', error: null });
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      set({ customers: (data ?? []).map(mapRow), status: 'loaded' });
+    } catch (error) {
+      set({ status: 'error', error: getDataErrorMessage(error, 'customers') });
+    }
+  },
+
+  addCustomer: async (userId, input) => {
+    const avatarColor = AVATAR_COLORS[get().customers.length % AVATAR_COLORS.length];
+    const { data, error } = await supabase
+      .from('customers')
+      .insert({
+        user_id: userId,
+        name: input.name,
+        email: input.email,
+        company: input.company ?? null,
+        notes: input.notes ?? null,
+        avatar_color: avatarColor,
+      })
+      .select('*')
+      .single();
+    if (error) {
+      set({ error: getDataErrorMessage(error, 'customers', 'save') });
+      throw error;
+    }
+    const customer = mapRow(data);
+    set((state) => ({ customers: [customer, ...state.customers] }));
+    return customer;
+  },
+
+  updateCustomer: async (userId, id, patch) => {
+    const dbPatch: Record<string, unknown> = {};
+    if ('name' in patch) dbPatch.name = patch.name;
+    if ('email' in patch) dbPatch.email = patch.email;
+    if ('company' in patch) dbPatch.company = patch.company ?? null;
+    if ('notes' in patch) dbPatch.notes = patch.notes ?? null;
+
+    const { error } = await supabase.from('customers').update(dbPatch).eq('id', id).eq('user_id', userId);
+    if (error) {
+      set({ error: getDataErrorMessage(error, 'customers', 'save') });
+      throw error;
+    }
+    set((state) => ({ customers: state.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  },
+
+  getCustomerById: (id) => get().customers.find((c) => c.id === id),
+
+  reset: () => set({ customers: [], status: 'idle', error: null }),
+}));
+
+registerResettable(() => useCustomerStore.getState().reset());

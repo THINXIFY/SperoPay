@@ -17,6 +17,7 @@ import { useRequestStore } from '../../../src/store/requestStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
@@ -31,6 +32,7 @@ export default function CustomerDetailScreen() {
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const history = useMemo(
     () =>
@@ -75,20 +77,25 @@ export default function CustomerDetailScreen() {
     editSheetRef.current?.expand();
   }
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     const nameError = editName.trim().length === 0 ? 'Enter a name' : undefined;
     const emailError = !isValidEmail(editEmail) ? 'Enter a valid email' : undefined;
     setEditNameError(nameError);
     setEditEmailError(emailError);
-    if (nameError || emailError) return;
+    if (nameError || emailError || !userId) return;
 
-    updateCustomer(customerId, {
-      name: editName.trim(),
-      email: editEmail.trim(),
-      company: editCompany.trim() || undefined,
-      notes: editNotes.trim() || undefined,
-    });
-    editSheetRef.current?.close();
+    try {
+      await updateCustomer(userId, customerId, {
+        name: editName.trim(),
+        email: editEmail.trim(),
+        company: editCompany.trim() || undefined,
+        notes: editNotes.trim() || undefined,
+      });
+      editSheetRef.current?.close();
+    } catch {
+      // updateCustomer already set a calm store-level error; keep the sheet
+      // open with the entered values intact so the user can retry.
+    }
   }
 
   return (

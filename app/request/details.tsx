@@ -13,6 +13,7 @@ import { CustomerAvatar } from '../../src/components/CustomerAvatar';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail } from '../../src/utils/validators';
 import type { ExpiryOption } from '../../src/types';
 
@@ -41,6 +42,7 @@ export default function DetailsScreen() {
   const addCustomer = useCustomerStore((state) => state.addCustomer);
   const createRequest = useRequestStore((state) => state.createRequest);
   const isCreating = useRequestStore((state) => state.isCreating);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const customerSheetRef = useRef<BottomSheet>(null);
   const expirySheetRef = useRef<BottomSheet>(null);
@@ -58,26 +60,31 @@ export default function DetailsScreen() {
     customerSheetRef.current?.close();
   }
 
-  function handleAddCustomer() {
+  async function handleAddCustomer() {
     const nextNameError = newCustomerName.trim().length === 0 ? 'Enter a name' : undefined;
     const nextEmailError = !isValidEmail(newCustomerEmail) ? 'Enter a valid email' : undefined;
     setNewCustomerNameError(nextNameError);
     setNewCustomerEmailError(nextEmailError);
-    if (nextNameError || nextEmailError) return;
+    if (nextNameError || nextEmailError || !userId) return;
 
-    const customer = addCustomer({ name: newCustomerName.trim(), email: newCustomerEmail.trim() });
-    setCustomerId(customer.id);
-    setNewCustomerName('');
-    setNewCustomerEmail('');
-    setNewCustomerNameError(undefined);
-    setNewCustomerEmailError(undefined);
-    setIsAddingCustomer(false);
-    customerSheetRef.current?.close();
+    try {
+      const customer = await addCustomer(userId, { name: newCustomerName.trim(), email: newCustomerEmail.trim() });
+      setCustomerId(customer.id);
+      setNewCustomerName('');
+      setNewCustomerEmail('');
+      setNewCustomerNameError(undefined);
+      setNewCustomerEmailError(undefined);
+      setIsAddingCustomer(false);
+      customerSheetRef.current?.close();
+    } catch {
+      // addCustomer already set a calm store-level error; the sheet stays
+      // open with the entered values intact so the user can retry.
+    }
   }
 
   async function handleCreateRequest() {
-    if (isCreating) return;
-    const request = await createRequest({
+    if (isCreating || !userId) return;
+    const request = await createRequest(userId, {
       amount: Number(amount),
       description: description.trim() || undefined,
       customerId,

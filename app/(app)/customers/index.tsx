@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -12,6 +12,7 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { isValidEmail } from '../../../src/utils/validators';
@@ -20,7 +21,10 @@ export default function CustomersScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
+  const status = useCustomerStore((state) => state.status);
+  const error = useCustomerStore((state) => state.error);
   const requests = useRequestStore((state) => state.requests);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const sheetRef = useRef<BottomSheet>(null);
   const [query, setQuery] = useState('');
@@ -38,20 +42,25 @@ export default function CustomersScreen() {
     );
   }, [customers, query]);
 
-  function handleAdd() {
+  async function handleAdd() {
     const nextNameError = name.trim().length === 0 ? 'Enter a name' : undefined;
     const nextEmailError = !isValidEmail(email) ? 'Enter a valid email' : undefined;
     setNameError(nextNameError);
     setEmailError(nextEmailError);
-    if (nextNameError || nextEmailError) return;
+    if (nextNameError || nextEmailError || !userId) return;
 
-    addCustomer({ name: name.trim(), email: email.trim(), company: company.trim() || undefined });
-    setName('');
-    setEmail('');
-    setCompany('');
-    setNameError(undefined);
-    setEmailError(undefined);
-    sheetRef.current?.close();
+    try {
+      await addCustomer(userId, { name: name.trim(), email: email.trim(), company: company.trim() || undefined });
+      setName('');
+      setEmail('');
+      setCompany('');
+      setNameError(undefined);
+      setEmailError(undefined);
+      sheetRef.current?.close();
+    } catch {
+      // addCustomer already set a calm store-level error; the bottom sheet
+      // stays open with the entered values intact so the user can retry.
+    }
   }
 
   return (
@@ -92,13 +101,23 @@ export default function CustomersScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.base }}
         ListEmptyComponent={
-          <EmptyState
-            icon="people-outline"
-            title={query.length > 0 ? 'No matching customers' : 'No customers yet'}
-            description={
-              query.length > 0 ? 'Try a different search term.' : 'Add a customer to start requesting payments from them.'
-            }
-          />
+          status === 'loading' ? (
+            <ActivityIndicator color={colors.primaryAction} style={{ marginTop: spacing.xl }} />
+          ) : status === 'error' ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Couldn't load customers"
+              description={error ?? 'Something went wrong. Pull to refresh or try again.'}
+            />
+          ) : (
+            <EmptyState
+              icon="people-outline"
+              title={query.length > 0 ? 'No matching customers' : 'No customers yet'}
+              description={
+                query.length > 0 ? 'Try a different search term.' : 'Add a customer to start requesting payments from them.'
+              }
+            />
+          )
         }
         renderItem={({ item }) => {
           const stats = getCustomerStats(item.id, requests);
