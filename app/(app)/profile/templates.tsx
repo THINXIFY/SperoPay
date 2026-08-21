@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -12,6 +12,7 @@ import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { useTemplateStore } from '../../../src/store/templateStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
+import { useAuthStore } from '../../../src/store/authStore';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { isValidAmount } from '../../../src/utils/validators';
 import type { ExpiryOption, Template } from '../../../src/types';
@@ -29,7 +30,10 @@ export default function TemplatesScreen() {
   const addTemplate = useTemplateStore((state) => state.addTemplate);
   const updateTemplate = useTemplateStore((state) => state.updateTemplate);
   const deleteTemplate = useTemplateStore((state) => state.deleteTemplate);
+  const status = useTemplateStore((state) => state.status);
+  const listError = useTemplateStore((state) => state.error);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
+  const userId = useAuthStore((state) => state.user?.id);
 
   const formSheetRef = useRef<BottomSheet>(null);
   const expirySheetRef = useRef<BottomSheet>(null);
@@ -60,28 +64,34 @@ export default function TemplatesScreen() {
     formSheetRef.current?.expand();
   }
 
-  function handleSave() {
+  async function handleSave() {
     const numericAmount = Number(amount);
     if (name.trim().length === 0 || !isValidAmount(numericAmount)) {
       setError('Enter a name and a valid amount');
       return;
     }
+    if (!userId) return;
     const input = {
       name: name.trim(),
       amount: numericAmount,
       description: description.trim() || undefined,
       expiryOption,
     };
-    if (editingId) {
-      updateTemplate(editingId, input);
-    } else {
-      addTemplate(input);
+    try {
+      if (editingId) {
+        await updateTemplate(userId, editingId, input);
+      } else {
+        await addTemplate(userId, input);
+      }
+      formSheetRef.current?.close();
+    } catch {
+      setError("We couldn't save this template. Try again.");
     }
-    formSheetRef.current?.close();
   }
 
-  function handleDelete(id: string) {
-    deleteTemplate(id);
+  async function handleDelete(id: string) {
+    if (!userId) return;
+    await deleteTemplate(userId, id).catch(() => {});
   }
 
   function handleUseTemplate(template: Template) {
@@ -103,11 +113,21 @@ export default function TemplatesScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
         ListEmptyComponent={
-          <EmptyState
-            icon="copy-outline"
-            title="No templates yet"
-            description="Create a template for payments you request often, like a fixed-price service."
-          />
+          status === 'loading' ? (
+            <ActivityIndicator color={colors.primaryAction} style={{ marginTop: spacing.xl }} />
+          ) : status === 'error' ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Couldn't load templates"
+              description={listError ?? 'Something went wrong. Try again.'}
+            />
+          ) : (
+            <EmptyState
+              icon="copy-outline"
+              title="No templates yet"
+              description="Create a template for payments you request often, like a fixed-price service."
+            />
+          )
         }
         renderItem={({ item }) => (
           <Pressable
