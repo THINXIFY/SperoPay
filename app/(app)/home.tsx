@@ -15,7 +15,9 @@ import { useCustomerStore } from '../../src/store/customerStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../src/store/paymentDefaultsStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { resolveDisplayName } from '../../src/utils/resolveDisplayName';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -70,6 +72,7 @@ export default function HomeScreen() {
   const transactions = useTransactionStore((state) => state.transactions);
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
+  const authUser = useAuthStore((state) => state.user);
 
   const paidRequests = useMemo(() => requests.filter((r) => r.status === 'paid'), [requests]);
   const pendingRequests = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
@@ -103,7 +106,9 @@ export default function HomeScreen() {
     [requests, transactions]
   );
 
-  const firstName = (profile.displayName || 'there').split(' ')[0];
+  const firstName = (resolveDisplayName(profile.displayName, authUser?.fullName, authUser?.email) || 'there').split(
+    ' '
+  )[0];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>

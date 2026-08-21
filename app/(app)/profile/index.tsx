@@ -11,6 +11,7 @@ import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useThemeStore } from '../../../src/store/themeStore';
 import { useWalletStore } from '../../../src/store/walletStore';
+import { resolveDisplayName } from '../../../src/utils/resolveDisplayName';
 import type { ThemePreference } from '../../../src/types';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
             </View>
             <View style={{ marginLeft: spacing.md }}>
               <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
-                {profile.displayName || 'Your Name'}
+                {resolveDisplayName(profile.displayName, user?.fullName, user?.email) || 'Your Name'}
               </Text>
               <Text style={[typography.caption, { color: colors.textMuted }]}>{user?.email}</Text>
             </View>
