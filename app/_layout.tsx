@@ -27,7 +27,6 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
-        <Stack.Screen name="auth" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(app)" />
         <Stack.Screen name="request" options={{ presentation: 'modal' }} />
