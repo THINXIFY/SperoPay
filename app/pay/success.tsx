@@ -64,9 +64,6 @@ export default function PaymentSuccessScreen() {
         <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md }]}>
           {request.amount} {request.currency}
         </Text>
-        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'center' }]}>
-          Paid to {businessName}.
-        </Text>
 
         <ThemeAwareCard style={{ width: '100%', marginTop: spacing.xl }}>
           <View>

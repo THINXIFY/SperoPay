@@ -51,6 +51,7 @@ export default function DetailsScreen() {
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerNameError, setNewCustomerNameError] = useState<string | undefined>();
   const [newCustomerEmailError, setNewCustomerEmailError] = useState<string | undefined>();
+  const [isSavingNewCustomer, setIsSavingNewCustomer] = useState(false);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const expiryLabel = EXPIRY_OPTIONS.find((opt) => opt.value === expiryOption)?.label ?? '7 days';
@@ -61,12 +62,14 @@ export default function DetailsScreen() {
   }
 
   async function handleAddCustomer() {
+    if (isSavingNewCustomer) return;
     const nextNameError = newCustomerName.trim().length === 0 ? 'Enter a name' : undefined;
     const nextEmailError = !isValidEmail(newCustomerEmail) ? 'Enter a valid email' : undefined;
     setNewCustomerNameError(nextNameError);
     setNewCustomerEmailError(nextEmailError);
     if (nextNameError || nextEmailError || !userId) return;
 
+    setIsSavingNewCustomer(true);
     try {
       const customer = await addCustomer(userId, { name: newCustomerName.trim(), email: newCustomerEmail.trim() });
       setCustomerId(customer.id);
@@ -79,6 +82,8 @@ export default function DetailsScreen() {
     } catch {
       // addCustomer already set a calm store-level error; the sheet stays
       // open with the entered values intact so the user can retry.
+    } finally {
+      setIsSavingNewCustomer(false);
     }
   }
 
@@ -221,7 +226,7 @@ export default function DetailsScreen() {
               returnKeyType="done"
               onSubmitEditing={handleAddCustomer}
             />
-            <PrimaryButton label="Add Customer" onPress={handleAddCustomer} />
+            <PrimaryButton label="Add Customer" onPress={handleAddCustomer} loading={isSavingNewCustomer} />
           </>
         ) : (
           <>

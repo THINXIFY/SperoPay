@@ -6,16 +6,22 @@ import { formatCurrency } from '../utils/formatCurrency';
 import type { PaymentRequestStatus } from '../types';
 
 interface RequestCardProps {
+  id: string;
   title: string;
   description?: string;
   amount: number;
   currency: string;
   status: PaymentRequestStatus;
   dateLabel: string;
-  onPress?: () => void;
+  // Takes the row's id rather than a bare callback so callers can pass a
+  // single stable function (defined once, outside the list) instead of a
+  // fresh closure per row per render — otherwise React.memo below never
+  // skips a re-render, since a new onPress reference always compares unequal.
+  onPress?: (id: string) => void;
 }
 
 export const RequestCard = React.memo(function RequestCard({
+  id,
   title,
   description,
   amount,
@@ -28,7 +34,7 @@ export const RequestCard = React.memo(function RequestCard({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress?.(id)}
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${formatCurrency(amount)} ${currency}, ${status}`}
       style={({ pressed }) => [

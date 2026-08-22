@@ -60,12 +60,13 @@ export default function CustomerDetailScreen() {
   const renderHistoryRow = useCallback(
     ({ item }: { item: PaymentRequest }) => (
       <RequestCard
+        id={item.id}
         title={item.description || item.paymentCode}
         amount={item.amount}
         currency={item.currency}
         status={item.status}
         dateLabel={getDateLabel(item, transactionByRequestId.get(item.id))}
-        onPress={() => handleHistoryRowPress(item.id)}
+        onPress={handleHistoryRowPress}
       />
     ),
     [transactionByRequestId, handleHistoryRowPress]
@@ -184,7 +185,7 @@ export default function CustomerDetailScreen() {
         }
         renderItem={renderHistoryRow}
       />
-      <AppBottomSheet ref={editSheetRef}>
+      <AppBottomSheet ref={editSheetRef} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
         <TextField
           label="Name"

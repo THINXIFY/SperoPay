@@ -31,10 +31,7 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
   const { colors, spacing, typography } = useTheme();
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.row,
-        { borderBottomColor: colors.border, paddingVertical: spacing.sm, opacity: pressed ? 0.7 : 1 },
-      ]}
+      style={({ pressed }) => [styles.row, { paddingVertical: spacing.sm, opacity: pressed ? 0.7 : 1 }]}
       onPress={() => onPress(customer.id)}
     >
       <CustomerAvatar name={customer.name} color={customer.avatarColor} size={32} />
@@ -72,6 +69,7 @@ export default function CustomersScreen() {
   const [company, setCompany] = useState('');
   const [nameError, setNameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
+  const [isAdding, setIsAdding] = useState(false);
 
   const filtered = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -104,12 +102,14 @@ export default function CustomersScreen() {
   );
 
   async function handleAdd() {
+    if (isAdding) return;
     const nextNameError = name.trim().length === 0 ? 'Enter a name' : undefined;
     const nextEmailError = !isValidEmail(email) ? 'Enter a valid email' : undefined;
     setNameError(nextNameError);
     setEmailError(nextEmailError);
     if (nextNameError || nextEmailError || !userId) return;
 
+    setIsAdding(true);
     try {
       await addCustomer(userId, { name: name.trim(), email: email.trim(), company: company.trim() || undefined });
       setName('');
@@ -121,6 +121,8 @@ export default function CustomersScreen() {
     } catch {
       // addCustomer already set a calm store-level error; the bottom sheet
       // stays open with the entered values intact so the user can retry.
+    } finally {
+      setIsAdding(false);
     }
   }
 
@@ -163,22 +165,23 @@ export default function CustomersScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.base }}
+        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
         ListEmptyComponent={
           status === 'loading' ? (
             <View style={{ marginTop: spacing.sm }}>
               {[0, 1, 2, 3, 4].map((i) => (
-                <View
-                  key={i}
-                  style={[styles.row, { borderBottomColor: colors.border, paddingVertical: spacing.sm }]}
-                >
-                  <SkeletonLoader width={32} height={32} style={{ borderRadius: radius.full }} />
-                  <View style={{ marginLeft: spacing.md, flex: 1, gap: spacing.xs }}>
-                    <SkeletonLoader width="55%" height={14} />
-                    <SkeletonLoader width="35%" height={11} />
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
-                    <SkeletonLoader width={60} height={11} />
-                    <SkeletonLoader width={50} height={14} />
+                <View key={i}>
+                  {i > 0 ? <View style={{ height: 1, backgroundColor: colors.border }} /> : null}
+                  <View style={[styles.row, { paddingVertical: spacing.sm }]}>
+                    <SkeletonLoader width={32} height={32} style={{ borderRadius: radius.full }} />
+                    <View style={{ marginLeft: spacing.md, flex: 1, gap: spacing.xs }}>
+                      <SkeletonLoader width="55%" height={14} />
+                      <SkeletonLoader width="35%" height={11} />
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
+                      <SkeletonLoader width={60} height={11} />
+                      <SkeletonLoader width={50} height={14} />
+                    </View>
                   </View>
                 </View>
               ))}
@@ -221,7 +224,7 @@ export default function CustomersScreen() {
           returnKeyType="done"
           onSubmitEditing={handleAdd}
         />
-        <PrimaryButton label="Add Customer" onPress={handleAdd} />
+        <PrimaryButton label="Add Customer" onPress={handleAdd} loading={isAdding} />
       </AppBottomSheet>
     </SafeAreaView>
   );
@@ -231,5 +234,5 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   addButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   searchRow: { flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, paddingHorizontal: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
+  row: { flexDirection: 'row', alignItems: 'center' },
 });

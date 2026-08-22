@@ -1,6 +1,5 @@
 import React, { forwardRef, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetView,
@@ -20,12 +19,16 @@ interface AppBottomSheetProps extends Partial<BottomSheetProps> {
 export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
   ({ children, scrollable, ...rest }, ref) => {
     const { colors, spacing, radius } = useTheme();
-    const insets = useSafeAreaInsets();
     const snapPoints = useMemo(() => ['40%', '70%'], []);
-    const contentPadding = {
-      paddingHorizontal: spacing.base,
-      paddingBottom: Math.max(spacing.xl, insets.bottom + spacing.base),
-    };
+    // Not adding useSafeAreaInsets() here: every screen that hosts a sheet
+    // already wraps its content in a SafeAreaView with edges including
+    // 'bottom' (or, for tab-root screens, the tab bar itself already
+    // applies the inset) — adding it again here double-counted the inset
+    // on top of an already-inset container.
+    const contentPadding = useMemo(
+      () => ({ paddingHorizontal: spacing.base, paddingBottom: spacing.xl }),
+      [spacing.base, spacing.xl]
+    );
 
     return (
       <BottomSheet
@@ -36,6 +39,9 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
         // measures content and fights with the explicit snapPoints above —
         // the sheet ends up rendering at its measured content height instead
         // of the intended 40%/70% snap, appearing partially opened/clipped.
+        // With this off, .expand() is capped at the highest fixed snap point
+        // (70%), so any consumer whose content can exceed that MUST pass
+        // `scrollable` — it won't auto-grow past 70% anymore.
         enableDynamicSizing={false}
         enablePanDownToClose
         backgroundStyle={{ backgroundColor: colors.surface, borderRadius: radius.xl }}
@@ -46,7 +52,10 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
         {...rest}
       >
         {scrollable ? (
-          <BottomSheetScrollView contentContainerStyle={[styles.contentContainer, contentPadding]}>
+          <BottomSheetScrollView
+            contentContainerStyle={[styles.contentContainer, contentPadding]}
+            keyboardShouldPersistTaps="handled"
+          >
             {children}
           </BottomSheetScrollView>
         ) : (

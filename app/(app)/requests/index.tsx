@@ -77,13 +77,14 @@ export default function RequestsScreen() {
       const transaction = transactionByRequestId.get(item.id);
       return (
         <RequestCard
+          id={item.id}
           title={customer?.name ?? 'No customer'}
           description={item.description}
           amount={item.amount}
           currency={item.currency}
           status={item.status}
           dateLabel={getDateLabel(item, transaction)}
-          onPress={() => handleRequestPress(item.id)}
+          onPress={handleRequestPress}
         />
       );
     },

@@ -168,7 +168,7 @@ export default function TemplatesScreen() {
         )}
       />
 
-      <AppBottomSheet ref={formSheetRef}>
+      <AppBottomSheet ref={formSheetRef} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>
           {editingId ? 'Edit Template' : 'New Template'}
         </Text>

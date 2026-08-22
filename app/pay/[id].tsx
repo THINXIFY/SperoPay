@@ -174,7 +174,7 @@ export default function PublicPaymentScreen() {
         ) : null}
       </ScrollView>
 
-      <AppBottomSheet ref={qrSheetRef}>
+      <AppBottomSheet ref={qrSheetRef} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' }]}>
           Scan to Pay
         </Text>
