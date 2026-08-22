@@ -1,12 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
-import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
+import { StatTile } from '../../../src/components/StatTile';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -22,9 +22,14 @@ import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
 import { isValidEmail } from '../../../src/utils/validators';
+import type { PaymentRequest } from '../../../src/types';
+
+const NARROW_SCREEN_WIDTH = 360;
 
 export default function CustomerDetailScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < NARROW_SCREEN_WIDTH;
   const { id } = useLocalSearchParams<{ id: string }>();
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === id));
   const requests = useRequestStore((state) => state.requests);
@@ -42,6 +47,30 @@ export default function CustomerDetailScreen() {
     [requests, id]
   );
 
+  const transactionByRequestId = useMemo(() => {
+    const map = new Map<string, (typeof transactions)[number]>();
+    for (const transaction of transactions) map.set(transaction.requestId, transaction);
+    return map;
+  }, [transactions]);
+
+  const handleHistoryRowPress = useCallback((requestId: string) => {
+    router.push(`/(app)/requests/${requestId}`);
+  }, []);
+
+  const renderHistoryRow = useCallback(
+    ({ item }: { item: PaymentRequest }) => (
+      <RequestCard
+        title={item.description || item.paymentCode}
+        amount={item.amount}
+        currency={item.currency}
+        status={item.status}
+        dateLabel={getDateLabel(item, transactionByRequestId.get(item.id))}
+        onPress={() => handleHistoryRowPress(item.id)}
+      />
+    ),
+    [transactionByRequestId, handleHistoryRowPress]
+  );
+
   const editSheetRef = useRef<BottomSheet>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -49,6 +78,7 @@ export default function CustomerDetailScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [editNameError, setEditNameError] = useState<string | undefined>();
   const [editEmailError, setEditEmailError] = useState<string | undefined>();
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   if (!customer) {
     return (
@@ -78,12 +108,14 @@ export default function CustomerDetailScreen() {
   }
 
   async function handleSaveEdit() {
+    if (isSavingEdit) return;
     const nameError = editName.trim().length === 0 ? 'Enter a name' : undefined;
     const emailError = !isValidEmail(editEmail) ? 'Enter a valid email' : undefined;
     setEditNameError(nameError);
     setEditEmailError(emailError);
     if (nameError || emailError || !userId) return;
 
+    setIsSavingEdit(true);
     try {
       await updateCustomer(userId, customerId, {
         name: editName.trim(),
@@ -95,6 +127,8 @@ export default function CustomerDetailScreen() {
     } catch {
       // updateCustomer already set a calm store-level error; keep the sheet
       // open with the entered values intact so the user can retry.
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -118,25 +152,22 @@ export default function CustomerDetailScreen() {
               </View>
             </View>
 
-            <View style={[styles.statsRow, { marginTop: spacing.xl, gap: spacing.md }]}>
-              <ThemeAwareCard style={{ flex: 1 }}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Total Received</Text>
-                <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]}>
-                  {formatCurrency(stats.totalReceived)}
-                </Text>
-              </ThemeAwareCard>
-              <ThemeAwareCard style={{ flex: 1 }}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Payments</Text>
-                <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]}>
-                  {stats.totalRequests}
-                </Text>
-              </ThemeAwareCard>
-              <ThemeAwareCard style={{ flex: 1 }}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Outstanding</Text>
-                <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]}>
-                  {formatCurrency(stats.outstanding)}
-                </Text>
-              </ThemeAwareCard>
+            <View style={[styles.statsRow, { marginTop: spacing.lg, gap: spacing.sm }]}>
+              <StatTile
+                label="Total Received"
+                value={formatCurrency(stats.totalReceived)}
+                style={isNarrow ? { width: '48%' } : { flex: 1 }}
+              />
+              <StatTile
+                label="Payments"
+                value={String(stats.totalRequests)}
+                style={isNarrow ? { width: '48%' } : { flex: 1 }}
+              />
+              <StatTile
+                label="Outstanding"
+                value={formatCurrency(stats.outstanding)}
+                style={isNarrow ? { width: '100%' } : { flex: 1 }}
+              />
             </View>
 
             <View style={{ marginTop: spacing.xl }}>
@@ -151,19 +182,7 @@ export default function CustomerDetailScreen() {
         ListEmptyComponent={
           <EmptyState icon="document-text-outline" title="No requests yet" description="Requests sent to this customer will show up here." />
         }
-        renderItem={({ item }) => {
-          const transaction = transactions.find((t) => t.requestId === item.id);
-          return (
-            <RequestCard
-              title={item.description || item.paymentCode}
-              amount={item.amount}
-              currency={item.currency}
-              status={item.status}
-              dateLabel={getDateLabel(item, transaction)}
-              onPress={() => router.push(`/(app)/requests/${item.id}`)}
-            />
-          );
-        }}
+        renderItem={renderHistoryRow}
       />
       <AppBottomSheet ref={editSheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
@@ -178,7 +197,7 @@ export default function CustomerDetailScreen() {
         />
         <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} />
         <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
-        <PrimaryButton label="Save Changes" onPress={handleSaveEdit} />
+        <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
       </AppBottomSheet>
     </SafeAreaView>
   );
@@ -186,5 +205,5 @@ export default function CustomerDetailScreen() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center' },
-  statsRow: { flexDirection: 'row' },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
 });
