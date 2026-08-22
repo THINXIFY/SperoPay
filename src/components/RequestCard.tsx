@@ -15,7 +15,15 @@ interface RequestCardProps {
   onPress?: () => void;
 }
 
-export function RequestCard({ title, description, amount, currency, status, dateLabel, onPress }: RequestCardProps) {
+export const RequestCard = React.memo(function RequestCard({
+  title,
+  description,
+  amount,
+  currency,
+  status,
+  dateLabel,
+  onPress,
+}: RequestCardProps) {
   const { colors, spacing, radius, typography } = useTheme();
 
   return (
@@ -51,7 +59,7 @@ export function RequestCard({ title, description, amount, currency, status, date
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1 },

@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
-import type { PaymentRequestStatus } from '../../../src/types';
+import type { PaymentRequest, PaymentRequestStatus } from '../../../src/types';
 
 type Filter = 'all' | PaymentRequestStatus;
 
@@ -52,6 +53,43 @@ export default function RequestsScreen() {
     });
   }, [requests, customers, filter, query]);
 
+  // Precomputed once instead of customers.find(...)/transactions.find(...)
+  // running fresh inside renderItem for every visible row on every render.
+  const customerById = useMemo(() => {
+    const map = new Map<string, (typeof customers)[number]>();
+    for (const customer of customers) map.set(customer.id, customer);
+    return map;
+  }, [customers]);
+
+  const transactionByRequestId = useMemo(() => {
+    const map = new Map<string, (typeof transactions)[number]>();
+    for (const transaction of transactions) map.set(transaction.requestId, transaction);
+    return map;
+  }, [transactions]);
+
+  const handleRequestPress = useCallback((id: string) => {
+    router.push(`/(app)/requests/${id}`);
+  }, []);
+
+  const renderRequestRow = useCallback(
+    ({ item }: { item: PaymentRequest }) => {
+      const customer = customerById.get(item.customerId ?? '');
+      const transaction = transactionByRequestId.get(item.id);
+      return (
+        <RequestCard
+          title={customer?.name ?? 'No customer'}
+          description={item.description}
+          amount={item.amount}
+          currency={item.currency}
+          status={item.status}
+          dateLabel={getDateLabel(item, transaction)}
+          onPress={() => handleRequestPress(item.id)}
+        />
+      );
+    },
+    [customerById, transactionByRequestId, handleRequestPress]
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md }}>
@@ -73,7 +111,12 @@ export default function RequestsScreen() {
             accessibilityLabel="Search requests"
           />
           {query.length > 0 ? (
-            <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Clear search">
+            <Pressable
+              onPress={() => setQuery('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+            >
               <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </Pressable>
           ) : null}
@@ -111,7 +154,27 @@ export default function RequestsScreen() {
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
         ListEmptyComponent={
           status === 'loading' ? (
-            <ActivityIndicator color={colors.primaryAction} style={{ marginTop: spacing.xl }} />
+            <View style={{ gap: spacing.md }}>
+              {[0, 1, 2, 3].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    borderRadius: radius.lg,
+                    padding: spacing.base,
+                    gap: spacing.sm,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <SkeletonLoader width="40%" height={16} />
+                    <SkeletonLoader width={70} height={16} />
+                  </View>
+                  <SkeletonLoader width="55%" height={12} />
+                </View>
+              ))}
+            </View>
           ) : status === 'error' ? (
             <EmptyState
               icon="alert-circle-outline"
@@ -130,21 +193,7 @@ export default function RequestsScreen() {
             />
           )
         }
-        renderItem={({ item }) => {
-          const customer = customers.find((c) => c.id === item.customerId);
-          const transaction = transactions.find((t) => t.requestId === item.id);
-          return (
-            <RequestCard
-              title={customer?.name ?? 'No customer'}
-              description={item.description}
-              amount={item.amount}
-              currency={item.currency}
-              status={item.status}
-              dateLabel={getDateLabel(item, transaction)}
-              onPress={() => router.push(`/(app)/requests/${item.id}`)}
-            />
-          );
-        }}
+        renderItem={renderRequestRow}
       />
     </SafeAreaView>
   );
