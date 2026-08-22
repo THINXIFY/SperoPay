@@ -19,6 +19,12 @@
 -- payment_requests.user_id directly, never request_events/transactions, so
 -- this EXISTS subquery can't cycle back into itself.
 --
+-- Column references in the EXISTS subqueries are explicitly table-qualified
+-- (request_events.payment_request_id / transactions.payment_request_id)
+-- rather than left bare — bare references still resolve correctly today,
+-- but only because payment_requests happens not to have a column of that
+-- name; qualifying removes that implicit dependency.
+--
 -- Every policy is dropped before being (re)created so this migration can be
 -- pasted more than once without erroring on "policy already exists".
 
@@ -29,7 +35,7 @@ create policy "request_events_insert_own" on public.request_events
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = request_events.payment_request_id and pr.user_id = auth.uid()
     )
   );
 
@@ -40,14 +46,14 @@ create policy "request_events_update_own" on public.request_events
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = request_events.payment_request_id and pr.user_id = auth.uid()
     )
   )
   with check (
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = request_events.payment_request_id and pr.user_id = auth.uid()
     )
   );
 
@@ -58,7 +64,7 @@ create policy "transactions_insert_own" on public.transactions
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = transactions.payment_request_id and pr.user_id = auth.uid()
     )
   );
 
@@ -69,13 +75,13 @@ create policy "transactions_update_own" on public.transactions
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = transactions.payment_request_id and pr.user_id = auth.uid()
     )
   )
   with check (
     auth.uid() = user_id
     and exists (
       select 1 from public.payment_requests pr
-      where pr.id = payment_request_id and pr.user_id = auth.uid()
+      where pr.id = transactions.payment_request_id and pr.user_id = auth.uid()
     )
   );

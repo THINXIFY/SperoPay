@@ -44,6 +44,7 @@ export const useRequestDraftStore = create<RequestDraftState>()((set) => ({
       amount: values.amount ?? initialState.amount,
       description: values.description ?? initialState.description,
       note: values.note ?? initialState.note,
+      expiryOption: values.expiryOption ?? initialState.expiryOption,
     })),
   reset: () => set({ ...initialState }),
   startFresh: (defaultExpiryOption) => set({ ...initialState, expiryOption: defaultExpiryOption }),

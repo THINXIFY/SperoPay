@@ -45,4 +45,12 @@ describe('requestDraftStore', () => {
     expect(state.amount).toBe('100');
     expect(state.note).toBe(''); // not carried over from the stale draft
   });
+
+  it('prefillFrom falls back to the default expiryOption when not provided', () => {
+    useRequestDraftStore.getState().setExpiryOption('24h');
+
+    useRequestDraftStore.getState().prefillFrom({ amount: '100' });
+
+    expect(useRequestDraftStore.getState().expiryOption).toBe('7d');
+  });
 });

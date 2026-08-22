@@ -4,7 +4,7 @@ Run once all four migrations (0001, 0002, 0003, 0004) have been applied via the 
 
 ## Setup
 1. Create two real accounts through the app (sign up twice with different emails) — call them **User A** and **User B**.
-2. As User A: add one customer, set a wallet address, create one payment request, and run it through the demo payment flow to completion (so a transaction row exists too).
+2. As User A: add one customer, set a wallet address, create **two** payment requests. Run the first one through the demo payment flow to completion (so a transaction row exists for it — call this **Request 1 (paid)**). Leave the second one alone, still `pending` (call this **Request 2 (pending)** — needed for Verification E2, since `transactions.payment_request_id` is `unique` and Request 1 already has a transaction).
 
 ## Verification A: each user sees only their own data (app-level)
 1. Sign out, sign in as **User B**.
@@ -47,36 +47,36 @@ Expected: each returns `false`/`null` (the `where ... and user_id = auth.uid()` 
 
 ## Verification E: malicious cross-user foreign-key references (0004 hardening)
 
-These specifically test the `0004_phase2b_security_hardening.sql` policies — a `user_id` check alone doesn't stop a caller from labeling a row as legitimately their own while pointing `payment_request_id` at *someone else's* request. Get User A's request id from Verification A/B first.
+These specifically test the `0004_phase2b_security_hardening.sql` policies — a `user_id` check alone doesn't stop a caller from labeling a row as legitimately their own while pointing `payment_request_id` at *someone else's* request. Use **Request 1 (paid)**'s id for E1 and **Request 2 (pending)**'s id for E2 — E2 specifically needs a request that does *not* already have a transaction, otherwise the `unique` constraint on `transactions.payment_request_id` would reject the insert anyway and the test wouldn't actually be exercising the RLS policy.
 
 **E1 — request_event attack.** While signed in as **User B** (`supabase-js`, User B's real session):
 ```ts
 await supabase.from('request_events').insert({
   user_id: '<User B\'s own UID>',
-  payment_request_id: '<User A\'s request id>',
+  payment_request_id: '<Request 1\'s id>',
   event_type: 'shared',
 });
 ```
-Expected: **rejected** — a `new row violates row-level security policy` error (42501), because the inserted row's own `user_id` matches `auth.uid()` but the `EXISTS` subquery against `payment_requests` (owned by User A, not User B) fails. Confirm via the SQL Editor that no such row exists in `request_events`.
+Expected: **rejected** — a `new row violates row-level security policy` error, **Postgres code `42501`**, because the inserted row's own `user_id` matches `auth.uid()` but the `EXISTS` subquery against `payment_requests` (owned by User A, not User B) fails. Confirm via the SQL Editor that no such row exists in `request_events`.
 
-**E2 — transaction attack.** Same shape, as User B:
+**E2 — transaction attack.** Same shape, as User B, against the *pending, transaction-less* request:
 ```ts
 await supabase.from('transactions').insert({
   user_id: '<User B\'s own UID>',
-  payment_request_id: '<User A\'s request id>',
+  payment_request_id: '<Request 2\'s id>',
   tx_hash: 'fake',
   amount: 1,
   currency: 'USDC',
   network: 'Solana',
 });
 ```
-Expected: **rejected**, same reason. Confirm no such row exists in `transactions`.
+Expected: **rejected** with error code **`42501`** (row-level security violation) — specifically *not* `23505` (`unique_violation`), which is what you'd see if this were accidentally run against Request 1 (already has a transaction) and wouldn't actually prove the RLS policy is doing anything. If you see `23505`, double-check you used Request 2's id. Confirm no such row exists in `transactions`.
 
-**E3 — legitimate same-user control.** As **User A**, against User A's own request id:
+**E3 — legitimate same-user control.** As **User A**, against User A's own Request 2 (still pending, no transaction conflict):
 ```ts
 await supabase.from('request_events').insert({
   user_id: '<User A\'s own UID>',
-  payment_request_id: '<User A\'s request id>',
+  payment_request_id: '<Request 2\'s id>',
   event_type: 'shared',
 });
 ```
