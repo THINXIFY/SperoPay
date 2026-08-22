@@ -200,7 +200,7 @@ export default function DetailsScreen() {
         </View>
       ) : null}
 
-      <AppBottomSheet ref={customerSheetRef}>
+      <AppBottomSheet ref={customerSheetRef} scrollable>
         {isAddingCustomer ? (
           <>
             <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
