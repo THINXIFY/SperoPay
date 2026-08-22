@@ -13,6 +13,13 @@ import { SelectField } from '../../src/components/SelectField';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { isValidAmount } from '../../src/utils/validators';
 
+// Both selector sheets have small, fixed content (a heading + one option
+// row) — a single snap point sized to that content means .expand() opens
+// fully in one motion instead of the default two-stage 40%/70%. Hoisted to
+// module scope so AppBottomSheet (which snapPoints-compares via
+// JSON.stringify) isn't handed a fresh array identity on every keystroke.
+const SHEET_SNAP_POINTS = ['30%'];
+
 export default function AmountScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const amount = useRequestDraftStore((state) => state.amount);
@@ -39,7 +46,12 @@ export default function AmountScreen() {
       <AppHeader title="Smart Request" onBackPress={handleClose} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.lg,
+          paddingBottom: spacing.lg,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[typography.h1, { color: colors.textPrimary, textAlign: 'center', marginBottom: spacing.lg }]}>
@@ -56,7 +68,13 @@ export default function AmountScreen() {
           onPress={() => networkSheetRef.current?.expand()}
           style={[
             styles.networkRow,
-            { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginTop: spacing.md },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              padding: spacing.base,
+              marginTop: spacing.md,
+            },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Network: Solana. Change"
@@ -75,7 +93,12 @@ export default function AmountScreen() {
               Fast · Low fees
             </Text>
           </View>
-          <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Change ›</Text>
+          <View style={styles.changeAffordance}>
+            <Text style={[typography.bodySmall, { color: colors.textMuted, marginRight: spacing.xs / 2 }]}>
+              Change
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+          </View>
         </Pressable>
       </ScrollView>
 
@@ -83,7 +106,7 @@ export default function AmountScreen() {
         <PrimaryButton label="Continue" onPress={handleContinue} disabled={!canContinue} />
       </View>
 
-      <AppBottomSheet ref={stablecoinSheetRef} snapPoints={['30%']} scrollable>
+      <AppBottomSheet ref={stablecoinSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
         <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
           <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>USDC</Text>
@@ -91,7 +114,7 @@ export default function AmountScreen() {
         </View>
       </AppBottomSheet>
 
-      <AppBottomSheet ref={networkSheetRef} snapPoints={['30%']} scrollable>
+      <AppBottomSheet ref={networkSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
         <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
           <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>Solana</Text>
@@ -105,5 +128,6 @@ export default function AmountScreen() {
 const styles = StyleSheet.create({
   networkRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
   networkIconChip: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  changeAffordance: { flexDirection: 'row', alignItems: 'center' },
   optionRow: { flexDirection: 'row', alignItems: 'center' },
 });

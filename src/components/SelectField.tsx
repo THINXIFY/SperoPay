@@ -21,6 +21,7 @@ export function SelectField({ icon, label, onPress }: SelectFieldProps) {
       style={({ pressed }) => [
         styles.row,
         {
+          backgroundColor: colors.surface,
           borderColor: colors.border,
           borderRadius: radius.md,
           paddingHorizontal: spacing.base,
@@ -35,10 +36,10 @@ export function SelectField({ icon, label, onPress }: SelectFieldProps) {
         <View
           style={[
             styles.iconChip,
-            { backgroundColor: colors.background, borderRadius: radius.full, marginRight: spacing.sm },
+            { backgroundColor: colors.softMint, borderRadius: radius.full, marginRight: spacing.sm },
           ]}
         >
-          <Ionicons name={icon} size={14} color={colors.textPrimary} />
+          <Ionicons name={icon} size={14} color={colors.softMintText} />
         </View>
       ) : null}
       <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>

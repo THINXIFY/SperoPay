@@ -19,7 +19,7 @@ export function NumericKeypad({ onKeyPress, onDelete }: NumericKeypadProps) {
   const { spacing } = useTheme();
 
   return (
-    <View style={[styles.grid, { gap: spacing.sm }]}>
+    <View style={{ gap: spacing.sm }}>
       {KEY_ROWS.map((row, rowIndex) => (
         <View key={rowIndex} style={[styles.row, { gap: spacing.sm }]}>
           {row.map((key) => (
@@ -32,6 +32,5 @@ export function NumericKeypad({ onKeyPress, onDelete }: NumericKeypadProps) {
 }
 
 const styles = StyleSheet.create({
-  grid: {},
   row: { flexDirection: 'row' },
 });

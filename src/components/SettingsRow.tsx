@@ -28,13 +28,18 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
       <View style={[styles.iconColumn, { width: ICON_COLUMN_WIDTH }]}>
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
-      <Text style={[typography.body, { color: labelColor, flex: 1, marginLeft: spacing.md }]} numberOfLines={1}>
+      <Text
+        style={[typography.body, { color: labelColor, flex: 1, marginLeft: spacing.md }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.3}
+      >
         {label}
       </Text>
       {value ? (
         <Text
           style={[typography.bodySmall, { color: colors.textMuted, marginRight: spacing.xs }]}
           numberOfLines={1}
+          maxFontSizeMultiplier={1.3}
         >
           {value}
         </Text>

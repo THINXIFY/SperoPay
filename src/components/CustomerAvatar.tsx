@@ -20,7 +20,9 @@ export function CustomerAvatar({ name, color, size = 44 }: { name: string; color
         { width: size, height: size, borderRadius: radius.full, backgroundColor: bg },
       ]}
     >
-      <Text style={[typography.caption, { color: text, fontSize: size * 0.36 }]}>{getInitials(name)}</Text>
+      <Text style={[typography.caption, { color: text, fontSize: size * 0.36, lineHeight: size * 0.36 * 1.2 }]}>
+        {getInitials(name)}
+      </Text>
     </View>
   );
 }
