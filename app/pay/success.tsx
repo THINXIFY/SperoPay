@@ -65,7 +65,7 @@ export default function PaymentSuccessScreen() {
           {request.amount} {request.currency}
         </Text>
         <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'center' }]}>
-          Your payment was completed successfully.
+          Paid to {businessName}.
         </Text>
 
         <ThemeAwareCard style={{ width: '100%', marginTop: spacing.xl }}>
