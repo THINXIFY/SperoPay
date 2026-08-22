@@ -71,15 +71,28 @@ export default function ProfileSetupScreen() {
               <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
             )}
           </Pressable>
-          <TextField label="Display Name" value={displayName} onChangeText={setDisplayName} error={error} />
-          <TextField label="Business Name (Optional)" value={businessName} onChangeText={setBusinessName} />
-          <TextField label="Country" value={country} onChangeText={setCountry} />
+          <TextField
+            label="Display Name"
+            value={displayName}
+            onChangeText={setDisplayName}
+            error={error}
+            returnKeyType="next"
+          />
+          <TextField
+            label="Business Name (Optional)"
+            value={businessName}
+            onChangeText={setBusinessName}
+            returnKeyType="next"
+          />
+          <TextField label="Country" value={country} onChangeText={setCountry} returnKeyType="next" />
           <TextField
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
             keyboardType="url"
             autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={handleContinue}
           />
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>

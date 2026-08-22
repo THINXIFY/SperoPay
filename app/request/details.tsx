@@ -137,6 +137,7 @@ export default function DetailsScreen() {
             value={description}
             onChangeText={setDescription}
             placeholder="Website design service — May 2026"
+            returnKeyType="done"
           />
 
           <View>
@@ -203,7 +204,13 @@ export default function DetailsScreen() {
         {isAddingCustomer ? (
           <>
             <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
-            <TextField label="Name" value={newCustomerName} onChangeText={setNewCustomerName} error={newCustomerNameError} />
+            <TextField
+              label="Name"
+              value={newCustomerName}
+              onChangeText={setNewCustomerName}
+              error={newCustomerNameError}
+              returnKeyType="next"
+            />
             <TextField
               label="Email"
               value={newCustomerEmail}
@@ -211,6 +218,8 @@ export default function DetailsScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               error={newCustomerEmailError}
+              returnKeyType="done"
+              onSubmitEditing={handleAddCustomer}
             />
             <PrimaryButton label="Add Customer" onPress={handleAddCustomer} />
           </>

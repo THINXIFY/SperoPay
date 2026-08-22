@@ -186,7 +186,13 @@ export default function CustomerDetailScreen() {
       />
       <AppBottomSheet ref={editSheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
-        <TextField label="Name" value={editName} onChangeText={setEditName} error={editNameError} />
+        <TextField
+          label="Name"
+          value={editName}
+          onChangeText={setEditName}
+          error={editNameError}
+          returnKeyType="next"
+        />
         <TextField
           label="Email"
           value={editEmail}
@@ -194,8 +200,9 @@ export default function CustomerDetailScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           error={editEmailError}
+          returnKeyType="next"
         />
-        <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} />
+        <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} returnKeyType="next" />
         <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
         <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
       </AppBottomSheet>

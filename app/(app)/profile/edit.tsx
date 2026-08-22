@@ -66,9 +66,23 @@ export default function EditProfileScreen() {
               <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
             )}
           </Pressable>
-          <TextField label="Display Name" value={displayName} onChangeText={setDisplayName} error={error} />
-          <TextField label="Country" value={country} onChangeText={setCountry} />
-          <TextField label="Website (Optional)" value={website} onChangeText={setWebsite} keyboardType="url" autoCapitalize="none" />
+          <TextField
+            label="Display Name"
+            value={displayName}
+            onChangeText={setDisplayName}
+            error={error}
+            returnKeyType="next"
+          />
+          <TextField label="Country" value={country} onChangeText={setCountry} returnKeyType="next" />
+          <TextField
+            label="Website (Optional)"
+            value={website}
+            onChangeText={setWebsite}
+            keyboardType="url"
+            autoCapitalize="none"
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
+          />
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />

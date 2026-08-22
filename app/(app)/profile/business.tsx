@@ -72,8 +72,15 @@ export default function BusinessProfileScreen() {
               <Ionicons name="image-outline" size={24} color={colors.textMuted} />
             )}
           </Pressable>
-          <TextField label="Business Name" value={businessName} onChangeText={setBusinessName} />
-          <TextField label="Website (Optional)" value={website} onChangeText={setWebsite} keyboardType="url" autoCapitalize="none" />
+          <TextField label="Business Name" value={businessName} onChangeText={setBusinessName} returnKeyType="next" />
+          <TextField
+            label="Website (Optional)"
+            value={website}
+            onChangeText={setWebsite}
+            keyboardType="url"
+            autoCapitalize="none"
+            returnKeyType="next"
+          />
           <TextField
             label="Business Email (Optional)"
             value={businessEmail}
@@ -81,6 +88,7 @@ export default function BusinessProfileScreen() {
             error={error}
             keyboardType="email-address"
             autoCapitalize="none"
+            returnKeyType="next"
           />
           <TextField label="Short Description (Optional)" value={description} onChangeText={setDescription} multiline />
         </ScrollView>

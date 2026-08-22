@@ -204,7 +204,7 @@ export default function CustomersScreen() {
 
       <AppBottomSheet ref={sheetRef}>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
-        <TextField label="Name" value={name} onChangeText={setName} error={nameError} />
+        <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
         <TextField
           label="Email"
           value={email}
@@ -212,8 +212,15 @@ export default function CustomersScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           error={emailError}
+          returnKeyType="next"
         />
-        <TextField label="Company (Optional)" value={company} onChangeText={setCompany} />
+        <TextField
+          label="Company (Optional)"
+          value={company}
+          onChangeText={setCompany}
+          returnKeyType="done"
+          onSubmitEditing={handleAdd}
+        />
         <PrimaryButton label="Add Customer" onPress={handleAdd} />
       </AppBottomSheet>
     </SafeAreaView>
