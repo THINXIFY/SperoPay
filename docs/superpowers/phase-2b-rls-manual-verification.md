@@ -1,6 +1,6 @@
 # Phase 2B — Manual RLS Verification
 
-Run once the three migrations (0001, 0002, 0003) have been applied via the Supabase Dashboard's SQL Editor, in that order.
+Run once all four migrations (0001, 0002, 0003, 0004) have been applied via the Supabase Dashboard's SQL Editor, in that order.
 
 ## Setup
 1. Create two real accounts through the app (sign up twice with different emails) — call them **User A** and **User B**.
@@ -44,3 +44,40 @@ await supabase.rpc('complete_payment', { p_request_id: '<User A\'s request id>',
 await supabase.rpc('cancel_payment_request', { p_request_id: '<User A\'s request id>' });
 ```
 Expected: each returns `false`/`null` (the `where ... and user_id = auth.uid()` clause inside each function matches zero rows) — User A's request status is unchanged when checked via the SQL Editor.
+
+## Verification E: malicious cross-user foreign-key references (0004 hardening)
+
+These specifically test the `0004_phase2b_security_hardening.sql` policies — a `user_id` check alone doesn't stop a caller from labeling a row as legitimately their own while pointing `payment_request_id` at *someone else's* request. Get User A's request id from Verification A/B first.
+
+**E1 — request_event attack.** While signed in as **User B** (`supabase-js`, User B's real session):
+```ts
+await supabase.from('request_events').insert({
+  user_id: '<User B\'s own UID>',
+  payment_request_id: '<User A\'s request id>',
+  event_type: 'shared',
+});
+```
+Expected: **rejected** — a `new row violates row-level security policy` error (42501), because the inserted row's own `user_id` matches `auth.uid()` but the `EXISTS` subquery against `payment_requests` (owned by User A, not User B) fails. Confirm via the SQL Editor that no such row exists in `request_events`.
+
+**E2 — transaction attack.** Same shape, as User B:
+```ts
+await supabase.from('transactions').insert({
+  user_id: '<User B\'s own UID>',
+  payment_request_id: '<User A\'s request id>',
+  tx_hash: 'fake',
+  amount: 1,
+  currency: 'USDC',
+  network: 'Solana',
+});
+```
+Expected: **rejected**, same reason. Confirm no such row exists in `transactions`.
+
+**E3 — legitimate same-user control.** As **User A**, against User A's own request id:
+```ts
+await supabase.from('request_events').insert({
+  user_id: '<User A\'s own UID>',
+  payment_request_id: '<User A\'s request id>',
+  event_type: 'shared',
+});
+```
+Expected: **succeeds** — proves the hardening only blocks the cross-user case, not legitimate same-user writes. Clean up the test row afterward if desired.

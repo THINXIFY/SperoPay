@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ExpiryOption } from '../types';
+import { registerResettable } from './dataLifecycle';
 
 interface RequestDraftState {
   amount: string;
@@ -47,3 +48,10 @@ export const useRequestDraftStore = create<RequestDraftState>()((set) => ({
   reset: () => set({ ...initialState }),
   startFresh: (defaultExpiryOption) => set({ ...initialState, expiryOption: defaultExpiryOption }),
 }));
+
+// This store is in-memory only (no network load, no persistence) so it needs
+// no stale-guard token — but without this registration a draft started by
+// User A (e.g. a customerId picked mid-flow) could still be sitting in
+// memory if User B signs in without ever hitting one of the screens that
+// already call reset()/startFresh()/prefillFrom() themselves.
+registerResettable(() => useRequestDraftStore.getState().reset());

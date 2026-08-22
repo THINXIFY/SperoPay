@@ -43,6 +43,7 @@ export default function TemplatesScreen() {
   const [description, setDescription] = useState('');
   const [expiryOption, setExpiryOption] = useState<ExpiryOption>('7d');
   const [error, setError] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
 
   function openCreateForm() {
     setEditingId(null);
@@ -65,6 +66,7 @@ export default function TemplatesScreen() {
   }
 
   async function handleSave() {
+    if (isSaving) return;
     const numericAmount = Number(amount);
     if (name.trim().length === 0 || !isValidAmount(numericAmount)) {
       setError('Enter a name and a valid amount');
@@ -77,6 +79,7 @@ export default function TemplatesScreen() {
       description: description.trim() || undefined,
       expiryOption,
     };
+    setIsSaving(true);
     try {
       if (editingId) {
         await updateTemplate(userId, editingId, input);
@@ -86,6 +89,8 @@ export default function TemplatesScreen() {
       formSheetRef.current?.close();
     } catch {
       setError("We couldn't save this template. Try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -185,7 +190,11 @@ export default function TemplatesScreen() {
           <Text style={[typography.caption, { color: colors.textMuted }]}>Expires In</Text>
           <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{expiryLabel}</Text>
         </Pressable>
-        <PrimaryButton label={editingId ? 'Save Changes' : 'Create Template'} onPress={handleSave} />
+        <PrimaryButton
+          label={editingId ? 'Save Changes' : 'Create Template'}
+          onPress={handleSave}
+          loading={isSaving}
+        />
       </AppBottomSheet>
 
       <AppBottomSheet ref={expirySheetRef}>
