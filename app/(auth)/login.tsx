@@ -84,10 +84,10 @@ export default function LoginScreen() {
             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Forgot password?</Text>
           </Pressable>
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Sign In" onPress={handleSubmit} loading={isLoading} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Sign In" onPress={handleSubmit} loading={isLoading} />
-      </View>
     </SafeAreaView>
   );
 }

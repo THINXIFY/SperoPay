@@ -27,19 +27,24 @@ export default function WalletSetupScreen() {
   // silently risk losing their real receiving address.
   const [address, setAddress] = useState(wallet?.address ?? '');
   const [error, setError] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleComplete() {
+    if (isSubmitting) return;
     if (!isValidWalletAddress(address.trim())) {
       setError('Enter a valid Solana wallet address');
       return;
     }
     if (!userId) return; // Onboarding is only reachable while authenticated.
+    setIsSubmitting(true);
     try {
       await setWalletAddress(userId, address.trim());
       await completeOnboarding(userId);
       router.replace('/(app)/home');
     } catch {
       setError("We couldn't finish setup. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -90,10 +95,10 @@ export default function WalletSetupScreen() {
             </Text>
           </View>
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Complete Setup" onPress={handleComplete} loading={isSubmitting} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Complete Setup" onPress={handleComplete} />
-      </View>
     </SafeAreaView>
   );
 }

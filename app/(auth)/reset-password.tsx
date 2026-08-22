@@ -116,10 +116,10 @@ export default function ResetPasswordScreen() {
             onSubmitEditing={handleSubmit}
           />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Update Password" onPress={handleSubmit} loading={isLoading} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Update Password" onPress={handleSubmit} loading={isLoading} />
-      </View>
     </SafeAreaView>
   );
 }

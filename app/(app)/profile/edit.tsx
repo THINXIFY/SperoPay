@@ -21,13 +21,16 @@ export default function EditProfileScreen() {
   const [country, setCountry] = useState(profile?.country ?? '');
   const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
 
   async function handleSave() {
+    if (isSaving) return;
     if (displayName.trim().length === 0) {
       setError('Enter a display name');
       return;
     }
     if (!userId) return;
+    setIsSaving(true);
     try {
       await updateProfile(userId, {
         displayName: displayName.trim(),
@@ -38,6 +41,8 @@ export default function EditProfileScreen() {
       router.back();
     } catch {
       Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -65,10 +70,10 @@ export default function EditProfileScreen() {
           <TextField label="Country" value={country} onChangeText={setCountry} />
           <TextField label="Website (Optional)" value={website} onChangeText={setWebsite} keyboardType="url" autoCapitalize="none" />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Save Changes" onPress={handleSave} />
-      </View>
     </SafeAreaView>
   );
 }

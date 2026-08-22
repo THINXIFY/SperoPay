@@ -188,11 +188,10 @@ export default function DetailsScreen() {
             multiline
           />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Create Request" onPress={handleCreateRequest} loading={isCreating} />
+        </View>
       </KeyboardAvoidingView>
-
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Create Request" onPress={handleCreateRequest} loading={isCreating} />
-      </View>
 
       {isCreating ? (
         <View style={[StyleSheet.absoluteFill, styles.overlay, { backgroundColor: colors.background }]}>

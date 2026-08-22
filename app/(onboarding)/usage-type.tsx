@@ -21,14 +21,18 @@ export default function UsageTypeScreen() {
   const setUsageType = useProfileStore((state) => state.setUsageType);
   const userId = useAuthStore((state) => state.user?.id);
   const [selected, setSelected] = useState<UsageType | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleContinue() {
-    if (!selected || !userId) return;
+    if (!selected || !userId || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await setUsageType(userId, selected);
       router.push('/(onboarding)/profile');
     } catch {
       Alert.alert('Something went wrong', "We couldn't save that. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -50,7 +54,7 @@ export default function UsageTypeScreen() {
         </View>
       </View>
       <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Continue" onPress={handleContinue} disabled={!selected} />
+        <PrimaryButton label="Continue" onPress={handleContinue} disabled={!selected} loading={isSubmitting} />
       </View>
     </SafeAreaView>
   );

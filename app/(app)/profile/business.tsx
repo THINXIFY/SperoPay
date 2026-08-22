@@ -23,13 +23,16 @@ export default function BusinessProfileScreen() {
   const [businessEmail, setBusinessEmail] = useState(profile?.businessEmail ?? '');
   const [description, setDescription] = useState(profile?.businessDescription ?? '');
   const [error, setError] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
 
   async function handleSave() {
+    if (isSaving) return;
     if (businessEmail.trim().length > 0 && !isValidEmail(businessEmail)) {
       setError('Enter a valid business email');
       return;
     }
     if (!userId) return;
+    setIsSaving(true);
     try {
       await updateProfile(userId, {
         businessName: businessName.trim() || undefined,
@@ -41,6 +44,8 @@ export default function BusinessProfileScreen() {
       router.back();
     } catch {
       Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -79,10 +84,10 @@ export default function BusinessProfileScreen() {
           />
           <TextField label="Short Description (Optional)" value={description} onChangeText={setDescription} multiline />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Save Changes" onPress={handleSave} />
-      </View>
     </SafeAreaView>
   );
 }

@@ -184,10 +184,10 @@ export default function SignUpScreen() {
             onSubmitEditing={handleSubmit}
           />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Create Account" onPress={handleSubmit} loading={isLoading} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Create Account" onPress={handleSubmit} loading={isLoading} />
-      </View>
     </SafeAreaView>
   );
 }

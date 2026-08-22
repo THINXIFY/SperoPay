@@ -66,10 +66,10 @@ export default function ForgotPasswordScreen() {
             </Text>
           ) : null}
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Send Reset Link" onPress={handleSubmit} loading={isLoading} disabled={sent} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Send Reset Link" onPress={handleSubmit} loading={isLoading} disabled={sent} />
-      </View>
     </SafeAreaView>
   );
 }

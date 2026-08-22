@@ -23,13 +23,16 @@ export default function ProfileSetupScreen() {
   const [country, setCountry] = useState(profile?.country ?? '');
   const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleContinue() {
+    if (isSubmitting) return;
     if (displayName.trim().length === 0) {
       setError('Enter a display name');
       return;
     }
     if (!userId) return;
+    setIsSubmitting(true);
     try {
       await updateProfile(userId, {
         displayName: displayName.trim(),
@@ -40,6 +43,8 @@ export default function ProfileSetupScreen() {
       router.push('/(onboarding)/wallet-setup');
     } catch {
       Alert.alert('Something went wrong', "We couldn't save that. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -77,10 +82,10 @@ export default function ProfileSetupScreen() {
             autoCapitalize="none"
           />
         </ScrollView>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+          <PrimaryButton label="Continue" onPress={handleContinue} loading={isSubmitting} />
+        </View>
       </KeyboardAvoidingView>
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Continue" onPress={handleContinue} />
-      </View>
     </SafeAreaView>
   );
 }

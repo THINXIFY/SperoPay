@@ -23,6 +23,7 @@ export default function WalletSettingsScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [address, setAddress] = useState(wallet?.address ?? '');
   const [error, setError] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
 
   function handleCopy() {
     if (!wallet) return;
@@ -37,16 +38,20 @@ export default function WalletSettingsScreen() {
   }
 
   async function handleSave() {
+    if (isSaving) return;
     if (!isValidWalletAddress(address.trim())) {
       setError('Enter a valid Solana wallet address');
       return;
     }
     if (!userId) return;
+    setIsSaving(true);
     try {
       await setWalletAddress(userId, address.trim());
       setIsEditing(false);
     } catch {
       setError("We couldn't save that. Check your connection and try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -81,7 +86,7 @@ export default function WalletSettingsScreen() {
                   <SecondaryButton label="Cancel" onPress={() => setIsEditing(false)} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <PrimaryButton label="Save" onPress={handleSave} />
+                  <PrimaryButton label="Save" onPress={handleSave} loading={isSaving} />
                 </View>
               </View>
             </>
