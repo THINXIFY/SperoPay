@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -9,6 +9,7 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { AmountInput } from '../../src/components/AmountInput';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
+import { SelectField } from '../../src/components/SelectField';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { isValidAmount } from '../../src/utils/validators';
 
@@ -36,45 +37,53 @@ export default function AmountScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Smart Request" onBackPress={handleClose} />
-      <View style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}>
-        <Text style={[typography.h1, { color: colors.textPrimary, textAlign: 'center' }]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[typography.h1, { color: colors.textPrimary, textAlign: 'center', marginBottom: spacing.lg }]}>
           How much do you want to request?
         </Text>
 
-        <View style={{ marginTop: spacing.xl }}>
-          <AmountInput value={amount} onChange={setAmount} />
-        </View>
+        <AmountInput value={amount} onChange={setAmount} />
 
-        <Pressable
-          onPress={() => stablecoinSheetRef.current?.expand()}
-          style={[
-            styles.selectorRow,
-            { borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.base, marginTop: spacing.lg },
-          ]}
-        >
-          <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>USDC</Text>
-          <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
-        </Pressable>
+        <View style={{ marginTop: spacing.lg }}>
+          <SelectField icon="ellipse" label="USDC" onPress={() => stablecoinSheetRef.current?.expand()} />
+        </View>
 
         <Pressable
           onPress={() => networkSheetRef.current?.expand()}
           style={[
-            styles.networkCard,
-            { backgroundColor: colors.softMint, borderRadius: radius.md, padding: spacing.base, marginTop: spacing.md },
+            styles.networkRow,
+            { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginTop: spacing.md },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Network: Solana. Change"
         >
-          <Text style={[typography.bodyMedium, { color: colors.softMintText }]}>On Solana</Text>
-          <Text style={[typography.caption, { color: colors.softMintText, marginTop: spacing.xs / 2 }]}>
-            Fast · Low fees · Secure
-          </Text>
+          <View
+            style={[
+              styles.networkIconChip,
+              { backgroundColor: colors.softMint, borderRadius: radius.full, marginRight: spacing.sm },
+            ]}
+          >
+            <Ionicons name="flash" size={14} color={colors.softMintText} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Solana</Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+              Fast · Low fees
+            </Text>
+          </View>
+          <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Change ›</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
-      <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.lg }}>
         <PrimaryButton label="Continue" onPress={handleContinue} disabled={!canContinue} />
       </View>
 
-      <AppBottomSheet ref={stablecoinSheetRef}>
+      <AppBottomSheet ref={stablecoinSheetRef} snapPoints={['30%']} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
         <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
           <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>USDC</Text>
@@ -82,7 +91,7 @@ export default function AmountScreen() {
         </View>
       </AppBottomSheet>
 
-      <AppBottomSheet ref={networkSheetRef}>
+      <AppBottomSheet ref={networkSheetRef} snapPoints={['30%']} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
         <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
           <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>Solana</Text>
@@ -94,7 +103,7 @@ export default function AmountScreen() {
 }
 
 const styles = StyleSheet.create({
-  selectorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 52, borderWidth: 1 },
-  networkCard: {},
+  networkRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  networkIconChip: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   optionRow: { flexDirection: 'row', alignItems: 'center' },
 });

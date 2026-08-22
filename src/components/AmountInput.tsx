@@ -38,10 +38,11 @@ export function AmountInput({ value, onChange }: AmountInputProps) {
     <View>
       <View style={[styles.display, { marginBottom: spacing.xl }]}>
         <Text
-          style={[typography.display, { color: colors.textPrimary }]}
+          style={[typography.display, { color: colors.textPrimary, fontVariant: ['tabular-nums'] }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.5}
+          maxFontSizeMultiplier={1.3}
         >
           ${value}
         </Text>
