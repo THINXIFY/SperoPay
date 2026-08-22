@@ -19,7 +19,7 @@ export function SelectableCard({ icon, label, selected, onPress }: SelectableCar
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      style={[
+      style={({ pressed }) => [
         styles.card,
         {
           borderRadius: radius.lg,
@@ -27,6 +27,8 @@ export function SelectableCard({ icon, label, selected, onPress }: SelectableCar
           borderWidth: selected ? 2 : 1,
           borderColor: selected ? colors.primaryAction : colors.border,
           backgroundColor: colors.surface,
+          opacity: pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
     >

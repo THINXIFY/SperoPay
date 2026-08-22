@@ -26,6 +26,7 @@ export function SecondaryButton({ label, onPress, disabled, icon }: SecondaryBut
           borderRadius: radius.md,
           paddingVertical: spacing.base,
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
     >

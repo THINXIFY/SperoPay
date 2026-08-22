@@ -20,7 +20,7 @@ export function IconButton({ name, onPress, variant = 'default', size = 20, acce
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      hitSlop={4}
+      hitSlop={8}
       style={({ pressed }) => [
         styles.base,
         {
@@ -29,6 +29,7 @@ export function IconButton({ name, onPress, variant = 'default', size = 20, acce
           borderWidth: isStrong ? 0 : 1,
           borderColor: colors.border,
           opacity: pressed ? 0.7 : 1,
+          transform: [{ scale: pressed ? 0.92 : 1 }],
         },
       ]}
     >
