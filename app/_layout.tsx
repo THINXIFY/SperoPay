@@ -40,6 +40,7 @@ function RootNavigator() {
         <Stack.Screen name="(app)" />
         <Stack.Screen name="request" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pay" />
+        <Stack.Screen name="p" />
       </Stack>
     </>
   );
