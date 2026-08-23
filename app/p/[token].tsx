@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,10 +10,14 @@ import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { SkeletonLoader } from '../../src/components/SkeletonLoader';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
+import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { usePublicCheckoutPolling } from '../../src/services/publicCheckout/usePublicCheckoutPolling';
+import { usePayWithWallet } from '../../src/services/publicCheckout/usePayWithWallet';
+import { useRefreshOnForeground } from '../../src/services/publicCheckout/useRefreshOnForeground';
+import { canPayRequest } from '../../src/services/publicCheckout/canPayRequest';
 import type { PublicCheckoutData } from '../../src/services/publicCheckout/types';
-import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
-import { formatCurrency } from '../../src/utils/formatCurrency';
+import { buildSolanaPayUrl } from '../../src/services/blockchain/solana/solanaPayUri';
+import { getSolanaEnvironment } from '../../src/services/blockchain/solana/config';
 
 const MAX_CONTENT_WIDTH = 480;
 
@@ -30,9 +34,11 @@ function formatExpiry(isoDate: string): string {
 
 export default function PublicCheckoutScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
-  const { colors, spacing, radius, typography } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const { result, isRefreshing, refresh } = usePublicCheckoutPolling(token);
   const [copiedField, setCopiedField] = useState<'wallet' | null>(null);
+
+  useRefreshOnForeground(refresh);
 
   async function handleCopyWallet(address: string) {
     await Clipboard.setStringAsync(address);
@@ -77,7 +83,6 @@ export default function PublicCheckoutScreen() {
           ) : (
             <CheckoutContent
               data={result.data}
-              token={token ?? ''}
               copiedField={copiedField}
               onCopyWallet={handleCopyWallet}
             />
@@ -102,19 +107,39 @@ function CheckoutSkeleton() {
 
 interface CheckoutContentProps {
   data: PublicCheckoutData;
-  token: string;
   copiedField: 'wallet' | null;
   onCopyWallet: (address: string) => void;
 }
 
-function CheckoutContent({ data, token, copiedField, onCopyWallet }: CheckoutContentProps) {
+function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentProps) {
   const { colors, spacing, radius, typography } = useTheme();
   const merchantName = data.merchantName?.trim() || 'the merchant';
-  const isPending = data.status === 'pending';
   const isConfirming = data.status === 'confirming';
   const isPaid = data.status === 'paid';
   const isExpired = data.status === 'expired';
   const isCancelled = data.status === 'cancelled';
+  const isDevnet = getSolanaEnvironment() !== 'mainnet-beta';
+
+  const { pay, isProcessing, hasInitiated, error: payError } = usePayWithWallet();
+
+  const solanaPayUri = useMemo(() => {
+    if (!data.destinationWallet || !data.solanaReference) return null;
+    try {
+      return buildSolanaPayUrl({
+        recipient: data.destinationWallet,
+        reference: data.solanaReference,
+        amount: data.amount,
+        label: merchantName,
+        message: data.description ? `Payment for ${data.description}` : `Payment request ${data.paymentCode}`,
+      });
+    } catch {
+      // Invalid wallet/reference data -- fail safely by simply not offering
+      // a Pay With Wallet flow, rather than crashing or opening a broken URI.
+      return null;
+    }
+  }, [data.destinationWallet, data.solanaReference, data.amount, data.description, data.paymentCode, merchantName]);
+
+  const canPay = canPayRequest(data.status) && !hasInitiated;
 
   return (
     <View style={{ marginTop: spacing.xl }}>
@@ -123,11 +148,21 @@ function CheckoutContent({ data, token, copiedField, onCopyWallet }: CheckoutCon
         You're paying <Text style={{ color: colors.textPrimary }}>{merchantName}</Text>
       </Text>
       <Text style={[typography.display, { color: colors.textPrimary, textAlign: 'center', marginTop: spacing.sm }]}>
-        {formatCurrency(data.amount)}
+        {data.amount.toFixed(2)} {data.currency}
       </Text>
-      <Text style={[typography.bodySmall, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs }]}>
-        {data.amount} {data.currency} · {data.network} network
-      </Text>
+      <View style={[styles.networkRow, { marginTop: spacing.xs }]}>
+        <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{data.network}</Text>
+        {isDevnet ? (
+          <View
+            style={[
+              styles.devnetBadge,
+              { backgroundColor: colors.softLavender, borderRadius: radius.full, marginLeft: spacing.xs },
+            ]}
+          >
+            <Text style={[typography.caption, { color: colors.softLavenderText }]}>Devnet</Text>
+          </View>
+        ) : null}
+      </View>
 
       {/* Status-specific area */}
       {isConfirming ? (
@@ -164,9 +199,89 @@ function CheckoutContent({ data, token, copiedField, onCopyWallet }: CheckoutCon
             description="This link is no longer active."
           />
         </View>
+      ) : hasInitiated ? (
+        <View style={[styles.statusArea, { backgroundColor: colors.softBlue, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl }]}>
+          <ActivityIndicator color={colors.softBlueText} />
+          <Text style={[typography.bodyMedium, { color: colors.softBlueText, marginTop: spacing.sm, textAlign: 'center' }]}>
+            Waiting for payment confirmation…
+          </Text>
+        </View>
       ) : null}
 
-      {/* Payment details */}
+      {/* Pay controls -- only while the request is genuinely still payable */}
+      {canPay ? (
+        <View style={{ marginTop: spacing.xl }}>
+          <PrimaryButton
+            label="Pay with Wallet"
+            onPress={() => pay(solanaPayUri)}
+            loading={isProcessing}
+            disabled={!solanaPayUri}
+          />
+          {payError ? (
+            <Text style={[typography.bodySmall, { color: colors.error, textAlign: 'center', marginTop: spacing.sm }]}>
+              {payError}
+            </Text>
+          ) : null}
+
+          {solanaPayUri ? (
+            <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>
+                Or scan to pay
+              </Text>
+              <QRCodeCard value={solanaPayUri} size={180} />
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' }]}>
+                Scan with a Solana wallet
+              </Text>
+            </View>
+          ) : null}
+
+          <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl }]}>
+            Send USDC on Solana only.
+          </Text>
+          <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs / 2 }]}>
+            Funds go directly to the merchant's wallet. Spero never holds your funds.
+          </Text>
+
+          {data.destinationWallet ? (
+            <ThemeAwareCard style={{ marginTop: spacing.xl }}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>
+                Manual payment details
+              </Text>
+              <DetailRow label="Stablecoin" value={data.currency} />
+              <DetailRow label="Network" value={data.network} />
+              <DetailRow label="Amount" value={`${data.amount.toFixed(2)} ${data.currency}`} />
+              <View style={[styles.walletRow, { marginTop: spacing.sm }]}>
+                <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
+                  {truncateWallet(data.destinationWallet)}
+                </Text>
+                <Pressable
+                  onPress={() => onCopyWallet(data.destinationWallet as string)}
+                  style={({ pressed }) => [styles.copyButton, { opacity: pressed ? 0.7 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy receiving wallet address"
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={copiedField === 'wallet' ? 'checkmark' : 'copy-outline'}
+                    size={16}
+                    color={copiedField === 'wallet' ? colors.success : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      typography.caption,
+                      { color: copiedField === 'wallet' ? colors.success : colors.textSecondary, marginLeft: spacing.xs / 2 },
+                    ]}
+                  >
+                    {copiedField === 'wallet' ? 'Copied' : 'Copy'}
+                  </Text>
+                </Pressable>
+              </View>
+            </ThemeAwareCard>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* General request details */}
       <ThemeAwareCard style={{ marginTop: spacing.xl }}>
         <DetailRow label="To" value={merchantName} />
         <DetailRow label="Network" value={data.network} />
@@ -175,53 +290,6 @@ function CheckoutContent({ data, token, copiedField, onCopyWallet }: CheckoutCon
         {data.description ? <DetailRow label="Description" value={data.description} /> : null}
         {data.expiresAt ? <DetailRow label="Expires" value={formatExpiry(data.expiresAt)} last /> : null}
       </ThemeAwareCard>
-
-      {/* Payment destination + QR — only while a payment is actually still expected */}
-      {isPending && data.destinationWallet ? (
-        <>
-          <ThemeAwareCard style={{ marginTop: spacing.base }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Receiving wallet</Text>
-            <View style={[styles.walletRow, { marginTop: spacing.xs }]}>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
-                {truncateWallet(data.destinationWallet)}
-              </Text>
-              <Pressable
-                onPress={() => onCopyWallet(data.destinationWallet as string)}
-                style={({ pressed }) => [styles.copyButton, { opacity: pressed ? 0.7 : 1 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Copy receiving wallet address"
-                hitSlop={8}
-              >
-                <Ionicons
-                  name={copiedField === 'wallet' ? 'checkmark' : 'copy-outline'}
-                  size={16}
-                  color={copiedField === 'wallet' ? colors.success : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: copiedField === 'wallet' ? colors.success : colors.textSecondary, marginLeft: spacing.xs / 2 },
-                  ]}
-                >
-                  {copiedField === 'wallet' ? 'Copied' : 'Copy'}
-                </Text>
-              </Pressable>
-            </View>
-          </ThemeAwareCard>
-
-          <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
-            <QRCodeCard value={getPublicPaymentUrl(token)} size={160} />
-            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' }]}>
-              Scan to open this payment page on another device
-            </Text>
-          </View>
-        </>
-      ) : null}
-
-      {/* Trust note */}
-      <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl }]}>
-        Funds are sent directly to the merchant's wallet. Spero never holds your funds.
-      </Text>
     </View>
   );
 }
@@ -248,6 +316,8 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, paddingBottom: 48 },
   header: { alignItems: 'center' },
   statusArea: { alignItems: 'center' },
+  networkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  devnetBadge: { paddingHorizontal: 8, paddingVertical: 2 },
   detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   walletRow: { flexDirection: 'row', alignItems: 'center' },
   copyButton: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
