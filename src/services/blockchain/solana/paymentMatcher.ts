@@ -20,7 +20,11 @@ function toConfirmationLevel(value: string | null | undefined): ConfirmationLeve
   return value != null && KNOWN_CONFIRMATION_LEVELS.has(value) ? (value as ConfirmationLevel) : null;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+// Exported so the Phase 3D discovery step (finding candidate signatures
+// via getSignaturesForAddress, which runs before matchPayment even has a
+// signature to work with) gets the same timeout/retry discipline as every
+// other RPC call here, instead of a second, slightly-different copy.
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`RPC call timed out after ${ms}ms`)), ms);
     promise.then(
@@ -36,11 +40,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, timeoutMs: number = RPC_TIMEOUT_MS): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= RPC_MAX_ATTEMPTS; attempt++) {
     try {
-      return await withTimeout(fn(), RPC_TIMEOUT_MS);
+      return await withTimeout(fn(), timeoutMs);
     } catch (error) {
       lastError = error;
     }

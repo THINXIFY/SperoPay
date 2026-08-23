@@ -1,4 +1,4 @@
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import type { ParsedTransactionWithMeta, SignatureStatus } from '@solana/web3.js';
 import { getSolanaRpcUrl, REQUIRED_CONFIRMATION_LEVEL } from './config.ts';
 
@@ -12,7 +12,18 @@ export interface SolanaRpcProvider {
   getSignatureStatus(signature: string): Promise<SignatureStatus | null>;
 }
 
-export class PublicRpcProvider implements SolanaRpcProvider {
+// Separate, narrower interface (Phase 3D): finding which transaction(s)
+// touched a Solana Pay reference account. Kept apart from SolanaRpcProvider
+// on purpose -- matchPayment() and its existing tests only need the two
+// methods above, given an already-known signature; only the discovery step
+// that runs *before* matchPayment (finding a candidate signature in the
+// first place) needs this.
+export interface SolanaSignatureDiscoveryProvider {
+  /** Most-recent-first, like the underlying RPC call. */
+  getSignaturesForAddress(address: string, limit?: number): Promise<string[]>;
+}
+
+export class PublicRpcProvider implements SolanaRpcProvider, SolanaSignatureDiscoveryProvider {
   private readonly connection: Connection;
 
   constructor(rpcUrl: string = getSolanaRpcUrl()) {
@@ -31,5 +42,10 @@ export class PublicRpcProvider implements SolanaRpcProvider {
       searchTransactionHistory: true,
     });
     return response.value;
+  }
+
+  async getSignaturesForAddress(address: string, limit = 10): Promise<string[]> {
+    const infos = await this.connection.getSignaturesForAddress(new PublicKey(address), { limit });
+    return infos.map((info) => info.signature);
   }
 }
