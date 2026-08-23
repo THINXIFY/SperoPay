@@ -16,7 +16,11 @@ export function toBaseUnits(amount: string | number, decimals: number): bigint {
   const str = typeof amount === 'number' ? amount.toFixed(decimals) : amount.trim();
   const negative = str.startsWith('-');
   const unsigned = negative ? str.slice(1) : str;
-  const [wholePartRaw, fractionPartRaw = ''] = unsigned.split('.');
+  const parts = unsigned.split('.');
+  if (parts.length > 2) {
+    throw new Error(`toBaseUnits: invalid amount "${amount}"`);
+  }
+  const [wholePartRaw, fractionPartRaw = ''] = parts;
   const wholePart = wholePartRaw || '0';
 
   if (!/^\d+$/.test(wholePart) || (fractionPartRaw.length > 0 && !/^\d+$/.test(fractionPartRaw))) {

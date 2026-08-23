@@ -15,7 +15,11 @@ export function parsePaymentTransaction(
   expectedMint: string
 ): ParsedPaymentTransaction {
   const meta = tx.meta;
-  const succeeded = meta?.err == null;
+  // Loose `== null` would treat a genuinely MISSING meta (meta is
+  // `undefined`/`null` — RPC couldn't produce it) the same as a present
+  // meta with `err: null` (a real success) — an unsafe default for a
+  // payment check. Missing meta must never read as "succeeded".
+  const succeeded = meta != null && meta.err == null;
   const transfers: ParsedTokenTransfer[] = [];
 
   if (meta) {
