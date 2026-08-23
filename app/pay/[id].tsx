@@ -21,6 +21,7 @@ import { useTransactionStore } from '../../src/store/transactionStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { isRequestExpired } from '../../src/utils/expiry';
+import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
 
 export default function PublicPaymentScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -178,7 +179,7 @@ export default function PublicPaymentScreen() {
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' }]}>
           Scan to Pay
         </Text>
-        <QRCodeCard value={request.paymentLink} />
+        <QRCodeCard value={getPublicPaymentUrl(request.publicToken)} />
         <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
           <View style={styles.summaryRow}>
             <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>

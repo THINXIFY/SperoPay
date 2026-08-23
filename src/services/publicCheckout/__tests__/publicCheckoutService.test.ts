@@ -86,6 +86,14 @@ describe('fetchPublicCheckout', () => {
     expect(result).toEqual({ ok: false, code: 'not_found', message: expect.any(String) });
   });
 
+  it('fails closed with network_error when the RPC returns an unrecognized status', async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: [rpcRow({ status: 'some_future_status' })], error: null } as never);
+
+    const result = await fetchPublicCheckout(VALID_TOKEN);
+
+    expect(result).toEqual({ ok: false, code: 'network_error', message: expect.any(String) });
+  });
+
   it('returns network_error (not a raw error) when the RPC call fails', async () => {
     mockedSupabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission denied for table x' } } as never);
 

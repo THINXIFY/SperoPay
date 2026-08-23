@@ -1,6 +1,14 @@
 import { supabase } from '../../lib/supabase';
 import type { PublicCheckoutData, PublicCheckoutResult } from './types';
 
+const KNOWN_STATUSES: ReadonlySet<PublicCheckoutData['status']> = new Set([
+  'pending',
+  'confirming',
+  'paid',
+  'expired',
+  'cancelled',
+]);
+
 // public_token is a Postgres gen_random_uuid() — a standard UUID. Checking
 // the shape before making a network call rejects an obviously-malformed
 // link (a stray character, a truncated copy-paste) instantly, without a
@@ -21,6 +29,10 @@ interface PublicCheckoutRpcRow {
   expires_at: string | null;
   merchant_name: string | null;
   destination_wallet: string | null;
+}
+
+function isKnownStatus(status: string): status is PublicCheckoutData['status'] {
+  return KNOWN_STATUSES.has(status as PublicCheckoutData['status']);
 }
 
 function normalize(row: PublicCheckoutRpcRow): PublicCheckoutData {
@@ -61,6 +73,13 @@ export async function fetchPublicCheckout(token: string): Promise<PublicCheckout
   const rows = (response.data ?? []) as PublicCheckoutRpcRow[];
   if (rows.length === 0) {
     return { ok: false, code: 'not_found', message: 'This link may be invalid or no longer available.' };
+  }
+
+  if (!isKnownStatus(rows[0].status)) {
+    // Fail closed rather than pass an unrecognized status through to the UI,
+    // which would otherwise fall through every status branch and render
+    // nothing instead of a clear error state.
+    return { ok: false, code: 'network_error', message: "We couldn't load this payment. Check your connection and try again." };
   }
 
   return { ok: true, data: normalize(rows[0]) };
