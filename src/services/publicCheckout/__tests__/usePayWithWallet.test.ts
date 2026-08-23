@@ -1,3 +1,4 @@
+import { Linking } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import { usePayWithWallet, NO_WALLET_MESSAGE } from '../usePayWithWallet';
 
@@ -135,5 +136,30 @@ describe('usePayWithWallet', () => {
       await result.current.pay(URI);
     });
     expect(result.current.hasInitiated).toBe(true);
+  });
+
+  it('the real default deps call Linking with correct `this` binding, not just injected mocks', async () => {
+    // Regression test: Linking.canOpenURL/openURL read `this._validateURL`
+    // internally, so wiring them up as bare unbound references
+    // (`canOpenURL: Linking.canOpenURL`) would throw on every real call --
+    // every other test in this file injects its own deps and would never
+    // catch that. This test exercises the hook's actual default (no deps
+    // argument), spying on the real Linking module rather than replacing it.
+    const canOpenURLSpy = jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
+    const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+
+    const { result } = await renderHook(() => usePayWithWallet());
+
+    await act(async () => {
+      await result.current.pay(URI);
+    });
+
+    expect(canOpenURLSpy).toHaveBeenCalledWith(URI);
+    expect(openURLSpy).toHaveBeenCalledWith(URI);
+    expect(result.current.error).toBeNull();
+    expect(result.current.hasInitiated).toBe(true);
+
+    canOpenURLSpy.mockRestore();
+    openURLSpy.mockRestore();
   });
 });

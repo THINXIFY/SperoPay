@@ -6,9 +6,13 @@ export interface PayWithWalletDeps {
   openURL: (url: string) => Promise<unknown>;
 }
 
+// Bound wrappers, not bare method references: Linking.canOpenURL/openURL
+// read `this._validateURL(...)` internally, so passing the unbound
+// functions off as plain object properties (`canOpenURL: Linking.canOpenURL`)
+// would call them with the wrong `this` and throw on every real invocation.
 const defaultDeps: PayWithWalletDeps = {
-  canOpenURL: Linking.canOpenURL,
-  openURL: Linking.openURL,
+  canOpenURL: (url) => Linking.canOpenURL(url),
+  openURL: (url) => Linking.openURL(url),
 };
 
 export const NO_WALLET_MESSAGE = 'No compatible Solana wallet found.';

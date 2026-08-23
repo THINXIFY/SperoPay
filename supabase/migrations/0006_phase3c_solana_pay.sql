@@ -11,11 +11,12 @@
 -- backfill for rows created before this migration (they predate the
 -- Solana Pay flow and were never going to be paid through it). Unique so
 -- two requests can never collide on the same on-chain lookup key.
+-- The `unique` constraint below already creates its own backing btree
+-- index, usable for exact-match lookups by solana_reference (e.g. a future
+-- phase matching an on-chain transaction back to its request) -- no
+-- separate index needed.
 alter table public.payment_requests
   add column if not exists solana_reference text unique;
-
-create index if not exists idx_payment_requests_solana_reference
-  on public.payment_requests(solana_reference);
 
 -- 2. create_payment_request: accept the reference from the client -----------
 -- Adding a parameter changes the function's signature (Postgres identifies
