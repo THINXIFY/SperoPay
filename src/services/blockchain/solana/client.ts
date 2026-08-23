@@ -1,6 +1,6 @@
 import { Connection } from '@solana/web3.js';
 import type { ParsedTransactionWithMeta, SignatureStatus } from '@solana/web3.js';
-import { getSolanaRpcUrl, REQUIRED_CONFIRMATION_LEVEL } from './config';
+import { getSolanaRpcUrl, REQUIRED_CONFIRMATION_LEVEL } from './config.ts';
 
 // Narrow interface around the handful of RPC calls this app actually
 // needs — deliberately not "the whole Connection object" — so a caller can

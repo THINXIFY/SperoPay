@@ -1,5 +1,5 @@
 import { clusterApiUrl } from '@solana/web3.js';
-import type { SolanaEnvironment } from './types';
+import type { SolanaEnvironment } from './types.ts';
 
 // Which cluster the app targets. Defaults to devnet — a production build
 // must explicitly opt into mainnet-beta via EXPO_PUBLIC_SOLANA_NETWORK,

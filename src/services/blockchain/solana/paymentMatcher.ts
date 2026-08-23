@@ -1,9 +1,9 @@
-import type { SolanaRpcProvider } from './client';
-import { parsePaymentTransaction } from './transactionParser';
-import { verifyPayment } from './paymentVerifier';
-import { REQUIRED_CONFIRMATION_LEVEL } from './config';
-import { getUsdcConfig } from './usdc';
-import type { ConfirmationLevel, ExpectedPayment, PaymentVerificationResult } from './types';
+import type { SolanaRpcProvider } from './client.ts';
+import { parsePaymentTransaction } from './transactionParser.ts';
+import { verifyPayment } from './paymentVerifier.ts';
+import { REQUIRED_CONFIRMATION_LEVEL } from './config.ts';
+import { getUsdcConfig } from './usdc.ts';
+import type { ConfirmationLevel, ExpectedPayment, PaymentVerificationResult } from './types.ts';
 
 const RPC_TIMEOUT_MS = 15_000;
 const RPC_MAX_ATTEMPTS = 2; // one retry — spec section 27: not indefinite, no request storms

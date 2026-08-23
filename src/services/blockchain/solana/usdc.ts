@@ -1,4 +1,4 @@
-import type { SolanaEnvironment } from './types';
+import type { SolanaEnvironment } from './types.ts';
 
 interface UsdcNetworkConfig {
   mint: string;

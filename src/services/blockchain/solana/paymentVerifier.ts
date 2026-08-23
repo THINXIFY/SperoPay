@@ -1,4 +1,4 @@
-import type { ConfirmationLevel, ExpectedPayment, ParsedPaymentTransaction, PaymentVerificationResult } from './types';
+import type { ConfirmationLevel, ExpectedPayment, ParsedPaymentTransaction, PaymentVerificationResult } from './types.ts';
 
 const CONFIRMATION_RANK: Record<ConfirmationLevel, number> = { processed: 0, confirmed: 1, finalized: 2 };
 

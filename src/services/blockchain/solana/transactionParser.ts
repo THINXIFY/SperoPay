@@ -1,5 +1,5 @@
 import type { ParsedTransactionWithMeta } from '@solana/web3.js';
-import type { ParsedPaymentTransaction, ParsedTokenTransfer } from './types';
+import type { ParsedPaymentTransaction, ParsedTokenTransfer } from './types.ts';
 
 // Extracts every USDC transfer *into* some account in this transaction, by
 // diffing pre/post token balances for the expected mint — not by trying to
