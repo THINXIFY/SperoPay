@@ -66,4 +66,22 @@ function clusterApiUrl(cluster) {
   return `https://api.${cluster}.solana.com`;
 }
 
-module.exports = { PublicKey, Connection, clusterApiUrl };
+// Real crypto.randomBytes (Node, available under Jest) -- not a fixed
+// value, so uniqueness tests against generateSolanaReference() are
+// exercising real randomness, not a stub that always returns the same key.
+const nodeCrypto = require('crypto');
+
+class Keypair {
+  constructor(bytes, secretKey) {
+    this.publicKey = new PublicKey(bytes);
+    this.secretKey = secretKey;
+  }
+
+  static generate() {
+    const bytes = new Uint8Array(nodeCrypto.randomBytes(32));
+    const secretKey = new Uint8Array(nodeCrypto.randomBytes(64));
+    return new Keypair(bytes, secretKey);
+  }
+}
+
+module.exports = { PublicKey, Connection, Keypair, clusterApiUrl };
