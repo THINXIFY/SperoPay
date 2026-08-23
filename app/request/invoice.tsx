@@ -16,6 +16,7 @@ import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getInvoiceId } from '../../src/utils/documentIds';
 import { buildInvoiceShareMessage } from '../../src/utils/buildInvoiceShareMessage';
+import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
 
 export default function InvoiceScreen() {
   const { colors, spacing, typography } = useTheme();
@@ -49,7 +50,7 @@ export default function InvoiceScreen() {
 
   async function handleCopyLink() {
     if (!request) return;
-    await Clipboard.setStringAsync(request.paymentLink);
+    await Clipboard.setStringAsync(getPublicPaymentUrl(request.publicToken));
     Alert.alert('Copied', 'Payment link copied to clipboard.');
   }
 

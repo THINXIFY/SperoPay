@@ -13,6 +13,7 @@ import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { formatCurrency } from '../../src/utils/formatCurrency';
+import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
 
 function formatExpiryLabel(expiresAt: string | null): string {
   if (!expiresAt) return 'No expiry';
@@ -34,22 +35,24 @@ export default function CreatedScreen() {
     return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} />;
   }
 
+  const publicLink = getPublicPaymentUrl(request.publicToken);
+
   function handleClose() {
     resetDraft();
     router.replace('/(app)/home');
   }
 
   async function handleCopyLink() {
-    await Clipboard.setStringAsync(request!.paymentLink);
+    await Clipboard.setStringAsync(publicLink);
     Alert.alert('Copied', 'Payment link copied to clipboard.');
   }
 
   async function handleShare() {
-    await Share.share({ message: request!.paymentLink, url: request!.paymentLink });
+    await Share.share({ message: publicLink, url: publicLink });
   }
 
   async function handleWhatsApp() {
-    const message = `You have a payment request for ${formatCurrency(request!.amount)} USDC through Spero: ${request!.paymentLink}`;
+    const message = `You have a payment request for ${formatCurrency(request!.amount)} USDC through Spero: ${publicLink}`;
     await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
   }
 
@@ -95,7 +98,7 @@ export default function CreatedScreen() {
           ) : null}
 
           <View style={{ marginTop: spacing.lg }}>
-            <QRCodeCard value={request.paymentLink} />
+            <QRCodeCard value={publicLink} />
           </View>
 
           <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.sm }]}>
@@ -120,7 +123,7 @@ export default function CreatedScreen() {
               numberOfLines={1}
               style={[typography.bodySmall, { color: colors.textSecondary, flex: 1 }]}
             >
-              {request.paymentLink}
+              {publicLink}
             </Text>
             <Pressable onPress={handleCopyLink} accessibilityRole="button" accessibilityLabel="Copy link">
               <Ionicons name="copy-outline" size={20} color={colors.textPrimary} />
@@ -146,7 +149,7 @@ export default function CreatedScreen() {
           style={[styles.qrBackdrop, { backgroundColor: 'rgba(5,5,5,0.85)' }]}
           onPress={() => setQrModalVisible(false)}
         >
-          <QRCodeCard value={request.paymentLink} size={260} />
+          <QRCodeCard value={publicLink} size={260} />
         </Pressable>
       </Modal>
     </SafeAreaView>

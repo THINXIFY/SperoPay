@@ -1,4 +1,5 @@
 import { buildReminderMessage } from '../buildReminderMessage';
+import { getPublicPaymentUrl } from '../publicPaymentLink';
 import type { PaymentRequest, Customer } from '../../types';
 
 const request: PaymentRequest = {
@@ -32,7 +33,7 @@ describe('buildReminderMessage', () => {
     expect(message).toContain('750 USDC');
     expect(message).toContain('Website Development');
     expect(message).toContain('Spero');
-    expect(message).toContain(request.paymentLink);
+    expect(message).toContain(getPublicPaymentUrl(request.publicToken));
   });
 
   it('falls back to a generic greeting when there is no customer', () => {

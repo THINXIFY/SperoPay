@@ -22,6 +22,7 @@ import { supabase } from '../../../src/lib/supabase';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
 import { truncateHash } from '../../../src/utils/truncateHash';
+import { getPublicPaymentUrl } from '../../../src/utils/publicPaymentLink';
 import type { RequestEventType } from '../../../src/types';
 
 const EVENT_LABELS: Record<RequestEventType, string> = {
@@ -103,7 +104,8 @@ export default function RequestDetailScreen() {
 
   async function handleShareAgain() {
     if (!request) return;
-    await Share.share({ message: request.paymentLink, url: request.paymentLink });
+    const publicLink = getPublicPaymentUrl(request.publicToken);
+    await Share.share({ message: publicLink, url: publicLink });
     await recordEvent(request.id, 'shared');
   }
 
@@ -228,7 +230,7 @@ export default function RequestDetailScreen() {
           <View>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Payment Link</Text>
             <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.paymentLink}
+              {getPublicPaymentUrl(request.publicToken)}
             </Text>
           </View>
           {transaction ? (

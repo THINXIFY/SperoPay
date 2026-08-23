@@ -1,4 +1,5 @@
 import { buildInvoiceShareMessage } from '../buildInvoiceShareMessage';
+import { getPublicPaymentUrl } from '../publicPaymentLink';
 import type { PaymentRequest, Profile } from '../../types';
 
 const request: PaymentRequest = {
@@ -33,7 +34,7 @@ describe('buildInvoiceShareMessage', () => {
     expect(message).toContain('Invoice INV-SP-A82KD');
     expect(message).toContain('THINXIFY requested 750 USDC for Website Development.');
     expect(message).toContain('Pay with Spero:');
-    expect(message).toContain(request.paymentLink);
+    expect(message).toContain(getPublicPaymentUrl(request.publicToken));
   });
 
   it('falls back to the display name when there is no business name', () => {
