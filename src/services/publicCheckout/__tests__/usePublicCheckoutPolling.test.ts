@@ -1,13 +1,19 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { usePublicCheckoutPolling } from '../usePublicCheckoutPolling';
 import { fetchPublicCheckout } from '../publicCheckoutService';
+import { triggerPaymentVerification } from '../verifyPayment';
 import type { PublicCheckoutData } from '../types';
 
 jest.mock('../publicCheckoutService', () => ({
   fetchPublicCheckout: jest.fn(),
 }));
 
+jest.mock('../verifyPayment', () => ({
+  triggerPaymentVerification: jest.fn().mockResolvedValue(undefined),
+}));
+
 const mockedFetch = jest.mocked(fetchPublicCheckout);
+const mockedTriggerVerification = jest.mocked(triggerPaymentVerification);
 
 const TOKEN = 'a1b2c3d4-e5f6-4789-a012-3456789abcde';
 const POLL_INTERVAL_MS = 1000;
@@ -46,6 +52,21 @@ describe('usePublicCheckoutPolling', () => {
     await waitFor(() => expect(result.current.result).not.toBeNull());
     expect(mockedFetch).toHaveBeenCalledTimes(1);
     expect(mockedFetch).toHaveBeenCalledWith(TOKEN);
+  });
+
+  it('nudges server-side verification before each fetch', async () => {
+    mockedFetch.mockResolvedValue({ ok: true, data: checkoutData({ status: 'pending' }) });
+
+    await renderHook(() => usePublicCheckoutPolling(TOKEN, POLL_INTERVAL_MS));
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(1));
+    expect(mockedTriggerVerification).toHaveBeenCalledWith(TOKEN);
+    expect(mockedTriggerVerification).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+    });
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(2));
+    expect(mockedTriggerVerification).toHaveBeenCalledTimes(2);
   });
 
   it('reschedules another poll while status is pending', async () => {
