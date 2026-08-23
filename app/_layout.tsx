@@ -1,3 +1,4 @@
+import '../src/lib/solanaPolyfills';
 import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

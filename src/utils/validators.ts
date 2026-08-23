@@ -1,3 +1,5 @@
+import { isValidSolanaAddress } from '../services/blockchain/solana/walletValidation';
+
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -10,6 +12,8 @@ export function isValidAmount(amount: number): boolean {
   return Number.isFinite(amount) && amount > 0;
 }
 
+// Delegates to a real base58/PublicKey decode check (not just a shape
+// regex) — see src/services/blockchain/solana/walletValidation.ts.
 export function isValidWalletAddress(address: string): boolean {
-  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  return isValidSolanaAddress(address);
 }

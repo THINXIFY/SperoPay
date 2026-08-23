@@ -8,7 +8,9 @@
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.18.16",
+    "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.112.3",
+    "buffer": "^6.0.3",
     "expo": "~57.0.14",
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.12",
@@ -20,6 +22,7 @@
     "react": "19.2.3",
     "react-native": "0.86.2",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-get-random-values": "~1.11.0",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
@@ -35,6 +38,7 @@
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "^57.0.7",
+    "bs58": "^6.0.0",
     "jest-expo": "~57.0.4",
     "typescript": "~6.0.3"
   },
@@ -45,9 +49,6 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "jest"
-  },
-  "jest": {
-    "preset": "jest-expo"
   },
   "overrides": {
     "react-dom": "19.2.3"

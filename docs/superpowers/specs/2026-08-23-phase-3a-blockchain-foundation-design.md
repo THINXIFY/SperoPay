@@ -68,11 +68,13 @@ Not built in Phase 3A: the actual `/pay/[id]` screen calling this RPC. That's Ph
 | Package | Why |
 |---|---|
 | `@solana/web3.js` | `Connection`, `PublicKey`, parsed-transaction types — the standard official SDK. |
-| `@solana/spl-token` | `getAssociatedTokenAddress` — computing the expected destination token account from a wallet+mint. One function needed; hand-rolling the PDA derivation risks a subtle bug in security-sensitive code, so using the maintained library instead. |
 | `buffer` | React Native/Hermes has no global `Buffer`; `@solana/web3.js` requires one. Standard, well-known RN+Solana shim. |
 | `react-native-get-random-values` | `@solana/web3.js`'s crypto dependencies need `crypto.getRandomValues`, not present by default in Hermes. Also standard for this stack. |
+| `bs58` (devDependency only) | Used only by the Jest mock below to give `PublicKey` real base58 decode behavior in tests — not part of the app's runtime bundle. |
 
-No overlapping SDKs — exactly the two official Solana packages plus the two polyfills they require to run in React Native at all. `bs58` is not added directly (not needed — `PublicKey` handles base58 internally).
+**`@solana/spl-token` was evaluated and deliberately not added.** The original plan was to use it for `getAssociatedTokenAddress` (computing the expected destination token account from wallet+mint), but `transactionParser.ts` ended up reading the destination owner directly from the RPC's parsed token-balance data (`postTokenBalances[i].owner`) instead — the chain already reports who received the funds, so there's no need to independently pre-compute where they *should* have gone. This is also more correct: a merchant could plausibly control more than one USDC token account, and comparing against the specific "standard" ATA would incorrectly reject a payment sent to a different, still-legitimately-owned account. No overlapping SDKs; exactly one official Solana package plus the two polyfills it requires to run in React Native at all.
+
+**Jest tooling note**: `@solana/web3.js`'s dependency chain (`jayson`, `rpc-websockets`, `uuid`, `@solana/codecs-numbers`, ...) ships package.json `exports` conditions that Metro (the real bundler) resolves correctly but Jest's default resolver does not — the package is genuinely unloadable under plain `jest` even though it works in an actual Expo/RN build. Rather than fight Jest's resolver through an increasingly fragile chain of `transformIgnorePatterns`/`browser: true` workarounds, `@solana/web3.js` is mocked at the Jest level (`__mocks__/@solana/web3.js.js`) with a **faithful** `PublicKey` reimplementation (real base58 decode + 32-byte check, via `bs58`) so wallet-validation tests exercise genuine behavior, and a `Connection` that throws if actually constructed (tests must inject a fake `SolanaRpcProvider` instead — see `client.ts`'s interface, which exists partly *for* this testability reason).
 
 ## Decision 7 — Mock/real separation
 
