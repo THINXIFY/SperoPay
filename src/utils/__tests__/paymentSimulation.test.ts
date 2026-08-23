@@ -15,6 +15,7 @@ function makeRequest(overrides: Partial<PaymentRequest>): PaymentRequest {
     createdAt: '2026-08-18T00:00:00.000Z',
     paymentLink: 'https://pay.speropay.app/r/req-x',
     publicToken: 'test-public-token-1',
+    solanaReference: 'test-solana-reference-1',
     ...overrides,
   };
 }

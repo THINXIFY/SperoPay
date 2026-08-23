@@ -29,6 +29,7 @@ interface PublicCheckoutRpcRow {
   expires_at: string | null;
   merchant_name: string | null;
   destination_wallet: string | null;
+  solana_reference: string | null;
 }
 
 function isKnownStatus(status: string): status is PublicCheckoutData['status'] {
@@ -46,6 +47,7 @@ function normalize(row: PublicCheckoutRpcRow): PublicCheckoutData {
     expiresAt: row.expires_at,
     merchantName: row.merchant_name,
     destinationWallet: row.destination_wallet,
+    solanaReference: row.solana_reference,
   };
 }
 

@@ -15,6 +15,7 @@ const request: PaymentRequest = {
   createdAt: '2026-08-18T00:00:00.000Z',
   paymentLink: 'https://pay.speropay.app/r/req-1',
   publicToken: 'test-public-token-1',
+  solanaReference: 'test-solana-reference-1',
 };
 
 describe('buildReceiptShareMessage', () => {

@@ -43,6 +43,7 @@ function mapRequestRow(row: {
   status: PaymentRequest['status'];
   payment_link: string;
   public_token: string;
+  solana_reference?: string | null;
   created_at: string;
 }): PaymentRequest {
   return {
@@ -60,6 +61,7 @@ function mapRequestRow(row: {
     createdAt: row.created_at,
     paymentLink: row.payment_link,
     publicToken: row.public_token,
+    solanaReference: row.solana_reference ?? null,
   };
 }
 
@@ -124,6 +126,7 @@ export const useRequestStore = create<RequestState>()((set, get) => ({
         p_expiry_option: payload.expiryOption,
         p_expires_at: payload.expiresAt,
         p_payment_link: payload.paymentLink,
+        p_solana_reference: payload.solanaReference,
       });
       if (error) throw error;
       const request = mapRequestRow(data);

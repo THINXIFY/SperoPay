@@ -15,6 +15,7 @@ export interface PublicCheckoutData {
   expiresAt: string | null;
   merchantName: string | null;
   destinationWallet: string | null;
+  solanaReference: string | null;
 }
 
 export type PublicCheckoutResult =

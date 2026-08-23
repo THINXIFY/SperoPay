@@ -19,6 +19,8 @@ export interface PaymentRequest {
   paymentLink: string;
   /** Opaque public bearer token — the only safe identifier for a shareable checkout link. */
   publicToken: string;
+  /** Solana Pay reference public key (no matching secret key exists anywhere) — null for requests created before Phase 3C. */
+  solanaReference: string | null;
 }
 
 export interface Transaction {

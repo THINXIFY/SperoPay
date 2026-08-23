@@ -25,6 +25,7 @@ function mapRequestRow(overrides: Record<string, unknown> = {}) {
     status: 'pending',
     payment_link: 'https://pay.speropay.app/r/SP-AAAAA',
     public_token: 'test-public-token-1',
+    solana_reference: 'test-solana-reference-1',
     created_at: '2026-08-21T00:00:00.000Z',
     ...overrides,
   };
@@ -44,6 +45,7 @@ function makePaymentRequestForStore(id: string, status: string) {
     createdAt: '2026-08-21T00:00:00.000Z',
     paymentLink: 'https://pay.speropay.app/r/SP-AAAAA',
     publicToken: 'test-public-token-1',
+    solanaReference: 'test-solana-reference-1',
   };
 }
 
@@ -66,10 +68,11 @@ describe('createRequest', () => {
 
     expect(mockedSupabase.rpc).toHaveBeenCalledWith(
       'create_payment_request',
-      expect.objectContaining({ p_amount: 100, p_customer_id: 'c1', p_expiry_option: '7d' })
+      expect.objectContaining({ p_amount: 100, p_customer_id: 'c1', p_expiry_option: '7d', p_solana_reference: expect.any(String) })
     );
     expect(request.id).toBe('r1');
     expect(request.paymentCode).toBe('SP-AAAAA');
+    expect(request.solanaReference).toBe('test-solana-reference-1');
     expect(useRequestStore.getState().requests).toHaveLength(1);
   });
 });

@@ -20,6 +20,7 @@ function rpcRow(overrides: Record<string, unknown> = {}) {
     expires_at: '2026-09-01T00:00:00.000Z',
     merchant_name: 'Acme Co',
     destination_wallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
+    solana_reference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
     ...overrides,
   };
 }
@@ -66,6 +67,7 @@ describe('fetchPublicCheckout', () => {
         expiresAt: '2026-09-01T00:00:00.000Z',
         merchantName: 'Acme Co',
         destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
+        solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
       },
     });
   });
@@ -139,6 +141,7 @@ describe('fetchPublicCheckout', () => {
           'expiresAt',
           'merchantName',
           'destinationWallet',
+          'solanaReference',
         ].sort()
       );
     }

@@ -1,4 +1,5 @@
 import { buildPaymentRequestPayload } from '../buildPaymentRequest';
+import { isValidSolanaAddress } from '../../services/blockchain/solana/walletValidation';
 
 describe('buildPaymentRequestPayload', () => {
   const now = new Date('2026-08-18T12:00:00.000Z');
@@ -35,5 +36,13 @@ describe('buildPaymentRequestPayload', () => {
   it('builds paymentLink from paymentCode, not a client-generated id', () => {
     const payload = buildPaymentRequestPayload({ amount: 100, expiryOption: '7d' }, now);
     expect(payload.paymentLink).toBe(`https://pay.speropay.app/r/${payload.paymentCode}`);
+  });
+
+  it('automatically generates a valid, unique Solana reference with no merchant action required', () => {
+    const first = buildPaymentRequestPayload({ amount: 100, expiryOption: '7d' }, now);
+    const second = buildPaymentRequestPayload({ amount: 100, expiryOption: '7d' }, now);
+
+    expect(isValidSolanaAddress(first.solanaReference)).toBe(true);
+    expect(first.solanaReference).not.toBe(second.solanaReference);
   });
 });
