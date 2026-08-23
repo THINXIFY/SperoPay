@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,18 +10,12 @@ import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { SkeletonLoader } from '../../src/components/SkeletonLoader';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
-import { COLOR_KEYS } from '../../src/components/StatusBadge';
-import { fetchPublicCheckout } from '../../src/services/publicCheckout/publicCheckoutService';
-import type { PublicCheckoutData, PublicCheckoutResult } from '../../src/services/publicCheckout/types';
+import { usePublicCheckoutPolling } from '../../src/services/publicCheckout/usePublicCheckoutPolling';
+import type { PublicCheckoutData } from '../../src/services/publicCheckout/types';
 import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 
-const POLL_INTERVAL_MS = 7000;
 const MAX_CONTENT_WIDTH = 480;
-
-function isTerminalStatus(status: PublicCheckoutData['status']): boolean {
-  return status === 'paid' || status === 'expired' || status === 'cancelled';
-}
 
 function truncateWallet(address: string): string {
   if (address.length <= 12) return address;
@@ -37,47 +31,8 @@ function formatExpiry(isoDate: string): string {
 export default function PublicCheckoutScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const { colors, spacing, radius, typography } = useTheme();
-  const [result, setResult] = useState<PublicCheckoutResult | null>(null);
+  const { result, isRefreshing, refresh } = usePublicCheckoutPolling(token);
   const [copiedField, setCopiedField] = useState<'wallet' | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (!token) {
-      setResult({ ok: false, code: 'invalid_token', message: 'This payment link is invalid.' });
-      return;
-    }
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    // Recursive setTimeout, not setInterval: the next poll is only ever
-    // scheduled after the current one resolves, so a slow response can
-    // never overlap with the next request. Stops entirely on any terminal
-    // status or any error result -- an error state gets a manual Refresh
-    // action instead of being retried automatically (spec sections 20-21).
-    async function poll() {
-      const next = await fetchPublicCheckout(token);
-      if (cancelled) return;
-      setResult(next);
-      setIsRefreshing(false);
-      if (next.ok && !isTerminalStatus(next.data.status)) {
-        timer = setTimeout(poll, POLL_INTERVAL_MS);
-      }
-    }
-
-    poll();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [token, retryKey]);
-
-  function handleRetry() {
-    setIsRefreshing(true);
-    setRetryKey((key) => key + 1);
-  }
 
   async function handleCopyWallet(address: string) {
     await Clipboard.setStringAsync(address);
@@ -89,7 +44,7 @@ export default function PublicCheckoutScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRetry} tintColor={colors.primaryAction} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={colors.primaryAction} />}
       >
         <View style={[styles.content, { paddingHorizontal: spacing.xl, paddingTop: spacing.xl }]}>
           <View style={styles.header}>
@@ -107,7 +62,7 @@ export default function PublicCheckoutScreen() {
               />
               {result.code === 'network_error' ? (
                 <Pressable
-                  onPress={handleRetry}
+                  onPress={refresh}
                   style={({ pressed }) => [styles.retryButton, { marginTop: spacing.lg, opacity: pressed ? 0.7 : 1 }]}
                   accessibilityRole="button"
                   accessibilityLabel="Try again"
