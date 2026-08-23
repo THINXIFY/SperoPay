@@ -19,8 +19,13 @@ export interface SolanaRpcProvider {
 // that runs *before* matchPayment (finding a candidate signature in the
 // first place) needs this.
 export interface SolanaSignatureDiscoveryProvider {
-  /** Most-recent-first, like the underlying RPC call. */
-  getSignaturesForAddress(address: string, limit?: number): Promise<string[]>;
+  /**
+   * Most-recent-first, like the underlying RPC call. `before` (a
+   * signature) pages backward past it -- callers use this to look further
+   * into an address's history when the first page doesn't contain a match,
+   * rather than being limited to only the most recent `limit` signatures.
+   */
+  getSignaturesForAddress(address: string, limit?: number, before?: string): Promise<string[]>;
 }
 
 export class PublicRpcProvider implements SolanaRpcProvider, SolanaSignatureDiscoveryProvider {
@@ -44,8 +49,8 @@ export class PublicRpcProvider implements SolanaRpcProvider, SolanaSignatureDisc
     return response.value;
   }
 
-  async getSignaturesForAddress(address: string, limit = 10): Promise<string[]> {
-    const infos = await this.connection.getSignaturesForAddress(new PublicKey(address), { limit });
+  async getSignaturesForAddress(address: string, limit = 10, before?: string): Promise<string[]> {
+    const infos = await this.connection.getSignaturesForAddress(new PublicKey(address), { limit, before });
     return infos.map((info) => info.signature);
   }
 }

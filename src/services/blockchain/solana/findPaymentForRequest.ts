@@ -3,6 +3,14 @@ import { matchPayment, withRetry, type PaymentMatcherDeps } from './paymentMatch
 import type { ExpectedPayment, PaymentVerificationResult } from './types.ts';
 
 const DEFAULT_CANDIDATE_LIMIT = 10;
+// Bounds total work per call to MAX_PAGES * limit signatures -- never
+// unbounded (spec: no endless retry loops) -- while still meaningfully
+// raising the cost of a griefing attack that spams cheap transactions
+// referencing this account *after* the real payment, trying to push it
+// out of a single most-recent-N page. Paging stops early once a page
+// comes back shorter than `limit` (the real end of this address's
+// on-chain history), so a quiet reference costs exactly one RPC call.
+const MAX_PAGES = 3;
 
 export type PaymentDiscoveryOutcome =
   | { kind: 'paid'; result: Extract<PaymentVerificationResult, { valid: true }> }
@@ -35,23 +43,39 @@ export async function findPaymentForRequest(
   deps: FindPaymentDeps,
   limit: number = DEFAULT_CANDIDATE_LIMIT
 ): Promise<PaymentDiscoveryOutcome> {
-  let signatures: string[];
-  try {
-    signatures = await withRetry(() => deps.discoveryProvider.getSignaturesForAddress(reference, limit));
-  } catch {
-    return { kind: 'rpc_unavailable' };
-  }
-
   let sawInsufficientConfirmation = false;
+  let before: string | undefined;
 
-  for (const signature of signatures) {
-    const result = await matchPayment(signature, expected, deps);
-    if (result.valid) {
-      return { kind: 'paid', result };
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let signatures: string[];
+    try {
+      signatures = await withRetry(() => deps.discoveryProvider.getSignaturesForAddress(reference, limit, before));
+    } catch {
+      return { kind: 'rpc_unavailable' };
     }
-    if (result.reason === 'insufficient_confirmation') {
-      sawInsufficientConfirmation = true;
+
+    if (signatures.length === 0) break;
+
+    for (const signature of signatures) {
+      let result: PaymentVerificationResult;
+      try {
+        result = await matchPayment(signature, expected, deps);
+      } catch {
+        // One malformed/unexpected candidate must never hide a good one
+        // (or a still-confirming one) elsewhere in the list -- treat it as
+        // "not this one" and keep checking the rest.
+        continue;
+      }
+      if (result.valid) {
+        return { kind: 'paid', result };
+      }
+      if (result.reason === 'insufficient_confirmation') {
+        sawInsufficientConfirmation = true;
+      }
     }
+
+    if (signatures.length < limit) break; // reached the real end of this address's history
+    before = signatures[signatures.length - 1];
   }
 
   return sawInsufficientConfirmation ? { kind: 'confirming' } : { kind: 'no_match' };

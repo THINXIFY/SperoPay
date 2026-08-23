@@ -220,4 +220,87 @@ describe('findPaymentForRequest', () => {
 
     expect(getSignaturesForAddress.mock.calls.length).toBeLessThanOrEqual(2);
   });
+
+  it('pages backward with `before` when a full first page has no match, and finds the payment on the next page', async () => {
+    // Simulates a griefing attempt: enough newer, irrelevant signatures to
+    // fill the first page, with the real payment further back in history.
+    const getSignaturesForAddress = jest
+      .fn()
+      .mockResolvedValueOnce(['spam-1', 'spam-2'])
+      .mockResolvedValueOnce(['sig-real']);
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockImplementation((sig: string) =>
+        Promise.resolve(sig === 'sig-real' ? fakeTx() : fakeTx({ amount: '1' }))
+      ),
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(
+      REFERENCE,
+      expected,
+      { discoveryProvider: { getSignaturesForAddress }, rpcProvider, isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false) },
+      2
+    );
+
+    expect(outcome.kind).toBe('paid');
+    expect(getSignaturesForAddress).toHaveBeenCalledTimes(2);
+    expect(getSignaturesForAddress).toHaveBeenNthCalledWith(1, REFERENCE, 2, undefined);
+    expect(getSignaturesForAddress).toHaveBeenNthCalledWith(2, REFERENCE, 2, 'spam-2');
+  });
+
+  it('stops paging once a page comes back shorter than the limit (reached the real end of history)', async () => {
+    const getSignaturesForAddress = jest.fn().mockResolvedValue(['sig-1', 'sig-2']); // shorter than limit=5
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockResolvedValue(fakeTx({ amount: '1' })), // never matches
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(
+      REFERENCE,
+      expected,
+      { discoveryProvider: { getSignaturesForAddress }, rpcProvider, isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false) },
+      5
+    );
+
+    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(getSignaturesForAddress).toHaveBeenCalledTimes(1);
+  });
+
+  it('caps total pages fetched even if every page is full and contains no match (never unbounded)', async () => {
+    const getSignaturesForAddress = jest.fn().mockResolvedValue(['a', 'b']); // always a "full" page of 2
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockResolvedValue(fakeTx({ amount: '1' })), // never matches
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(
+      REFERENCE,
+      expected,
+      { discoveryProvider: { getSignaturesForAddress }, rpcProvider, isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false) },
+      2
+    );
+
+    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(getSignaturesForAddress).toHaveBeenCalledTimes(3); // MAX_PAGES, not unbounded
+  });
+
+  it('skips a candidate that throws unexpectedly (malformed chain data) and still finds a valid one after it', async () => {
+    const getParsedTransaction = jest
+      .fn()
+      .mockResolvedValueOnce(fakeTx({ amount: 'not-a-number' })) // sig-bad: BigInt() throws inside parsePaymentTransaction
+      .mockResolvedValueOnce(fakeTx()); // sig-good: valid
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction,
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(REFERENCE, expected, {
+      discoveryProvider: discoveryProvider(['sig-bad', 'sig-good']),
+      rpcProvider,
+      isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+    });
+
+    expect(outcome.kind).toBe('paid');
+    expect(getParsedTransaction).toHaveBeenCalledTimes(2);
+  });
 });

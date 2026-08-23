@@ -156,7 +156,21 @@ Deno.serve(async (req: Request) => {
 
     const provider = new PublicRpcProvider(getServerSolanaRpcUrl(network));
     const isSignatureAlreadyUsed = async (signature: string): Promise<boolean> => {
-      const { data } = await supabase.from('transactions').select('id').eq('tx_hash', signature).maybeSingle();
+      const { data, error: usedCheckError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('tx_hash', signature)
+        .maybeSingle();
+      if (usedCheckError) {
+        // Not a fund-safety risk either way -- complete_verified_payment
+        // independently re-checks tx_hash under its own row lock, backed
+        // by the UNIQUE constraint -- but treating a real DB error as
+        // "definitely not used" would silently mask it. Fail toward "can't
+        // tell yet" (rpc_unavailable, same as a chain RPC failure) instead
+        // of guessing.
+        console.error('verify-payment: failed to check for an already-used signature', usedCheckError);
+        throw usedCheckError;
+      }
       return !!data;
     };
 
