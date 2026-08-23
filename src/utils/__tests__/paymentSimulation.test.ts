@@ -14,6 +14,7 @@ function makeRequest(overrides: Partial<PaymentRequest>): PaymentRequest {
     status: 'pending',
     createdAt: '2026-08-18T00:00:00.000Z',
     paymentLink: 'https://pay.speropay.app/r/req-x',
+    publicToken: 'test-public-token-1',
     ...overrides,
   };
 }

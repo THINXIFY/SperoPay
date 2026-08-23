@@ -15,7 +15,10 @@ export interface PaymentRequest {
   note?: string;
   status: PaymentRequestStatus;
   createdAt: string;
+  /** @deprecated Not a working public URL — see getPublicPaymentUrl(publicToken) instead. */
   paymentLink: string;
+  /** Opaque public bearer token — the only safe identifier for a shareable checkout link. */
+  publicToken: string;
 }
 
 export interface Transaction {

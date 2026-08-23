@@ -42,6 +42,7 @@ function mapRequestRow(row: {
   expires_at: string | null;
   status: PaymentRequest['status'];
   payment_link: string;
+  public_token: string;
   created_at: string;
 }): PaymentRequest {
   return {
@@ -58,6 +59,7 @@ function mapRequestRow(row: {
     status: row.status,
     createdAt: row.created_at,
     paymentLink: row.payment_link,
+    publicToken: row.public_token,
   };
 }
 

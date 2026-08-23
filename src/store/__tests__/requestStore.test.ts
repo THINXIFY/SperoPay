@@ -24,6 +24,7 @@ function mapRequestRow(overrides: Record<string, unknown> = {}) {
     expires_at: null,
     status: 'pending',
     payment_link: 'https://pay.speropay.app/r/SP-AAAAA',
+    public_token: 'test-public-token-1',
     created_at: '2026-08-21T00:00:00.000Z',
     ...overrides,
   };
@@ -42,6 +43,7 @@ function makePaymentRequestForStore(id: string, status: string) {
     status: status as never,
     createdAt: '2026-08-21T00:00:00.000Z',
     paymentLink: 'https://pay.speropay.app/r/SP-AAAAA',
+    publicToken: 'test-public-token-1',
   };
 }
 
