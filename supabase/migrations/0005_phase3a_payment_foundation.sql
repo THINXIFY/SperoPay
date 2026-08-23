@@ -20,20 +20,36 @@ alter table public.payment_requests
 -- prevents crediting a request twice; this adds an independent, unrelated
 -- guarantee that the same on-chain signature can never be recorded against
 -- more than one transaction row, regardless of application logic.
+--
+-- MANUAL PRE-FLIGHT CHECK before running this migration: every existing
+-- transactions.tx_hash came from the mock engine's generateTxHash() (43
+-- random chars — collision-safe in practice), but if any duplicate somehow
+-- exists this ALTER will hard-fail. Run this first and confirm it returns
+-- zero rows:
+--   select tx_hash, count(*) from public.transactions group by 1 having count(*) > 1;
 alter table public.transactions drop constraint if exists transactions_tx_hash_key;
 alter table public.transactions add constraint transactions_tx_hash_key unique (tx_hash);
 
 -- 3. USDC-grade amount precision ---------------------------------------------
 -- numeric(18,2) is correct for a 2-decimal display value but lossy for
--- real on-chain USDC amounts (6 decimals). Widening is safe and
--- non-breaking -- existing 2-decimal values are unaffected, this just
--- stops future finer-grained amounts from being silently truncated.
--- (On-chain comparisons themselves happen in bigint base units via
+-- real on-chain USDC amounts (6 decimals). numeric(22,6) is a true superset
+-- of numeric(18,2) — same 16 digits before the decimal point (22 total - 6
+-- scale = 16, matching the original 18 total - 2 scale = 16), so no
+-- existing value can overflow the new column, only gain decimal headroom it
+-- didn't have before. (An earlier numeric(20,6) draft of this migration
+-- would have narrowed the whole-number range from 16 digits to 14 — caught
+-- in review before this was applied anywhere.) payment_templates.amount is
+-- widened the same way for consistency, since templates feed directly into
+-- request creation (buildPaymentRequest) and would otherwise reintroduce
+-- the same 2-decimal choke point one step upstream.
+--
+-- On-chain comparisons themselves happen in bigint base units via
 -- src/services/blockchain/solana/amount.ts, never as numeric/float
--- arithmetic -- this column widening is about not losing precision in
--- what gets *stored*, not how verification math is done.)
-alter table public.payment_requests alter column amount type numeric(20, 6);
-alter table public.transactions alter column amount type numeric(20, 6);
+-- arithmetic — this column widening is about not losing precision in what
+-- gets *stored*, not how verification math is done.
+alter table public.payment_requests alter column amount type numeric(22, 6);
+alter table public.transactions alter column amount type numeric(22, 6);
+alter table public.payment_templates alter column amount type numeric(22, 6);
 
 -- 4. Public checkout lookup ---------------------------------------------------
 -- The project's first SECURITY DEFINER function -- deliberately, since this
@@ -71,6 +87,7 @@ returns table (
   destination_wallet text
 )
 language plpgsql
+stable
 security definer
 set search_path = ''
 as $$

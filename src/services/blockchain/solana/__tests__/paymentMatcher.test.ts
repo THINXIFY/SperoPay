@@ -33,8 +33,11 @@ function fakeSuccessfulTx(): ParsedTransactionWithMeta {
   } as unknown as ParsedTransactionWithMeta;
 }
 
+// USDC_MINT above is the real mainnet mint address, so `expected` must
+// consistently claim mainnet-beta -- matchPayment now asserts the two
+// agree (see the "mismatched" test below for the case where they don't).
 const expected: ExpectedPayment = {
-  network: 'devnet',
+  network: 'mainnet-beta',
   usdcMint: USDC_MINT,
   destinationWallet: MERCHANT_WALLET,
   amountBaseUnits: 10_500_000n,
@@ -117,5 +120,37 @@ describe('matchPayment', () => {
 
     expect(result).toEqual({ valid: false, reason: 'rpc_unavailable' });
     expect(getParsedTransaction.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it('treats an unrecognized confirmationStatus string as insufficient confirmation, not as passing the gate', async () => {
+    // The status string comes from whatever endpoint EXPO_PUBLIC_SOLANA_RPC_URL
+    // points at -- an unchecked cast plus a Record lookup would make an
+    // unrecognized value compare as "less than every real level" by
+    // accident (undefined < N is false), silently clearing the gate. This
+    // locks in that an unrecognized value fails closed instead.
+    const provider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockResolvedValue(fakeSuccessfulTx()),
+      getSignatureStatus: jest
+        .fn()
+        .mockResolvedValue({ slot: 1, confirmations: 10, err: null, confirmationStatus: 'not-a-real-level' } as unknown as SignatureStatus),
+    };
+    const isSignatureAlreadyUsed = jest.fn().mockResolvedValue(false);
+
+    const result = await matchPayment('sig-1', expected, { rpcProvider: provider, isSignatureAlreadyUsed });
+
+    expect(result).toEqual({ valid: false, reason: 'insufficient_confirmation' });
+  });
+
+  it('throws synchronously if the caller constructs an ExpectedPayment whose mint does not match its own network', async () => {
+    const provider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn(),
+      getSignatureStatus: jest.fn(),
+    };
+    const mismatched: ExpectedPayment = { ...expected, network: 'devnet' }; // usdcMint is still the mainnet mint
+
+    await expect(
+      matchPayment('sig-1', mismatched, { rpcProvider: provider, isSignatureAlreadyUsed: jest.fn() })
+    ).rejects.toThrow(/does not match the USDC mint configured for/);
+    expect(provider.getParsedTransaction).not.toHaveBeenCalled();
   });
 });

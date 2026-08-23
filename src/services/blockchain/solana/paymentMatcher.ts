@@ -2,10 +2,23 @@ import type { SolanaRpcProvider } from './client';
 import { parsePaymentTransaction } from './transactionParser';
 import { verifyPayment } from './paymentVerifier';
 import { REQUIRED_CONFIRMATION_LEVEL } from './config';
+import { getUsdcConfig } from './usdc';
 import type { ConfirmationLevel, ExpectedPayment, PaymentVerificationResult } from './types';
 
 const RPC_TIMEOUT_MS = 15_000;
 const RPC_MAX_ATTEMPTS = 2; // one retry — spec section 27: not indefinite, no request storms
+
+const KNOWN_CONFIRMATION_LEVELS: ReadonlySet<string> = new Set(['processed', 'confirmed', 'finalized']);
+
+// The RPC's confirmationStatus is an arbitrary string from whatever endpoint
+// EXPO_PUBLIC_SOLANA_RPC_URL points at (user-configurable, could be a third
+// party). An unrecognized value must fail closed, not compare as "less than
+// every real level" by accident — an unchecked cast plus a Record lookup
+// would silently do exactly that (undefined < N is false, so an unknown
+// status would have cleared the confirmation gate entirely).
+function toConfirmationLevel(value: string | null | undefined): ConfirmationLevel | null {
+  return value != null && KNOWN_CONFIRMATION_LEVELS.has(value) ? (value as ConfirmationLevel) : null;
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -59,6 +72,18 @@ export async function matchPayment(
   expected: ExpectedPayment,
   deps: PaymentMatcherDeps
 ): Promise<PaymentVerificationResult> {
+  // Catches a caller-construction bug (mismatched network/mint) immediately
+  // and loudly, rather than letting mismatched config quietly depend on
+  // "wrong_mint" happening to be the eventual verifier outcome. Deliberately
+  // not part of PaymentVerificationResult's fail-closed reasons — this is a
+  // programming error in the caller, not a property of the transaction.
+  const expectedMintForNetwork = getUsdcConfig(expected.network).mint;
+  if (expected.usdcMint !== expectedMintForNetwork) {
+    throw new Error(
+      `matchPayment: expected.usdcMint ("${expected.usdcMint}") does not match the USDC mint configured for "${expected.network}" ("${expectedMintForNetwork}")`
+    );
+  }
+
   let rawTx;
   let status;
   let alreadyCredited: boolean;
@@ -73,7 +98,7 @@ export async function matchPayment(
   }
 
   const tx = rawTx ? parsePaymentTransaction(signature, rawTx, expected.usdcMint) : null;
-  const confirmationLevel = (status?.confirmationStatus as ConfirmationLevel | undefined) ?? null;
+  const confirmationLevel = toConfirmationLevel(status?.confirmationStatus);
 
   return verifyPayment({
     tx,

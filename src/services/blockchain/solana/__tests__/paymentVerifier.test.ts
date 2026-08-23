@@ -96,6 +96,26 @@ describe('verifyPayment', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('rejects (does not fail open) when the request has an expiry but the transaction has no blockTime to check it against', () => {
+    const result = verifyPayment(
+      buildParams({
+        expected: buildExpected({ notAfter: new Date(1_700_001_000 * 1000) }),
+        tx: buildTx({ blockTime: null }),
+      })
+    );
+    expect(result).toEqual({ valid: false, reason: 'expired' });
+  });
+
+  it('accepts a transaction with no blockTime when the request has no expiry to check', () => {
+    const result = verifyPayment(
+      buildParams({
+        expected: buildExpected({ notAfter: null }),
+        tx: buildTx({ blockTime: null }),
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
   it('rejects when no transfer uses the expected mint', () => {
     const result = verifyPayment(
       buildParams({ tx: buildTx({ transfers: [{ mint: OTHER_MINT, destinationTokenAccount: 'x', destinationOwner: MERCHANT_WALLET, amountBaseUnits: 10_500_000n }] }) })

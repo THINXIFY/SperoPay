@@ -28,8 +28,16 @@ export function verifyPayment(params: VerifyPaymentParams): PaymentVerificationR
   if (!tx.succeeded) return { valid: false, reason: 'transaction_failed' };
   if (alreadyCredited) return { valid: false, reason: 'already_credited' };
 
-  if (expected.notAfter && tx.blockTime != null && tx.blockTime * 1000 > expected.notAfter.getTime()) {
-    return { valid: false, reason: 'expired' };
+  if (expected.notAfter) {
+    // A missing blockTime must not silently skip the expiry check — that
+    // would fail OPEN (an arbitrarily old/unverifiable-timing transaction
+    // would satisfy an expired request). Required confirmation is
+    // 'confirmed' or better, which always carries a blockTime in practice,
+    // so treating "can't verify timing" the same as "too late" is the safe
+    // default, not an overreaction.
+    if (tx.blockTime == null || tx.blockTime * 1000 > expected.notAfter.getTime()) {
+      return { valid: false, reason: 'expired' };
+    }
   }
 
   const mintMatches = tx.transfers.filter((transfer) => transfer.mint === expected.usdcMint);

@@ -21,6 +21,13 @@ export function toBaseUnits(amount: string | number, decimals: number): bigint {
     throw new Error(`toBaseUnits: invalid amount "${amount}"`);
   }
   const [wholePartRaw, fractionPartRaw = ''] = parts;
+  // Reject genuinely empty input ("", ".", "-", whitespace-only) rather than
+  // silently treating "no digits anywhere" as zero — a money parser
+  // defaulting a blank/degenerate input to 0 is the wrong failure mode.
+  // ".5" (no leading digit) is still accepted as shorthand for "0.5".
+  if (wholePartRaw === '' && fractionPartRaw === '') {
+    throw new Error(`toBaseUnits: invalid amount "${amount}"`);
+  }
   const wholePart = wholePartRaw || '0';
 
   if (!/^\d+$/.test(wholePart) || (fractionPartRaw.length > 0 && !/^\d+$/.test(fractionPartRaw))) {

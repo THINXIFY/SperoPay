@@ -34,6 +34,17 @@ describe('toBaseUnits', () => {
     expect(() => toBaseUnits('not-a-number', 6)).toThrow(/invalid amount/);
     expect(() => toBaseUnits('1.2.3', 6)).toThrow(/invalid amount/);
   });
+
+  it('throws on empty/degenerate input instead of silently defaulting to zero', () => {
+    expect(() => toBaseUnits('', 6)).toThrow(/invalid amount/);
+    expect(() => toBaseUnits('   ', 6)).toThrow(/invalid amount/);
+    expect(() => toBaseUnits('.', 6)).toThrow(/invalid amount/);
+    expect(() => toBaseUnits('-', 6)).toThrow(/invalid amount/);
+  });
+
+  it('still accepts a leading-dot shorthand like ".5"', () => {
+    expect(toBaseUnits('.5', 6)).toBe(500_000n);
+  });
 });
 
 describe('fromBaseUnits', () => {
