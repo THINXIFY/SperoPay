@@ -100,7 +100,9 @@ export function RevenueTrendChart({ points, height = 160 }: RevenueTrendChartPro
         onPress={handlePress}
         style={{ height }}
         accessibilityRole="button"
-        accessibilityLabel="Revenue trend chart"
+        accessibilityLabel={
+          activeData ? `Revenue trend chart. Currently showing ${activeData.label}: ${formatCurrency(activeData.value)}` : 'Revenue trend chart'
+        }
         accessibilityHint="Tap a point to see its exact value"
       >
         {chart ? (
