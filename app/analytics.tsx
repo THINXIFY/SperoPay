@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../src/theme/useTheme';
@@ -33,6 +33,7 @@ const PERIODS: RevenueTrendPeriod[] = ['7D', '30D', '3M', '6M', '1Y'];
 
 export default function AnalyticsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const requests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
   const transactions = useTransactionStore((state) => state.transactions);
@@ -73,11 +74,11 @@ export default function AnalyticsScreen() {
   const hasAnyData = transactions.length > 0 || requests.length > 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <AppHeader title="Analytics" onBackPress={() => router.back()} />
 
       {!hasAnyData ? (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingBottom: insets.bottom }}>
           <EmptyState
             icon="bar-chart-outline"
             title="Your analytics will appear here"
@@ -89,7 +90,12 @@ export default function AnalyticsScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl + spacing.lg }}
+          // A clear, literal 20px of visual breathing room below the last
+          // card, then the device's own real bottom safe-area inset -- not
+          // a guessed flat constant standing in for both. This screen has
+          // no bottom tab bar under it (see the routing note below), so
+          // insets.bottom is the only additional clearance actually needed.
+          contentContainerStyle={{ padding: spacing.xl, paddingBottom: 20 + insets.bottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         >
@@ -160,6 +166,7 @@ export default function AnalyticsScreen() {
                         borderColor: colors.border,
                         borderRadius: radius.full,
                         opacity: pressed ? 0.7 : 1,
+                        transform: [{ scale: pressed ? 0.94 : 1 }],
                       },
                     ]}
                   >
@@ -204,6 +211,7 @@ export default function AnalyticsScreen() {
                           paddingVertical: spacing.sm,
                           marginTop: index === 0 ? 0 : spacing.sm,
                           opacity: pressed ? 0.7 : 1,
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
                         },
                       ]}
                     >
@@ -222,9 +230,10 @@ export default function AnalyticsScreen() {
                           {entry.paymentCount} {entry.paymentCount === 1 ? 'payment' : 'payments'}
                         </Text>
                       </View>
-                      <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                      <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginRight: spacing.xs }]} numberOfLines={1}>
                         {formatCurrency(entry.totalReceived)}
                       </Text>
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                     </Pressable>
                   );
                 })}
