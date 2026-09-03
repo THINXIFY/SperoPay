@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,9 +26,23 @@ export default function PaymentDefaultsScreen() {
   const wallet = useWalletStore((state) => state.wallet);
   const expirySheetRef = useRef<BottomSheet>(null);
 
-  // Force closed on every focus (including first) -- see request/amount.tsx
-  // for why: native-stack keeps a visited screen mounted, and gorhom's
-  // sheets own their open/closed state internally after the initial mount.
+  // Not rendered at all until first opened -- see request/amount.tsx for
+  // why this is the correct fix: gorhom's imperative .expand() silently
+  // no-ops if called before native layout resolves, which an always-mounted
+  // sheet's first .expand() call can race. AppBottomSheet's `initialIndex`
+  // prop is the layout-aware, declarative alternative used on first mount.
+  const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
+
+  function openExpirySheet() {
+    if (isExpirySheetMounted) {
+      expirySheetRef.current?.expand();
+    } else {
+      setIsExpirySheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       expirySheetRef.current?.forceClose();
@@ -53,7 +67,7 @@ export default function PaymentDefaultsScreen() {
         </View>
 
         <Pressable
-          onPress={() => expirySheetRef.current?.expand()}
+          onPress={openExpirySheet}
           style={[
             styles.row,
             { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.base },
@@ -83,22 +97,24 @@ export default function PaymentDefaultsScreen() {
         </Pressable>
       </ScrollView>
 
-      <AppBottomSheet ref={expirySheetRef}>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Default Expiry</Text>
-        {EXPIRY_OPTIONS.map((option) => (
-          <Pressable
-            key={option.value}
-            onPress={() => {
-              setDefaultExpiryOption(option.value);
-              expirySheetRef.current?.close();
-            }}
-            style={[styles.optionRow, { paddingVertical: spacing.md }]}
-          >
-            <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
-            {defaultExpiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
-          </Pressable>
-        ))}
-      </AppBottomSheet>
+      {isExpirySheetMounted ? (
+        <AppBottomSheet ref={expirySheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Default Expiry</Text>
+          {EXPIRY_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                setDefaultExpiryOption(option.value);
+                expirySheetRef.current?.close();
+              }}
+              style={[styles.optionRow, { paddingVertical: spacing.md }]}
+            >
+              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
+              {defaultExpiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+            </Pressable>
+          ))}
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

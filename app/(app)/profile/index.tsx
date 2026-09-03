@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,10 +44,34 @@ export default function ProfileScreen() {
   const appearanceSheetRef = useRef<BottomSheet>(null);
   const currencySheetRef = useRef<BottomSheet>(null);
 
-  // Force closed on every focus (including first) -- see request/amount.tsx
-  // for why: this being a tab screen, it's kept mounted across tab switches
-  // too, and gorhom's sheets own their open/closed state internally after
-  // the initial mount.
+  // Neither sheet is rendered at all until first opened -- see
+  // request/amount.tsx for why this is the correct fix: gorhom's imperative
+  // .expand() silently no-ops if called before native layout resolves,
+  // which an always-mounted sheet's first .expand() call can race.
+  // AppBottomSheet's `initialIndex` prop is the layout-aware, declarative
+  // alternative used on first mount below.
+  const [isAppearanceSheetMounted, setIsAppearanceSheetMounted] = useState(false);
+  const [isCurrencySheetMounted, setIsCurrencySheetMounted] = useState(false);
+
+  function openAppearanceSheet() {
+    if (isAppearanceSheetMounted) {
+      appearanceSheetRef.current?.expand();
+    } else {
+      setIsAppearanceSheetMounted(true);
+    }
+  }
+
+  function openCurrencySheet() {
+    if (isCurrencySheetMounted) {
+      currencySheetRef.current?.expand();
+    } else {
+      setIsCurrencySheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit -- this being a tab screen, it's
+  // kept mounted across tab switches too.
   useFocusEffect(
     useCallback(() => {
       appearanceSheetRef.current?.forceClose();
@@ -136,7 +160,7 @@ export default function ProfileScreen() {
             icon="color-palette-outline"
             label="Appearance"
             value={themeLabel}
-            onPress={() => appearanceSheetRef.current?.expand()}
+            onPress={openAppearanceSheet}
           />
           <SettingsRow
             icon="notifications-outline"
@@ -147,7 +171,7 @@ export default function ProfileScreen() {
             icon="cash-outline"
             label="Currency Display"
             value="USD"
-            onPress={() => currencySheetRef.current?.expand()}
+            onPress={openCurrencySheet}
           />
         </SettingsGroup>
 
@@ -167,36 +191,40 @@ export default function ProfileScreen() {
         </SettingsGroup>
       </ScrollView>
 
-      <AppBottomSheet ref={appearanceSheetRef}>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Appearance</Text>
-        {THEME_OPTIONS.map((option) => {
-          const isActive = (preference ?? 'light') === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => {
-                setPreference(option.value);
-                appearanceSheetRef.current?.close();
-              }}
-              style={[styles.row, { paddingVertical: spacing.md }]}
-            >
-              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
-              {isActive ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
-            </Pressable>
-          );
-        })}
-      </AppBottomSheet>
+      {isAppearanceSheetMounted ? (
+        <AppBottomSheet ref={appearanceSheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Appearance</Text>
+          {THEME_OPTIONS.map((option) => {
+            const isActive = (preference ?? 'light') === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => {
+                  setPreference(option.value);
+                  appearanceSheetRef.current?.close();
+                }}
+                style={[styles.row, { paddingVertical: spacing.md }]}
+              >
+                <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
+                {isActive ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+              </Pressable>
+            );
+          })}
+        </AppBottomSheet>
+      ) : null}
 
-      <AppBottomSheet ref={currencySheetRef}>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Currency Display</Text>
-        <View style={[styles.row, { paddingVertical: spacing.md }]}>
-          <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>USD — US Dollar</Text>
-          <Ionicons name="checkmark" size={20} color={colors.primaryAction} />
-        </View>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          More display currencies are coming in a future update.
-        </Text>
-      </AppBottomSheet>
+      {isCurrencySheetMounted ? (
+        <AppBottomSheet ref={currencySheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Currency Display</Text>
+          <View style={[styles.row, { paddingVertical: spacing.md }]}>
+            <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>USD — US Dollar</Text>
+            <Ionicons name="checkmark" size={20} color={colors.primaryAction} />
+          </View>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            More display currencies are coming in a future update.
+          </Text>
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

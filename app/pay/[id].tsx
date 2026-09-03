@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,9 +32,23 @@ export default function PublicPaymentScreen() {
   const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
   const qrSheetRef = useRef<BottomSheet>(null);
 
-  // Force closed on every focus (including first) -- see request/amount.tsx
-  // for why: native-stack keeps a visited screen mounted, and gorhom's
-  // sheets own their open/closed state internally after the initial mount.
+  // Not rendered at all until first opened -- see request/amount.tsx for
+  // why this is the correct fix: gorhom's imperative .expand() silently
+  // no-ops if called before native layout resolves, which an always-mounted
+  // sheet's first .expand() call can race. AppBottomSheet's `initialIndex`
+  // prop is the layout-aware, declarative alternative used on first mount.
+  const [isQrSheetMounted, setIsQrSheetMounted] = useState(false);
+
+  function openQrSheet() {
+    if (isQrSheetMounted) {
+      qrSheetRef.current?.expand();
+    } else {
+      setIsQrSheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       qrSheetRef.current?.forceClose();
@@ -113,7 +127,7 @@ export default function PublicPaymentScreen() {
 
             <View style={{ width: '100%', marginTop: spacing.xl, gap: spacing.sm }}>
               <PrimaryButton label="Pay with Wallet" onPress={() => router.push(`/pay/demo?id=${request.id}`)} />
-              <SecondaryButton label="Scan QR" onPress={() => qrSheetRef.current?.expand()} />
+              <SecondaryButton label="Scan QR" onPress={openQrSheet} />
             </View>
           </>
         ) : null}
@@ -184,55 +198,57 @@ export default function PublicPaymentScreen() {
         ) : null}
       </ScrollView>
 
-      <AppBottomSheet ref={qrSheetRef} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' }]}>
-          Scan to Pay
-        </Text>
-        <QRCodeCard value={getPublicPaymentUrl(request.publicToken)} />
-        <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-          <View style={styles.summaryRow}>
-            <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>
-            <Pressable onPress={handleCopyAmount} style={styles.copyRow} accessibilityRole="button" accessibilityLabel="Copy amount">
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
-                {request.amount} {request.currency}
-              </Text>
-              <Ionicons name="copy-outline" size={16} color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
-            </Pressable>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Network</Text>
-            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{request.network}</Text>
-          </View>
-          {wallet ? (
-            <View>
-              <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Receiving Wallet</Text>
-              <Pressable
-                onPress={handleCopyWallet}
-                style={[styles.copyRow, { marginTop: spacing.xs / 2 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Copy wallet address"
-              >
-                <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
-                  {wallet.address}
+      {isQrSheetMounted ? (
+        <AppBottomSheet ref={qrSheetRef} initialIndex={0} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md, textAlign: 'center' }]}>
+            Scan to Pay
+          </Text>
+          <QRCodeCard value={getPublicPaymentUrl(request.publicToken)} />
+          <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+            <View style={styles.summaryRow}>
+              <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>
+              <Pressable onPress={handleCopyAmount} style={styles.copyRow} accessibilityRole="button" accessibilityLabel="Copy amount">
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
+                  {request.amount} {request.currency}
                 </Text>
                 <Ionicons name="copy-outline" size={16} color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
               </Pressable>
             </View>
-          ) : null}
-        </View>
-        <View
-          style={{
-            backgroundColor: colors.softRed,
-            borderRadius: radius.md,
-            padding: spacing.base,
-            marginTop: spacing.lg,
-          }}
-        >
-          <Text style={[typography.bodySmall, { color: colors.softRedText }]}>
-            Only send USDC using the Solana network. Using another asset or network may result in loss of funds.
-          </Text>
-        </View>
-      </AppBottomSheet>
+            <View style={styles.summaryRow}>
+              <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Network</Text>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{request.network}</Text>
+            </View>
+            {wallet ? (
+              <View>
+                <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Receiving Wallet</Text>
+                <Pressable
+                  onPress={handleCopyWallet}
+                  style={[styles.copyRow, { marginTop: spacing.xs / 2 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy wallet address"
+                >
+                  <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
+                    {wallet.address}
+                  </Text>
+                  <Ionicons name="copy-outline" size={16} color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+          <View
+            style={{
+              backgroundColor: colors.softRed,
+              borderRadius: radius.md,
+              padding: spacing.base,
+              marginTop: spacing.lg,
+            }}
+          >
+            <Text style={[typography.bodySmall, { color: colors.softRedText }]}>
+              Only send USDC using the Solana network. Using another asset or network may result in loss of funds.
+            </Text>
+          </View>
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

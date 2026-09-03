@@ -66,11 +66,24 @@ export default function CustomersScreen() {
 
   const sheetRef = useRef<BottomSheet>(null);
 
-  // Force closed on every focus (including first) -- React Navigation's
-  // native-stack keeps a visited screen mounted rather than destroying it,
-  // and gorhom's bottom sheets own their open/closed state internally after
-  // the initial mount, so a sheet left open on an earlier visit could still
-  // be showing when a reused instance of this screen comes back into view.
+  // Not rendered at all until first opened -- see request/amount.tsx for
+  // why this is the correct fix (not a reactive close-after-the-fact):
+  // gorhom's imperative .expand() silently no-ops if called before native
+  // layout resolves, which an always-mounted sheet's first .expand() call
+  // can race. AppBottomSheet's `initialIndex` prop is the layout-aware,
+  // declarative alternative used on first mount below.
+  const [isSheetMounted, setIsSheetMounted] = useState(false);
+
+  function openAddCustomerSheet() {
+    if (isSheetMounted) {
+      sheetRef.current?.expand();
+    } else {
+      setIsSheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       sheetRef.current?.forceClose();
@@ -145,7 +158,7 @@ export default function CustomersScreen() {
       <View style={[styles.headerRow, { paddingHorizontal: spacing.xl, paddingTop: spacing.md }]}>
         <Text style={[typography.h1, { color: colors.textPrimary }]}>Customers</Text>
         <Pressable
-          onPress={() => sheetRef.current?.expand()}
+          onPress={openAddCustomerSheet}
           style={[styles.addButton, { backgroundColor: colors.primaryAction, borderRadius: radius.full }]}
           accessibilityRole="button"
           accessibilityLabel="Add customer"
@@ -225,27 +238,29 @@ export default function CustomersScreen() {
         renderItem={renderCustomerRow}
       />
 
-      <AppBottomSheet ref={sheetRef} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
-        <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
-        <TextField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          error={emailError}
-          returnKeyType="next"
-        />
-        <TextField
-          label="Company (Optional)"
-          value={company}
-          onChangeText={setCompany}
-          returnKeyType="done"
-          onSubmitEditing={handleAdd}
-        />
-        <PrimaryButton label="Add Customer" onPress={handleAdd} loading={isAdding} />
-      </AppBottomSheet>
+      {isSheetMounted ? (
+        <AppBottomSheet ref={sheetRef} initialIndex={0} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
+          <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
+          <TextField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={emailError}
+            returnKeyType="next"
+          />
+          <TextField
+            label="Company (Optional)"
+            value={company}
+            onChangeText={setCompany}
+            returnKeyType="done"
+            onSubmitEditing={handleAdd}
+          />
+          <PrimaryButton label="Add Customer" onPress={handleAdd} loading={isAdding} />
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

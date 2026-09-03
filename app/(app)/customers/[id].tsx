@@ -83,9 +83,15 @@ export default function CustomerDetailScreen() {
   const [editEmailError, setEditEmailError] = useState<string | undefined>();
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Force closed on every focus (including first) -- see amount.tsx for why:
-  // native-stack keeps a visited screen mounted, and gorhom's sheets own
-  // their open/closed state internally after the initial mount.
+  // Not rendered at all until first opened -- see request/amount.tsx for
+  // why this is the correct fix: gorhom's imperative .expand() silently
+  // no-ops if called before native layout resolves, which an always-mounted
+  // sheet's first .expand() call can race. AppBottomSheet's `initialIndex`
+  // prop is the layout-aware, declarative alternative used on first mount.
+  const [isEditSheetMounted, setIsEditSheetMounted] = useState(false);
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       editSheetRef.current?.forceClose();
@@ -122,7 +128,11 @@ export default function CustomerDetailScreen() {
     setEditNotes(customer.notes ?? '');
     setEditNameError(undefined);
     setEditEmailError(undefined);
-    editSheetRef.current?.expand();
+    if (isEditSheetMounted) {
+      editSheetRef.current?.expand();
+    } else {
+      setIsEditSheetMounted(true);
+    }
   }
 
   async function handleSaveEdit() {
@@ -208,28 +218,30 @@ export default function CustomerDetailScreen() {
         }
         renderItem={renderHistoryRow}
       />
-      <AppBottomSheet ref={editSheetRef} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
-        <TextField
-          label="Name"
-          value={editName}
-          onChangeText={setEditName}
-          error={editNameError}
-          returnKeyType="next"
-        />
-        <TextField
-          label="Email"
-          value={editEmail}
-          onChangeText={setEditEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          error={editEmailError}
-          returnKeyType="next"
-        />
-        <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} returnKeyType="next" />
-        <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
-        <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
-      </AppBottomSheet>
+      {isEditSheetMounted ? (
+        <AppBottomSheet ref={editSheetRef} initialIndex={0} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
+          <TextField
+            label="Name"
+            value={editName}
+            onChangeText={setEditName}
+            error={editNameError}
+            returnKeyType="next"
+          />
+          <TextField
+            label="Email"
+            value={editEmail}
+            onChangeText={setEditEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={editEmailError}
+            returnKeyType="next"
+          />
+          <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} returnKeyType="next" />
+          <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
+          <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

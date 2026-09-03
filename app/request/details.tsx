@@ -53,9 +53,33 @@ export default function DetailsScreen() {
   const [newCustomerEmailError, setNewCustomerEmailError] = useState<string | undefined>();
   const [isSavingNewCustomer, setIsSavingNewCustomer] = useState(false);
 
-  // Force closed on every focus (including first) -- see request/amount.tsx
-  // for why: native-stack keeps a visited screen mounted, and gorhom's
-  // sheets own their open/closed state internally after the initial mount.
+  // Neither sheet is rendered at all until first opened -- see
+  // request/amount.tsx for why this is the correct fix: gorhom's imperative
+  // .expand() silently no-ops if called before native layout resolves,
+  // which an always-mounted sheet's first .expand() call can race.
+  // AppBottomSheet's `initialIndex` prop is the layout-aware, declarative
+  // alternative used on first mount below.
+  const [isCustomerSheetMounted, setIsCustomerSheetMounted] = useState(false);
+  const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
+
+  function openCustomerSheet() {
+    if (isCustomerSheetMounted) {
+      customerSheetRef.current?.expand();
+    } else {
+      setIsCustomerSheetMounted(true);
+    }
+  }
+
+  function openExpirySheet() {
+    if (isExpirySheetMounted) {
+      expirySheetRef.current?.expand();
+    } else {
+      setIsExpirySheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       customerSheetRef.current?.forceClose();
@@ -158,7 +182,7 @@ export default function DetailsScreen() {
           <View>
             <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Customer</Text>
             <Pressable
-              onPress={() => customerSheetRef.current?.expand()}
+              onPress={openCustomerSheet}
               style={[
                 styles.customerRow,
                 { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base },
@@ -182,7 +206,7 @@ export default function DetailsScreen() {
           <View>
             <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Expires In</Text>
             <Pressable
-              onPress={() => expirySheetRef.current?.expand()}
+              onPress={openExpirySheet}
               style={[
                 styles.customerRow,
                 { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base },
@@ -215,74 +239,78 @@ export default function DetailsScreen() {
         </View>
       ) : null}
 
-      <AppBottomSheet ref={customerSheetRef} scrollable>
-        {isAddingCustomer ? (
-          <>
-            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
-            <TextField
-              label="Name"
-              value={newCustomerName}
-              onChangeText={setNewCustomerName}
-              error={newCustomerNameError}
-              returnKeyType="next"
-            />
-            <TextField
-              label="Email"
-              value={newCustomerEmail}
-              onChangeText={setNewCustomerEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              error={newCustomerEmailError}
-              returnKeyType="done"
-              onSubmitEditing={handleAddCustomer}
-            />
-            <PrimaryButton label="Add Customer" onPress={handleAddCustomer} loading={isSavingNewCustomer} />
-          </>
-        ) : (
-          <>
-            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Customer</Text>
-            {customers.map((customer) => (
+      {isCustomerSheetMounted ? (
+        <AppBottomSheet ref={customerSheetRef} initialIndex={0} scrollable>
+          {isAddingCustomer ? (
+            <>
+              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
+              <TextField
+                label="Name"
+                value={newCustomerName}
+                onChangeText={setNewCustomerName}
+                error={newCustomerNameError}
+                returnKeyType="next"
+              />
+              <TextField
+                label="Email"
+                value={newCustomerEmail}
+                onChangeText={setNewCustomerEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                error={newCustomerEmailError}
+                returnKeyType="done"
+                onSubmitEditing={handleAddCustomer}
+              />
+              <PrimaryButton label="Add Customer" onPress={handleAddCustomer} loading={isSavingNewCustomer} />
+            </>
+          ) : (
+            <>
+              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Customer</Text>
+              {customers.map((customer) => (
+                <Pressable
+                  key={customer.id}
+                  onPress={() => handleSelectCustomer(customer.id)}
+                  style={[styles.customerRow, { paddingVertical: spacing.sm }]}
+                >
+                  <CustomerAvatar name={customer.name} color={customer.avatarColor} size={36} />
+                  <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                    <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>
+                  </View>
+                </Pressable>
+              ))}
               <Pressable
-                key={customer.id}
-                onPress={() => handleSelectCustomer(customer.id)}
-                style={[styles.customerRow, { paddingVertical: spacing.sm }]}
+                onPress={() => setIsAddingCustomer(true)}
+                style={[styles.customerRow, { paddingVertical: spacing.md, marginTop: spacing.xs }]}
               >
-                <CustomerAvatar name={customer.name} color={customer.avatarColor} size={36} />
-                <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
-                  <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>
-                </View>
+                <Ionicons name="add-circle-outline" size={20} color={colors.textPrimary} />
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+                  Add new customer
+                </Text>
               </Pressable>
-            ))}
-            <Pressable
-              onPress={() => setIsAddingCustomer(true)}
-              style={[styles.customerRow, { paddingVertical: spacing.md, marginTop: spacing.xs }]}
-            >
-              <Ionicons name="add-circle-outline" size={20} color={colors.textPrimary} />
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
-                Add new customer
-              </Text>
-            </Pressable>
-          </>
-        )}
-      </AppBottomSheet>
+            </>
+          )}
+        </AppBottomSheet>
+      ) : null}
 
-      <AppBottomSheet ref={expirySheetRef}>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Expires In</Text>
-        {EXPIRY_OPTIONS.map((option) => (
-          <Pressable
-            key={option.value}
-            onPress={() => {
-              setExpiryOption(option.value);
-              expirySheetRef.current?.close();
-            }}
-            style={[styles.customerRow, { paddingVertical: spacing.md }]}
-          >
-            <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
-            {expiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
-          </Pressable>
-        ))}
-      </AppBottomSheet>
+      {isExpirySheetMounted ? (
+        <AppBottomSheet ref={expirySheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Expires In</Text>
+          {EXPIRY_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                setExpiryOption(option.value);
+                expirySheetRef.current?.close();
+              }}
+              style={[styles.customerRow, { paddingVertical: spacing.md }]}
+            >
+              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
+              {expiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+            </Pressable>
+          ))}
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }

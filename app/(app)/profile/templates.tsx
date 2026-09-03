@@ -48,9 +48,33 @@ export default function TemplatesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Force closed on every focus (including first) -- see request/amount.tsx
-  // for why: native-stack keeps a visited screen mounted, and gorhom's
-  // sheets own their open/closed state internally after the initial mount.
+  // Neither sheet is rendered at all until first opened -- see
+  // request/amount.tsx for why this is the correct fix: gorhom's imperative
+  // .expand() silently no-ops if called before native layout resolves,
+  // which an always-mounted sheet's first .expand() call can race.
+  // AppBottomSheet's `initialIndex` prop is the layout-aware, declarative
+  // alternative used on first mount below.
+  const [isFormSheetMounted, setIsFormSheetMounted] = useState(false);
+  const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
+
+  function openFormSheet() {
+    if (isFormSheetMounted) {
+      formSheetRef.current?.expand();
+    } else {
+      setIsFormSheetMounted(true);
+    }
+  }
+
+  function openExpirySheet() {
+    if (isExpirySheetMounted) {
+      expirySheetRef.current?.expand();
+    } else {
+      setIsExpirySheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a reused/backgrounded screen instance whose sheet
+  // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       formSheetRef.current?.forceClose();
@@ -65,7 +89,7 @@ export default function TemplatesScreen() {
     setDescription('');
     setExpiryOption('7d');
     setError(undefined);
-    formSheetRef.current?.expand();
+    openFormSheet();
   }
 
   function openEditForm(template: Template) {
@@ -75,7 +99,7 @@ export default function TemplatesScreen() {
     setDescription(template.description ?? '');
     setExpiryOption(template.expiryOption);
     setError(undefined);
-    formSheetRef.current?.expand();
+    openFormSheet();
   }
 
   async function handleSave() {
@@ -200,46 +224,50 @@ export default function TemplatesScreen() {
         )}
       />
 
-      <AppBottomSheet ref={formSheetRef} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>
-          {editingId ? 'Edit Template' : 'New Template'}
-        </Text>
-        <TextField label="Name" value={name} onChangeText={setName} error={error} placeholder="Website Development" />
-        <TextField label="Amount (USDC)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="1000" />
-        <TextField label="Description (Optional)" value={description} onChangeText={setDescription} />
-        <Pressable
-          onPress={() => expirySheetRef.current?.expand()}
-          style={[
-            styles.expiryRow,
-            { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginBottom: spacing.base },
-          ]}
-        >
-          <Text style={[typography.caption, { color: colors.textMuted }]}>Expires In</Text>
-          <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{expiryLabel}</Text>
-        </Pressable>
-        <PrimaryButton
-          label={editingId ? 'Save Changes' : 'Create Template'}
-          onPress={handleSave}
-          loading={isSaving}
-        />
-      </AppBottomSheet>
-
-      <AppBottomSheet ref={expirySheetRef}>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Expires In</Text>
-        {EXPIRY_OPTIONS.map((option) => (
+      {isFormSheetMounted ? (
+        <AppBottomSheet ref={formSheetRef} initialIndex={0} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>
+            {editingId ? 'Edit Template' : 'New Template'}
+          </Text>
+          <TextField label="Name" value={name} onChangeText={setName} error={error} placeholder="Website Development" />
+          <TextField label="Amount (USDC)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="1000" />
+          <TextField label="Description (Optional)" value={description} onChangeText={setDescription} />
           <Pressable
-            key={option.value}
-            onPress={() => {
-              setExpiryOption(option.value);
-              expirySheetRef.current?.close();
-            }}
-            style={[styles.expiryOptionRow, { paddingVertical: spacing.md }]}
+            onPress={openExpirySheet}
+            style={[
+              styles.expiryRow,
+              { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginBottom: spacing.base },
+            ]}
           >
-            <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
-            {expiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+            <Text style={[typography.caption, { color: colors.textMuted }]}>Expires In</Text>
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{expiryLabel}</Text>
           </Pressable>
-        ))}
-      </AppBottomSheet>
+          <PrimaryButton
+            label={editingId ? 'Save Changes' : 'Create Template'}
+            onPress={handleSave}
+            loading={isSaving}
+          />
+        </AppBottomSheet>
+      ) : null}
+
+      {isExpirySheetMounted ? (
+        <AppBottomSheet ref={expirySheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Expires In</Text>
+          {EXPIRY_OPTIONS.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                setExpiryOption(option.value);
+                expirySheetRef.current?.close();
+              }}
+              style={[styles.expiryOptionRow, { paddingVertical: spacing.md }]}
+            >
+              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
+              {expiryOption === option.value ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+            </Pressable>
+          ))}
+        </AppBottomSheet>
+      ) : null}
 
       <ConfirmationModal
         visible={deleteTarget !== null}
