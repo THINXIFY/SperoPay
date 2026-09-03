@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
@@ -25,6 +25,15 @@ export default function PaymentDefaultsScreen() {
   const setDefaultExpiryOption = usePaymentDefaultsStore((state) => state.setDefaultExpiryOption);
   const wallet = useWalletStore((state) => state.wallet);
   const expirySheetRef = useRef<BottomSheet>(null);
+
+  // Force closed on every focus (including first) -- see request/amount.tsx
+  // for why: native-stack keeps a visited screen mounted, and gorhom's
+  // sheets own their open/closed state internally after the initial mount.
+  useFocusEffect(
+    useCallback(() => {
+      expirySheetRef.current?.forceClose();
+    }, [])
+  );
 
   const expiryLabel = EXPIRY_OPTIONS.find((opt) => opt.value === defaultExpiryOption)?.label ?? '7 days';
 

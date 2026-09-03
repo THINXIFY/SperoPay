@@ -1,9 +1,9 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type BottomSheet from '@gorhom/bottom-sheet';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
@@ -43,6 +43,17 @@ export default function ProfileScreen() {
   const wallet = useWalletStore((state) => state.wallet);
   const appearanceSheetRef = useRef<BottomSheet>(null);
   const currencySheetRef = useRef<BottomSheet>(null);
+
+  // Force closed on every focus (including first) -- see request/amount.tsx
+  // for why: this being a tab screen, it's kept mounted across tab switches
+  // too, and gorhom's sheets own their open/closed state internally after
+  // the initial mount.
+  useFocusEffect(
+    useCallback(() => {
+      appearanceSheetRef.current?.forceClose();
+      currencySheetRef.current?.forceClose();
+    }, [])
+  );
 
   function handleSignOut() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [

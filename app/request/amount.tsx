@@ -38,8 +38,8 @@ export default function AmountScreen() {
   // whether this particular screen instance is fresh or reused.
   useFocusEffect(
     useCallback(() => {
-      stablecoinSheetRef.current?.close();
-      networkSheetRef.current?.close();
+      stablecoinSheetRef.current?.forceClose();
+      networkSheetRef.current?.forceClose();
     }, [])
   );
 

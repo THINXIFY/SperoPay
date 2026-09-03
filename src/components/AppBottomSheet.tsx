@@ -33,7 +33,6 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
     return (
       <BottomSheet
         ref={ref}
-        index={-1}
         snapPoints={snapPoints}
         // @gorhom/bottom-sheet v5 defaults enableDynamicSizing to true, which
         // measures content and fights with the explicit snapPoints above —
@@ -50,6 +49,12 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
         {...rest}
+        // Placed after `{...rest}` so it can never be accidentally overridden
+        // by a caller -- every sheet in this app opens only through the
+        // imperative ref API (.expand()/.close()/.forceClose()), never by
+        // passing a different initial `index`, so there's no legitimate
+        // reason for a consumer to start one open.
+        index={-1}
       >
         {scrollable ? (
           <BottomSheetScrollView

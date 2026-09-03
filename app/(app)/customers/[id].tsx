@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
@@ -82,6 +82,15 @@ export default function CustomerDetailScreen() {
   const [editNameError, setEditNameError] = useState<string | undefined>();
   const [editEmailError, setEditEmailError] = useState<string | undefined>();
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Force closed on every focus (including first) -- see amount.tsx for why:
+  // native-stack keeps a visited screen mounted, and gorhom's sheets own
+  // their open/closed state internally after the initial mount.
+  useFocusEffect(
+    useCallback(() => {
+      editSheetRef.current?.forceClose();
+    }, [])
+  );
 
   if (!customer) {
     return (

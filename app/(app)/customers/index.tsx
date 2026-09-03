@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
@@ -65,6 +65,18 @@ export default function CustomersScreen() {
   const userId = useAuthStore((state) => state.user?.id);
 
   const sheetRef = useRef<BottomSheet>(null);
+
+  // Force closed on every focus (including first) -- React Navigation's
+  // native-stack keeps a visited screen mounted rather than destroying it,
+  // and gorhom's bottom sheets own their open/closed state internally after
+  // the initial mount, so a sheet left open on an earlier visit could still
+  // be showing when a reused instance of this screen comes back into view.
+  useFocusEffect(
+    useCallback(() => {
+      sheetRef.current?.forceClose();
+    }, [])
+  );
+
   const [query, setQuery] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

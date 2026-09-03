@@ -1,9 +1,9 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../src/theme/useTheme';
 import { IconButton } from '../../src/components/IconButton';
@@ -31,6 +31,15 @@ export default function PublicPaymentScreen() {
   const wallet = useWalletStore((state) => state.wallet);
   const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
   const qrSheetRef = useRef<BottomSheet>(null);
+
+  // Force closed on every focus (including first) -- see request/amount.tsx
+  // for why: native-stack keeps a visited screen mounted, and gorhom's
+  // sheets own their open/closed state internally after the initial mount.
+  useFocusEffect(
+    useCallback(() => {
+      qrSheetRef.current?.forceClose();
+    }, [])
+  );
 
   if (!request) {
     return (
