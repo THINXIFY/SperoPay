@@ -17,6 +17,7 @@ import { useRequestStore } from '../../../src/store/requestStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
 import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
+import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import { getCustomerStats, type CustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { isValidEmail } from '../../../src/utils/validators';
@@ -164,12 +165,17 @@ export default function CustomersScreen() {
           const avatarUrl = await uploadCustomerAvatar(userId, customer.id, newCustomerImage.localUri);
           uploadedButUnsavedUrl = avatarUrl;
           await updateCustomer(userId, customer.id, { avatarUrl, imageType: newCustomerImage.imageType });
-        } catch {
+          avatarDebugLog('add customer: image saved', { customerId: customer.id, avatarUrl, imageType: newCustomerImage.imageType });
+        } catch (imageError) {
           // The customer itself was created successfully -- a failed image
           // upload/save shouldn't look like the whole save failed. They can
           // add a photo afterward from the customer's detail screen. If the
           // upload itself succeeded but the row update meant to reference
           // it then failed, that object is now orphaned -- clean it up.
+          avatarDebugLog('add customer: image save FAILED (customer still created)', {
+            customerId: customer.id,
+            message: imageError instanceof Error ? imageError.message : String(imageError),
+          });
           if (uploadedButUnsavedUrl) {
             deleteAvatarByUrl(uploadedButUnsavedUrl);
           }

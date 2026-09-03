@@ -21,6 +21,7 @@ import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore
 import { useAuthStore } from '../../../src/store/authStore';
 import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
 import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
+import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
@@ -177,12 +178,17 @@ export default function CustomerDetailScreen() {
         imageType: avatarUrl ? editImage.imageType : undefined,
       });
       uploadedButUnsavedUrl = undefined;
+      avatarDebugLog('edit customer: database update succeeded', { customerId, avatarUrl });
 
       if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
         deleteAvatarByUrl(previousAvatarUrl);
       }
       editSheetRef.current?.close();
-    } catch {
+    } catch (saveError) {
+      avatarDebugLog('edit customer: save FAILED', {
+        customerId,
+        message: saveError instanceof Error ? saveError.message : String(saveError),
+      });
       // updateCustomer already set a calm store-level error; keep the sheet
       // open with the entered values intact so the user can retry.
       if (uploadedButUnsavedUrl) {

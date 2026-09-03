@@ -13,6 +13,7 @@ import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { uploadUserAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
 import { presentImagePickerActions } from '../../../src/utils/presentImagePickerActions';
+import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import type { AvatarBorderStyle } from '../../../src/types';
 
 export default function EditProfileScreen() {
@@ -40,6 +41,7 @@ export default function EditProfileScreen() {
 
   async function handleAvatarPress() {
     const action = await presentImagePickerActions(Boolean(displayedAvatarUri));
+    avatarDebugLog('edit profile: picker action', { type: action.type });
     if (action.type === 'picked') {
       setLocalImageUri(action.image.uri);
       setRemoveExistingAvatar(false);
@@ -63,6 +65,12 @@ export default function EditProfileScreen() {
     // what the catch block below needs to clean up so the upload doesn't
     // outlive the save it was part of.
     let uploadedButUnsavedUri: string | undefined;
+    avatarDebugLog('edit profile: save start', {
+      userId,
+      hasLocalImage: Boolean(localImageUri),
+      removeExistingAvatar,
+      avatarBorderStyle,
+    });
     try {
       let avatarUri = previousAvatarUri;
       if (localImageUri) {
@@ -80,6 +88,13 @@ export default function EditProfileScreen() {
         avatarBorderStyle,
       });
       uploadedButUnsavedUri = undefined;
+      avatarDebugLog('edit profile: database update succeeded', {
+        avatarUri,
+        // Confirms the store actually reflects the new value right after
+        // updateProfile resolves -- if the UI doesn't update but this log
+        // shows the new URL, the bug is in rendering, not in the save.
+        storeAvatarUri: useProfileStore.getState().profile?.avatarUri,
+      });
 
       // Best-effort cleanup, only once the new state is confirmed saved --
       // never blocks navigating away, never allowed to turn a successful
@@ -88,7 +103,10 @@ export default function EditProfileScreen() {
         deleteAvatarByUrl(previousAvatarUri);
       }
       router.back();
-    } catch {
+    } catch (saveError) {
+      avatarDebugLog('edit profile: save FAILED', {
+        message: saveError instanceof Error ? saveError.message : String(saveError),
+      });
       if (uploadedButUnsavedUri) {
         deleteAvatarByUrl(uploadedButUnsavedUri);
       }
