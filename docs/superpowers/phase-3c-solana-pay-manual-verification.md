@@ -35,7 +35,7 @@ For any request created before this migration (`solana_reference is null`):
 ## Verification E: end-to-end Solana Pay URI (manual, devnet)
 1. Open a pending request's `/p/<public_token>` page. Confirm a **Devnet** badge is visible (unless `EXPO_PUBLIC_SOLANA_NETWORK=mainnet-beta` is explicitly set).
 2. Tap "Pay with Wallet" on a device with a Solana Pay-compatible wallet installed (e.g. Phantom) set to devnet. Confirm the wallet opens with the merchant's receiving address, "500.00"-style amount, and devnet USDC already filled in — the payer should not need to choose or type anything.
-3. Without approving, return to Spero. Confirm the page shows "Waiting for payment confirmation…" and never flips to "Payment received" on its own.
+3. Without approving, return to Spero. Confirm the page shows "Checking for your payment…" (updated in Phase 3E from the original "Waiting for payment confirmation…") and never flips to "Payment received" on its own.
 4. On a device with no compatible wallet installed, tap "Pay with Wallet" and confirm the friendly "No compatible Solana wallet found." message appears, and the QR code / manual payment details remain usable as a fallback.
 
 ## What this does NOT test
