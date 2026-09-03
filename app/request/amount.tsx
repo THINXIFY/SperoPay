@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
@@ -28,6 +28,20 @@ export default function AmountScreen() {
 
   const stablecoinSheetRef = useRef<BottomSheet>(null);
   const networkSheetRef = useRef<BottomSheet>(null);
+
+  // React Navigation's native-stack keeps a screen mounted (not destroyed)
+  // once it's been visited, so gorhom's bottom sheets -- which own their
+  // open/closed index internally and only read the `index` prop once, on
+  // first mount -- can still be sitting open from an earlier visit when this
+  // screen comes back into focus. Force both closed on every focus (including
+  // the first) so the required "closed by default" state doesn't depend on
+  // whether this particular screen instance is fresh or reused.
+  useFocusEffect(
+    useCallback(() => {
+      stablecoinSheetRef.current?.close();
+      networkSheetRef.current?.close();
+    }, [])
+  );
 
   function handleClose() {
     reset();
