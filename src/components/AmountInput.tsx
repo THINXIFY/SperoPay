@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { NumericKeypad } from './NumericKeypad';
@@ -24,25 +24,40 @@ function formatAmountDisplay(raw: string): string {
 export function AmountInput({ value, onChange }: AmountInputProps) {
   const { colors, spacing, typography } = useTheme();
 
-  function handleKeyPress(key: string) {
-    if (key === '.' && value.includes('.')) return;
+  // These are handed down to NumericKeypad -> KeypadKey (memoized, 12
+  // instances) as a single shared callback. For that memo to actually block
+  // anything, the callback's identity must stay stable across renders --
+  // but `value` is, by definition, different on every render (that's what
+  // typing is). Reading the latest value from a ref instead of closing over
+  // the prop keeps these callbacks referentially stable while still always
+  // acting on the current input.
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
-    const [integer, decimals] = value.split('.');
-    if (decimals && decimals.length >= MAX_DECIMAL_PLACES) return;
+  const handleKeyPress = useCallback(
+    (key: string) => {
+      const current = valueRef.current;
+      if (key === '.' && current.includes('.')) return;
 
-    if (key !== '.' && !value.includes('.') && integer.length >= MAX_INTEGER_DIGITS) return;
+      const [integer, decimals] = current.split('.');
+      if (decimals && decimals.length >= MAX_DECIMAL_PLACES) return;
 
-    if (value === '0' && key !== '.') {
-      onChange(key);
-      return;
-    }
+      if (key !== '.' && !current.includes('.') && integer.length >= MAX_INTEGER_DIGITS) return;
 
-    onChange(value + key);
-  }
+      if (current === '0' && key !== '.') {
+        onChange(key);
+        return;
+      }
 
-  function handleDelete() {
-    onChange(value.length > 1 ? value.slice(0, -1) : '0');
-  }
+      onChange(current + key);
+    },
+    [onChange]
+  );
+
+  const handleDelete = useCallback(() => {
+    const current = valueRef.current;
+    onChange(current.length > 1 ? current.slice(0, -1) : '0');
+  }, [onChange]);
 
   return (
     <View>

@@ -62,27 +62,30 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
     const token = guard.next();
     set({ status: 'loading', error: null });
     try {
-      let { data: profileRow, error: selectError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      if (selectError) throw selectError;
-      if (!profileRow) {
-        const { data: created, error: insertError } = await supabase
-          .from('profiles')
-          .insert({ id: userId, display_name: fallbackFullName ?? '' })
-          .select('*')
-          .single();
-        if (insertError) throw insertError;
-        profileRow = created;
-      }
-
-      const { data: businessRow } = await supabase
-        .from('business_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // business_profiles only depends on userId, not on the profiles row,
+      // so it doesn't need to wait for the (possible insert-then-select)
+      // profiles round trip above it -- run both concurrently.
+      const [profileRow, { data: businessRow }] = await Promise.all([
+        (async () => {
+          let { data: row, error: selectError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+          if (selectError) throw selectError;
+          if (!row) {
+            const { data: created, error: insertError } = await supabase
+              .from('profiles')
+              .insert({ id: userId, display_name: fallbackFullName ?? '' })
+              .select('*')
+              .single();
+            if (insertError) throw insertError;
+            row = created;
+          }
+          return row;
+        })(),
+        supabase.from('business_profiles').select('*').eq('user_id', userId).maybeSingle(),
+      ]);
 
       if (!guard.isCurrent(token)) return;
       set({ profile: mergeProfileRows(profileRow, businessRow ?? null), status: 'loaded' });

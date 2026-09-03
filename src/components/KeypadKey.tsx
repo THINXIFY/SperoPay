@@ -5,17 +5,27 @@ import { useTheme } from '../theme/useTheme';
 
 interface KeypadKeyProps {
   value: string;
-  onPress: () => void;
+  onPress: (value: string) => void;
 }
 
-export function KeypadKey({ value, onPress }: KeypadKeyProps) {
+// Memoized because NumericKeypad renders 12 of these, and AmountInput's
+// parent re-renders on every digit tap (the amount lives in a store, not
+// local state) -- without this, every keystroke would re-render all 12
+// keys just to update the one Text node that actually changed. Only
+// effective because `onPress` below is a single stable callback shared by
+// every key (see NumericKeypad), not a fresh closure per key per render.
+export const KeypadKey = React.memo(function KeypadKey({ value, onPress }: KeypadKeyProps) {
   const { colors, spacing, radius, typography } = useTheme();
   const isDelete = value === 'delete';
   const isDecimal = value === '.';
 
+  function handlePress() {
+    onPress(value);
+  }
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.key,
         {
@@ -41,7 +51,7 @@ export function KeypadKey({ value, onPress }: KeypadKeyProps) {
       )}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   key: { flex: 1, alignItems: 'center', justifyContent: 'center' },

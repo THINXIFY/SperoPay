@@ -75,7 +75,12 @@ export default function HomeScreen() {
   const transactions = useTransactionStore((state) => state.transactions);
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
-  const authUser = useAuthStore((state) => state.user);
+  // Narrowed to the two primitive fields actually used below, not the whole
+  // `user` object -- that object is rebuilt on every Supabase auth event,
+  // including silent background token refreshes with no real change to the
+  // name/email, which would otherwise re-render this whole screen for nothing.
+  const authUserFullName = useAuthStore((state) => state.user?.fullName);
+  const authUserEmail = useAuthStore((state) => state.user?.email);
 
   const paidRequests = useMemo(() => requests.filter((r) => r.status === 'paid'), [requests]);
   const pendingRequests = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
@@ -111,7 +116,7 @@ export default function HomeScreen() {
   );
 
   const firstName = (
-    resolveDisplayName(profile?.displayName, authUser?.fullName, authUser?.email) || 'there'
+    resolveDisplayName(profile?.displayName, authUserFullName, authUserEmail) || 'there'
   ).split(' ')[0];
 
   function handleRequestPayment() {

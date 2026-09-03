@@ -156,12 +156,18 @@ export default function CreatedScreen() {
       </View>
 
       <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
-        <Pressable
-          style={[styles.qrBackdrop, { backgroundColor: colors.overlayStrong }]}
-          onPress={() => setQrModalVisible(false)}
-        >
-          <QRCodeCard value={publicLink} size={260} />
-        </Pressable>
+        {/* RN's Modal renders its children regardless of `visible` -- it only
+            controls native presentation -- so this stays gated behind the
+            same flag to avoid generating the larger QR code before (or after)
+            the user has actually asked to see it. */}
+        {qrModalVisible ? (
+          <Pressable
+            style={[styles.qrBackdrop, { backgroundColor: colors.overlayStrong }]}
+            onPress={() => setQrModalVisible(false)}
+          >
+            <QRCodeCard value={publicLink} size={260} />
+          </Pressable>
+        ) : null}
       </Modal>
     </SafeAreaView>
   );

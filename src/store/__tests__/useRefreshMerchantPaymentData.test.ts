@@ -73,4 +73,41 @@ describe('useRefreshMerchantPaymentData', () => {
     });
     expect(result.current.isRefreshing).toBe(false);
   });
+
+  it('ignores a second refresh() call while one is already in flight', async () => {
+    signIn();
+    let resolveLoad: () => void = () => {};
+    const requestSpy = jest.spyOn(useRequestStore.getState(), 'loadForUser').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLoad = () => resolve(undefined);
+        })
+    );
+    const txSpy = jest.spyOn(useTransactionStore.getState(), 'loadForUser').mockResolvedValue(undefined);
+    const eventSpy = jest.spyOn(useRequestEventStore.getState(), 'loadForUser').mockResolvedValue(undefined);
+
+    const { result } = await renderHook(() => useRefreshMerchantPaymentData());
+
+    let firstRefresh: Promise<void> = Promise.resolve();
+    await act(async () => {
+      firstRefresh = result.current.refresh();
+    });
+    expect(result.current.isRefreshing).toBe(true);
+
+    // e.g. a focus-triggered refresh landing while pull-to-refresh is still running.
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(requestSpy).toHaveBeenCalledTimes(1);
+    expect(txSpy).toHaveBeenCalledTimes(1);
+    expect(eventSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.isRefreshing).toBe(true);
+
+    await act(async () => {
+      resolveLoad();
+      await firstRefresh;
+    });
+    expect(result.current.isRefreshing).toBe(false);
+  });
 });

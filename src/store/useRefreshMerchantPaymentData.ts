@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useAuthStore } from './authStore';
 import { useRequestStore } from './requestStore';
 import { useTransactionStore } from './transactionStore';
@@ -23,9 +23,16 @@ interface UseRefreshMerchantPaymentDataResult {
 export function useRefreshMerchantPaymentData(): UseRefreshMerchantPaymentDataResult {
   const userId = useAuthStore((state) => state.user?.id);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // A screen can wire this up to both a focus effect and pull-to-refresh --
+  // without this guard, triggering the second while the first is still in
+  // flight would fire a duplicate set of Supabase reads, and whichever call
+  // finished first would flip isRefreshing off while the other was still
+  // running.
+  const inFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || inFlightRef.current) return;
+    inFlightRef.current = true;
     setIsRefreshing(true);
     try {
       await Promise.all([
@@ -34,6 +41,7 @@ export function useRefreshMerchantPaymentData(): UseRefreshMerchantPaymentDataRe
         useRequestEventStore.getState().loadForUser(userId),
       ]);
     } finally {
+      inFlightRef.current = false;
       setIsRefreshing(false);
     }
   }, [userId]);

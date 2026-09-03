@@ -32,7 +32,11 @@ function truncateAddress(address: string): string {
 export default function ProfileScreen() {
   const { colors, spacing, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
-  const user = useAuthStore((state) => state.user);
+  // Narrowed to the two primitive fields actually used below -- see
+  // home.tsx for why: the whole `user` object is rebuilt on every auth
+  // event, including silent background token refreshes.
+  const userFullName = useAuthStore((state) => state.user?.fullName);
+  const userEmail = useAuthStore((state) => state.user?.email);
   const signOut = useAuthStore((state) => state.signOut);
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
@@ -59,7 +63,7 @@ export default function ProfileScreen() {
   }
 
   const themeLabel = THEME_OPTIONS.find((opt) => opt.value === (preference ?? 'light'))?.label ?? 'Light';
-  const displayName = resolveDisplayName(profile?.displayName, user?.fullName, user?.email) || 'Your Name';
+  const displayName = resolveDisplayName(profile?.displayName, userFullName, userEmail) || 'Your Name';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -80,7 +84,7 @@ export default function ProfileScreen() {
                   {displayName}
                 </Text>
                 <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
-                  {user?.email}
+                  {userEmail}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
