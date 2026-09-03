@@ -95,12 +95,11 @@ export default function InvoiceScreen() {
                     size={20}
                   />
                 ) : null}
-                <Text
-                  style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: customer ? spacing.xs : 0 }]}
-                  numberOfLines={1}
-                >
-                  {customer?.name ?? 'No customer'}
-                </Text>
+                <View style={{ flex: 1, marginLeft: customer ? spacing.xs : 0 }}>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {customer?.name ?? 'No customer'}
+                  </Text>
+                </View>
               </View>
               {customer?.email ? (
                 <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>

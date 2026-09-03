@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Animated, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -11,6 +11,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { SkeletonLoader } from '../../src/components/SkeletonLoader';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+import { DetailRow } from '../../src/components/DetailRow';
 import { usePublicCheckoutPolling } from '../../src/services/publicCheckout/usePublicCheckoutPolling';
 import { usePayWithWallet } from '../../src/services/publicCheckout/usePayWithWallet';
 import { useRefreshOnForeground } from '../../src/services/publicCheckout/useRefreshOnForeground';
@@ -161,6 +162,22 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
 
   const canPay = canPayRequest(data.status) && !hasInitiated;
 
+  // A one-shot entrance for the reassurance moment when a payment lands --
+  // scale/opacity only (no layout-affecting animation), and only on mount
+  // of this Paid-specific view, not on every re-render while paid.
+  const paidScale = useRef(new Animated.Value(isPaid ? 0.9 : 1)).current;
+  const paidOpacity = useRef(new Animated.Value(isPaid ? 0 : 1)).current;
+  useEffect(() => {
+    if (!isPaid) return;
+    Animated.parallel([
+      Animated.spring(paidScale, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 8 }),
+      Animated.timing(paidOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+    // isPaid is the only meaningful trigger -- the Animated.Value refs are
+    // stable across renders and intentionally excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPaid]);
+
   return (
     <View style={{ marginTop: spacing.xl }}>
       {/* Summary */}
@@ -202,13 +219,27 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
           </Text>
         </View>
       ) : isPaid ? (
-        <View style={[styles.statusArea, { backgroundColor: colors.softMint, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl }]}>
-          <Ionicons name="checkmark-circle" size={32} color={colors.softMintText} />
-          <Text style={[typography.h3, { color: colors.softMintText, marginTop: spacing.sm }]}>Payment received</Text>
+        <Animated.View
+          style={[
+            styles.statusArea,
+            {
+              backgroundColor: colors.softMint,
+              borderRadius: radius.lg,
+              padding: spacing.xl,
+              marginTop: spacing.xl,
+              opacity: paidOpacity,
+              transform: [{ scale: paidScale }],
+            },
+          ]}
+        >
+          <View style={[styles.paidCheckCircle, { width: 56, height: 56, borderRadius: radius.full, backgroundColor: colors.surface }]}>
+            <Ionicons name="checkmark" size={30} color={colors.softMintText} />
+          </View>
+          <Text style={[typography.h3, { color: colors.softMintText, marginTop: spacing.md }]}>Payment Received</Text>
           <Text style={[typography.bodySmall, { color: colors.softMintText, marginTop: spacing.xs / 2, textAlign: 'center' }]}>
-            {merchantName} has been notified.
+            {merchantName} has been notified. This payment is verified on-chain.
           </Text>
-        </View>
+        </Animated.View>
       ) : isExpired ? (
         <View style={{ marginTop: spacing.xl }}>
           <EmptyState
@@ -332,31 +363,14 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
   );
 }
 
-function DetailRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  const { colors, spacing, typography } = useTheme();
-  return (
-    <View
-      style={[
-        styles.detailRow,
-        { paddingVertical: spacing.sm, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.border },
-      ]}
-    >
-      <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1, textAlign: 'right', marginLeft: spacing.md }]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, alignItems: 'center' },
   content: { width: '100%', maxWidth: MAX_CONTENT_WIDTH },
   header: { alignItems: 'center' },
   statusArea: { alignItems: 'center' },
+  paidCheckCircle: { alignItems: 'center', justifyContent: 'center' },
   networkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   devnetBadge: {},
-  detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   walletRow: { flexDirection: 'row', alignItems: 'center' },
   copyButton: { flexDirection: 'row', alignItems: 'center' },
   retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },

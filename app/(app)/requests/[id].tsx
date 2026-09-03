@@ -219,15 +219,14 @@ export default function RequestDetailScreen() {
                 size={28}
               />
             ) : null}
-            <Text
-              style={[
-                typography.bodyMedium,
-                { color: customer ? colors.heroSurfaceText : colors.heroSurfaceTextMuted, marginLeft: customer ? spacing.sm : 0 },
-              ]}
-              numberOfLines={1}
-            >
-              {customer?.name ?? 'No customer'}
-            </Text>
+            <View style={{ flex: 1, marginLeft: customer ? spacing.sm : 0 }}>
+              <Text
+                style={[typography.bodyMedium, { color: customer ? colors.heroSurfaceText : colors.heroSurfaceTextMuted }]}
+                numberOfLines={1}
+              >
+                {customer?.name ?? 'No customer'}
+              </Text>
+            </View>
           </View>
         </ThemeAwareCard>
 
