@@ -311,7 +311,7 @@ export default function DetailsScreen() {
               ) : null}
               {filteredCustomers.length === 0 ? (
                 <Text style={[typography.bodySmall, { color: colors.textMuted, paddingVertical: spacing.md }]}>
-                  No customers match "{customerSearch}".
+                  {customers.length === 0 ? 'No customers yet.' : `No customers match "${customerSearch}".`}
                 </Text>
               ) : (
                 filteredCustomers.map((customer) => {
@@ -340,8 +340,12 @@ export default function DetailsScreen() {
                         size={36}
                       />
                       <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
-                        <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>
+                        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {customer.name}
+                        </Text>
+                        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                          {customer.email}
+                        </Text>
                       </View>
                       {isSelected ? <Ionicons name="checkmark-circle" size={20} color={colors.softMintText} /> : null}
                     </Pressable>
@@ -351,6 +355,8 @@ export default function DetailsScreen() {
               <View style={[styles.sheetDivider, { backgroundColor: colors.border, marginVertical: spacing.sm }]} />
               <Pressable
                 onPress={() => setIsAddingCustomer(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add new customer"
                 style={({ pressed }) => [
                   styles.customerRow,
                   { paddingVertical: spacing.md, borderRadius: radius.md, opacity: pressed ? 0.7 : 1 },

@@ -228,10 +228,13 @@ export default function CustomerDetailScreen() {
                 imageType={customer.imageType}
                 size={80}
               />
-              <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }]}>
+              <Text
+                style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }]}
+                numberOfLines={1}
+              >
                 {customer.name}
               </Text>
-              <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+              <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
                 {customer.email}
               </Text>
               {customer.company ? (
@@ -242,7 +245,10 @@ export default function CustomerDetailScreen() {
                   ]}
                 >
                   <Ionicons name="briefcase-outline" size={12} color={colors.softBlueText} />
-                  <Text style={[typography.caption, { color: colors.softBlueText, marginLeft: spacing.xs }]}>
+                  <Text
+                    style={[typography.caption, { color: colors.softBlueText, marginLeft: spacing.xs }]}
+                    numberOfLines={1}
+                  >
                     {customer.company}
                   </Text>
                 </View>
