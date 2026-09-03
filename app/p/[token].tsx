@@ -34,8 +34,8 @@ function formatExpiry(isoDate: string): string {
 
 export default function PublicCheckoutScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
-  const { colors, spacing, typography } = useTheme();
-  const { result, isRefreshing, refresh } = usePublicCheckoutPolling(token);
+  const { colors, spacing, radius, typography } = useTheme();
+  const { result, isOffline, isRefreshing, refresh } = usePublicCheckoutPolling(token);
   const [copiedField, setCopiedField] = useState<'wallet' | null>(null);
 
   useRefreshOnForeground(refresh);
@@ -57,6 +57,20 @@ export default function PublicCheckoutScreen() {
             <Logo size={40} />
           </View>
 
+          {isOffline ? (
+            <View
+              style={[
+                styles.offlineBanner,
+                { backgroundColor: colors.softLavender, borderRadius: radius.md, marginTop: spacing.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.base },
+              ]}
+            >
+              <Ionicons name="cloud-offline-outline" size={14} color={colors.softLavenderText} />
+              <Text style={[typography.caption, { color: colors.softLavenderText, marginLeft: spacing.xs, flex: 1 }]}>
+                You're offline. We'll check your payment when you're back online.
+              </Text>
+            </View>
+          ) : null}
+
           {result === null ? (
             <CheckoutSkeleton />
           ) : !result.ok ? (
@@ -69,13 +83,19 @@ export default function PublicCheckoutScreen() {
               {result.code === 'network_error' ? (
                 <Pressable
                   onPress={refresh}
-                  style={({ pressed }) => [styles.retryButton, { marginTop: spacing.lg, opacity: pressed ? 0.7 : 1 }]}
+                  disabled={isRefreshing}
+                  style={({ pressed }) => [styles.retryButton, { marginTop: spacing.lg, opacity: isRefreshing || pressed ? 0.6 : 1 }]}
                   accessibilityRole="button"
                   accessibilityLabel="Try again"
+                  accessibilityState={{ disabled: isRefreshing, busy: isRefreshing }}
                 >
-                  <Ionicons name="refresh" size={16} color={colors.primaryAction} />
+                  {isRefreshing ? (
+                    <ActivityIndicator size="small" color={colors.primaryAction} />
+                  ) : (
+                    <Ionicons name="refresh" size={16} color={colors.primaryAction} />
+                  )}
                   <Text style={[typography.bodySmall, { color: colors.primaryAction, marginLeft: spacing.xs }]}>
-                    Try again
+                    {isRefreshing ? 'Trying again…' : 'Try again'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -203,9 +223,13 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
         <View style={[styles.statusArea, { backgroundColor: colors.softBlue, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl }]}>
           <ActivityIndicator color={colors.softBlueText} />
           <Text style={[typography.bodyMedium, { color: colors.softBlueText, marginTop: spacing.sm, textAlign: 'center' }]}>
-            Waiting for payment confirmation…
+            Checking for your payment…
           </Text>
         </View>
+      ) : canPay ? (
+        <Text style={[typography.bodySmall, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg }]}>
+          Waiting for payment
+        </Text>
       ) : null}
 
       {/* Pay controls -- only while the request is genuinely still payable */}
@@ -322,4 +346,5 @@ const styles = StyleSheet.create({
   walletRow: { flexDirection: 'row', alignItems: 'center' },
   copyButton: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
   retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  offlineBanner: { flexDirection: 'row', alignItems: 'center' },
 });
