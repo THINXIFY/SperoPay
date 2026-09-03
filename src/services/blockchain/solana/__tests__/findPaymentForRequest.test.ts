@@ -109,7 +109,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
   });
 
   it('returns no_match for a candidate with the wrong token mint', async () => {
@@ -124,7 +124,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_mint' });
   });
 
   it('returns no_match for a candidate paid to the wrong merchant wallet', async () => {
@@ -139,7 +139,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_destination' });
   });
 
   it('returns no_match for a candidate whose transaction failed on-chain', async () => {
@@ -154,7 +154,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'transaction_failed' });
   });
 
   it('returns no_match (never re-confirming) for a signature already credited elsewhere', async () => {
@@ -169,7 +169,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(true),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'already_credited' });
   });
 
   it('checks candidates in order and returns paid on the first valid one, ignoring an earlier wrong candidate', async () => {
@@ -262,7 +262,7 @@ describe('findPaymentForRequest', () => {
       5
     );
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
     expect(getSignaturesForAddress).toHaveBeenCalledTimes(1);
   });
 
@@ -280,7 +280,7 @@ describe('findPaymentForRequest', () => {
       2
     );
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
     expect(getSignaturesForAddress).toHaveBeenCalledTimes(3); // MAX_PAGES, not unbounded
   });
 
@@ -302,5 +302,49 @@ describe('findPaymentForRequest', () => {
 
     expect(outcome.kind).toBe('paid');
     expect(getParsedTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the last failure reason on no_match, useful for server-side logging', async () => {
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockResolvedValue(fakeTx({ amount: '1' })), // wrong amount
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(REFERENCE, expected, {
+      discoveryProvider: discoveryProvider(['sig-1']),
+      rpcProvider,
+      isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+    });
+
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
+  });
+
+  it('stops checking further candidates once the overall time budget is exceeded, rather than exhausting every candidate', async () => {
+    let dateNowCalls = 0;
+    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => {
+      dateNowCalls++;
+      // Calls 1-3 cover: startedAt, the page-level budget check, and
+      // sig-1's own budget check -- all "budget OK". Every call after
+      // that reports far past the budget, so sig-2's check bails before
+      // matchPayment ever runs for it.
+      return dateNowCalls <= 3 ? 0 : 999_999;
+    });
+
+    const getParsedTransaction = jest.fn().mockResolvedValue(fakeTx({ amount: '1' })); // never matches
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction,
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(REFERENCE, expected, {
+      discoveryProvider: discoveryProvider(['sig-1', 'sig-2', 'sig-3']),
+      rpcProvider,
+      isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+    });
+
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
+    expect(getParsedTransaction).toHaveBeenCalledTimes(1);
+
+    dateSpy.mockRestore();
   });
 });

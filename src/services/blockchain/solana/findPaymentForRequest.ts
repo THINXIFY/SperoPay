@@ -1,6 +1,6 @@
 import type { SolanaSignatureDiscoveryProvider } from './client.ts';
 import { matchPayment, withRetry, type PaymentMatcherDeps } from './paymentMatcher.ts';
-import type { ExpectedPayment, PaymentVerificationResult } from './types.ts';
+import type { ExpectedPayment, PaymentVerificationFailureReason, PaymentVerificationResult } from './types.ts';
 
 const DEFAULT_CANDIDATE_LIMIT = 10;
 // Bounds total work per call to MAX_PAGES * limit signatures -- never
@@ -12,10 +12,19 @@ const DEFAULT_CANDIDATE_LIMIT = 10;
 // on-chain history), so a quiet reference costs exactly one RPC call.
 const MAX_PAGES = 3;
 
+// A wall-clock ceiling on top of MAX_PAGES: each matchPayment call can
+// itself retry (up to RPC_MAX_ATTEMPTS * RPC_TIMEOUT_MS), so a pathological
+// candidate list (many signatures that all time out) could otherwise take
+// minutes for one verification attempt -- far past a payer's patience and
+// close to an Edge Function platform timeout. Checked between pages and
+// between candidates, so a slow run stops promptly at a safe boundary
+// (never mid-matchPayment-call) rather than exactly at this instant.
+const OVERALL_BUDGET_MS = 20_000;
+
 export type PaymentDiscoveryOutcome =
   | { kind: 'paid'; result: Extract<PaymentVerificationResult, { valid: true }> }
   | { kind: 'confirming' }
-  | { kind: 'no_match' }
+  | { kind: 'no_match'; lastReason?: PaymentVerificationFailureReason }
   | { kind: 'rpc_unavailable' };
 
 export interface FindPaymentDeps extends PaymentMatcherDeps {
@@ -43,10 +52,14 @@ export async function findPaymentForRequest(
   deps: FindPaymentDeps,
   limit: number = DEFAULT_CANDIDATE_LIMIT
 ): Promise<PaymentDiscoveryOutcome> {
+  const startedAt = Date.now();
   let sawInsufficientConfirmation = false;
+  let lastReason: PaymentVerificationFailureReason | undefined;
   let before: string | undefined;
 
   for (let page = 0; page < MAX_PAGES; page++) {
+    if (Date.now() - startedAt > OVERALL_BUDGET_MS) break;
+
     let signatures: string[];
     try {
       signatures = await withRetry(() => deps.discoveryProvider.getSignaturesForAddress(reference, limit, before));
@@ -57,6 +70,8 @@ export async function findPaymentForRequest(
     if (signatures.length === 0) break;
 
     for (const signature of signatures) {
+      if (Date.now() - startedAt > OVERALL_BUDGET_MS) break;
+
       let result: PaymentVerificationResult;
       try {
         result = await matchPayment(signature, expected, deps);
@@ -69,6 +84,7 @@ export async function findPaymentForRequest(
       if (result.valid) {
         return { kind: 'paid', result };
       }
+      lastReason = result.reason;
       if (result.reason === 'insufficient_confirmation') {
         sawInsufficientConfirmation = true;
       }
@@ -78,5 +94,5 @@ export async function findPaymentForRequest(
     before = signatures[signatures.length - 1];
   }
 
-  return sawInsufficientConfirmation ? { kind: 'confirming' } : { kind: 'no_match' };
+  return sawInsufficientConfirmation ? { kind: 'confirming' } : { kind: 'no_match', lastReason };
 }

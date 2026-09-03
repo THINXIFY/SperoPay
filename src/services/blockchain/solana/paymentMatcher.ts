@@ -7,6 +7,7 @@ import type { ConfirmationLevel, ExpectedPayment, PaymentVerificationResult } fr
 
 const RPC_TIMEOUT_MS = 15_000;
 const RPC_MAX_ATTEMPTS = 2; // one retry — spec section 27: not indefinite, no request storms
+const RPC_RETRY_BACKOFF_MS = 400; // brief pause before the one retry, not an immediate hammer
 
 const KNOWN_CONFIRMATION_LEVELS: ReadonlySet<string> = new Set(['processed', 'confirmed', 'finalized']);
 
@@ -40,13 +41,24 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-export async function withRetry<T>(fn: () => Promise<T>, timeoutMs: number = RPC_TIMEOUT_MS): Promise<T> {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  timeoutMs: number = RPC_TIMEOUT_MS,
+  backoffMs: number = RPC_RETRY_BACKOFF_MS
+): Promise<T> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= RPC_MAX_ATTEMPTS; attempt++) {
     try {
       return await withTimeout(fn(), timeoutMs);
     } catch (error) {
       lastError = error;
+      if (attempt < RPC_MAX_ATTEMPTS) {
+        await delay(backoffMs);
+      }
     }
   }
   throw lastError;
