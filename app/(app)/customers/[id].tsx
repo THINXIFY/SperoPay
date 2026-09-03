@@ -274,7 +274,7 @@ export default function CustomerDetailScreen() {
           </View>
         }
         ListEmptyComponent={
-          <ThemeAwareCard>
+          <ThemeAwareCard style={{ padding: spacing.sm }}>
             <EmptyState
               icon="document-text-outline"
               title="No requests yet"
