@@ -7,7 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
-import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
+import { UserAvatar } from '../../../src/components/UserAvatar';
 import { SectionLabel } from '../../../src/components/SectionLabel';
 import { SettingsGroup } from '../../../src/components/SettingsGroup';
 import { SettingsRow } from '../../../src/components/SettingsRow';
@@ -113,7 +113,7 @@ export default function ProfileScreen() {
         >
           <ThemeAwareCard>
             <View style={styles.row}>
-              <CustomerAvatar name={displayName} color="mint" size={48} />
+              <UserAvatar name={displayName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={48} />
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
                 <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
                   {displayName}

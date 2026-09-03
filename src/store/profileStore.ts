@@ -3,7 +3,16 @@ import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
 import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
-import type { Profile, UsageType } from '../types';
+import type { AvatarBorderStyle, Profile, UsageType } from '../types';
+
+const VALID_AVATAR_BORDER_STYLES: readonly AvatarBorderStyle[] = ['none', 'lime', 'aurora', 'sunset', 'ocean', 'violet'];
+
+// A row read back with a border style outside the known set (e.g. an older
+// client wrote something unexpected, or the check constraint is ever
+// loosened) falls back to 'none' rather than rendering nothing meaningful.
+function toAvatarBorderStyle(value: string): AvatarBorderStyle {
+  return (VALID_AVATAR_BORDER_STYLES as readonly string[]).includes(value) ? (value as AvatarBorderStyle) : 'none';
+}
 
 type Status = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -24,6 +33,7 @@ function mergeProfileRows(
     country: string;
     usage_type: string | null;
     avatar_url: string | null;
+    avatar_border_style: string;
     onboarding_completed: boolean;
   },
   businessRow: {
@@ -39,6 +49,7 @@ function mergeProfileRows(
     displayName: profileRow.display_name,
     country: profileRow.country,
     avatarUri: profileRow.avatar_url ?? undefined,
+    avatarBorderStyle: toAvatarBorderStyle(profileRow.avatar_border_style),
     onboardingCompleted: profileRow.onboarding_completed,
     businessName: businessRow?.business_name ?? undefined,
     businessEmail: businessRow?.business_email ?? undefined,
@@ -103,6 +114,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
     if ('displayName' in patch) personalPatch.display_name = patch.displayName;
     if ('country' in patch) personalPatch.country = patch.country;
     if ('avatarUri' in patch) personalPatch.avatar_url = patch.avatarUri ?? null;
+    if ('avatarBorderStyle' in patch) personalPatch.avatar_border_style = patch.avatarBorderStyle;
     if ('businessName' in patch) businessPatch.business_name = patch.businessName ?? null;
     if ('businessEmail' in patch) businessPatch.business_email = patch.businessEmail ?? null;
     if ('website' in patch) businessPatch.website = patch.website ?? null;

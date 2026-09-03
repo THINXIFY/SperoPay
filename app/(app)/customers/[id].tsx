@@ -6,6 +6,7 @@ import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
+import { CustomerImagePicker } from '../../../src/components/CustomerImagePicker';
 import { StatTile } from '../../../src/components/StatTile';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
@@ -18,6 +19,8 @@ import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
+import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
@@ -82,6 +85,7 @@ export default function CustomerDetailScreen() {
   const [editNameError, setEditNameError] = useState<string | undefined>();
   const [editEmailError, setEditEmailError] = useState<string | undefined>();
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editImage = useCustomerImageEditor({ avatarUrl: customer?.avatarUrl, imageType: customer?.imageType });
 
   // Not rendered at all until first opened -- see request/amount.tsx for
   // why this is the correct fix: gorhom's imperative .expand() silently
@@ -128,6 +132,7 @@ export default function CustomerDetailScreen() {
     setEditNotes(customer.notes ?? '');
     setEditNameError(undefined);
     setEditEmailError(undefined);
+    editImage.reset();
     if (isEditSheetMounted) {
       editSheetRef.current?.expand();
     } else {
@@ -145,12 +150,30 @@ export default function CustomerDetailScreen() {
 
     setIsSavingEdit(true);
     try {
+      // Optional chaining, not customer.avatarUrl -- TS can't carry the
+      // early-return narrowing at the top of the component into a nested
+      // async function's closure (the same reason customerId was extracted
+      // as its own const above instead of using customer.id inline here).
+      const previousAvatarUrl = customer?.avatarUrl;
+      let avatarUrl = previousAvatarUrl;
+      if (editImage.localUri) {
+        avatarUrl = await uploadCustomerAvatar(userId, customerId, editImage.localUri);
+      } else if (editImage.removed) {
+        avatarUrl = undefined;
+      }
+
       await updateCustomer(userId, customerId, {
         name: editName.trim(),
         email: editEmail.trim(),
         company: editCompany.trim() || undefined,
         notes: editNotes.trim() || undefined,
+        avatarUrl,
+        imageType: avatarUrl ? editImage.imageType : undefined,
       });
+
+      if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
+        deleteAvatarByUrl(previousAvatarUrl);
+      }
       editSheetRef.current?.close();
     } catch {
       // updateCustomer already set a calm store-level error; keep the sheet
@@ -176,7 +199,13 @@ export default function CustomerDetailScreen() {
         ListHeaderComponent={
           <View style={{ marginBottom: spacing.xl }}>
             <View style={styles.headerRow}>
-              <CustomerAvatar name={customer.name} color={customer.avatarColor} size={56} />
+              <CustomerAvatar
+                name={customer.name}
+                color={customer.avatarColor}
+                avatarUrl={customer.avatarUrl}
+                imageType={customer.imageType}
+                size={56}
+              />
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
                 <Text style={[typography.h3, { color: colors.textPrimary }]}>{customer.name}</Text>
                 <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{customer.email}</Text>
@@ -221,6 +250,15 @@ export default function CustomerDetailScreen() {
       {isEditSheetMounted ? (
         <AppBottomSheet ref={editSheetRef} initialIndex={0} scrollable>
           <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Edit Customer</Text>
+          <CustomerImagePicker
+            name={editName}
+            avatarColor={customer.avatarColor}
+            imageUri={editImage.displayUri}
+            hasImage={editImage.hasImage}
+            imageType={editImage.imageType}
+            onImageTypeChange={editImage.setImageType}
+            onPress={editImage.handlePress}
+          />
           <TextField
             label="Name"
             value={editName}

@@ -6,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
+import { CustomerImagePicker } from '../../../src/components/CustomerImagePicker';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -14,6 +15,8 @@ import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
+import { uploadCustomerAvatar } from '../../../src/services/storage/avatarUpload';
 import { getCustomerStats, type CustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { isValidEmail } from '../../../src/utils/validators';
@@ -34,7 +37,13 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
       style={({ pressed }) => [styles.row, { paddingVertical: spacing.sm, opacity: pressed ? 0.7 : 1 }]}
       onPress={() => onPress(customer.id)}
     >
-      <CustomerAvatar name={customer.name} color={customer.avatarColor} size={32} />
+      <CustomerAvatar
+        name={customer.name}
+        color={customer.avatarColor}
+        avatarUrl={customer.avatarUrl}
+        imageType={customer.imageType}
+        size={32}
+      />
       <View style={{ marginLeft: spacing.md, flex: 1 }}>
         <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
           {customer.name}
@@ -59,6 +68,7 @@ export default function CustomersScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
+  const updateCustomer = useCustomerStore((state) => state.updateCustomer);
   const status = useCustomerStore((state) => state.status);
   const error = useCustomerStore((state) => state.error);
   const requests = useRequestStore((state) => state.requests);
@@ -97,6 +107,7 @@ export default function CustomersScreen() {
   const [nameError, setNameError] = useState<string | undefined>();
   const [emailError, setEmailError] = useState<string | undefined>();
   const [isAdding, setIsAdding] = useState(false);
+  const newCustomerImage = useCustomerImageEditor({});
 
   const filtered = useMemo(() => {
     const trimmedQuery = query.trim().toLowerCase();
@@ -138,12 +149,31 @@ export default function CustomersScreen() {
 
     setIsAdding(true);
     try {
-      await addCustomer(userId, { name: name.trim(), email: email.trim(), company: company.trim() || undefined });
+      const customer = await addCustomer(userId, {
+        name: name.trim(),
+        email: email.trim(),
+        company: company.trim() || undefined,
+      });
+      // The Storage path is customers/<owner>/<customer-id>/... , so the
+      // customer has to exist (and have an id) before an image can be
+      // uploaded for it -- upload is a deliberate follow-up write, not
+      // part of the initial insert.
+      if (newCustomerImage.localUri) {
+        try {
+          const avatarUrl = await uploadCustomerAvatar(userId, customer.id, newCustomerImage.localUri);
+          await updateCustomer(userId, customer.id, { avatarUrl, imageType: newCustomerImage.imageType });
+        } catch {
+          // The customer itself was created successfully -- a failed image
+          // upload shouldn't look like the whole save failed. They can add
+          // a photo afterward from the customer's detail screen.
+        }
+      }
       setName('');
       setEmail('');
       setCompany('');
       setNameError(undefined);
       setEmailError(undefined);
+      newCustomerImage.reset();
       sheetRef.current?.close();
     } catch {
       // addCustomer already set a calm store-level error; the bottom sheet
@@ -241,6 +271,15 @@ export default function CustomersScreen() {
       {isSheetMounted ? (
         <AppBottomSheet ref={sheetRef} initialIndex={0} scrollable>
           <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
+          <CustomerImagePicker
+            name={name}
+            avatarColor="blue"
+            imageUri={newCustomerImage.displayUri}
+            hasImage={newCustomerImage.hasImage}
+            imageType={newCustomerImage.imageType}
+            onImageTypeChange={newCustomerImage.setImageType}
+            onPress={newCustomerImage.handlePress}
+          />
           <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
           <TextField
             label="Email"

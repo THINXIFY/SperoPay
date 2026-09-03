@@ -29,7 +29,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spero uses your photos to set a profile picture or a customer photo/logo.",
+          "cameraPermission": "Spero uses your camera to take a profile picture or a customer photo/logo."
+        }
+      ]
     ]
   }
 }

@@ -34,6 +34,8 @@ function mapRow(row: {
   name: string;
   email: string;
   avatar_color: Customer['avatarColor'];
+  avatar_url: string | null;
+  image_type: Customer['imageType'] | null;
   company: string | null;
   notes: string | null;
 }): Customer {
@@ -42,6 +44,8 @@ function mapRow(row: {
     name: row.name,
     email: row.email,
     avatarColor: row.avatar_color,
+    avatarUrl: row.avatar_url ?? undefined,
+    imageType: row.image_type ?? undefined,
     company: row.company ?? undefined,
     notes: row.notes ?? undefined,
   };
@@ -101,6 +105,8 @@ export const useCustomerStore = create<CustomerState>()((set, get) => ({
     if ('email' in patch) dbPatch.email = patch.email;
     if ('company' in patch) dbPatch.company = patch.company ?? null;
     if ('notes' in patch) dbPatch.notes = patch.notes ?? null;
+    if ('avatarUrl' in patch) dbPatch.avatar_url = patch.avatarUrl ?? null;
+    if ('imageType' in patch) dbPatch.image_type = patch.imageType ?? null;
 
     const { error } = await supabase.from('customers').update(dbPatch).eq('id', id).eq('user_id', userId);
     if (error) {

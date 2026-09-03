@@ -7,8 +7,13 @@ import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { UserAvatar } from '../../../src/components/UserAvatar';
+import { AvatarBorderPicker } from '../../../src/components/AvatarBorderPicker';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { uploadUserAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
+import { presentImagePickerActions } from '../../../src/utils/presentImagePickerActions';
+import type { AvatarBorderStyle } from '../../../src/types';
 
 export default function EditProfileScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -16,12 +21,33 @@ export default function EditProfileScreen() {
   const updateProfile = useProfileStore((state) => state.updateProfile);
   const userId = useAuthStore((state) => state.user?.id);
 
-  const [hasMockAvatar, setHasMockAvatar] = useState(Boolean(profile?.avatarUri));
+  // Choose -> Crop (native, via the picker) -> Preview -> Save: the picked
+  // local file is shown immediately (an Image happily renders a local
+  // file:// uri the same as a remote one), but nothing is actually
+  // uploaded/persisted until Save Changes -- so a failed save leaves the
+  // real stored avatar untouched and the local pick still staged for retry,
+  // and cancelling this screen entirely never uploads anything at all.
+  const [localImageUri, setLocalImageUri] = useState<string | undefined>(undefined);
+  const [removeExistingAvatar, setRemoveExistingAvatar] = useState(false);
+  const [avatarBorderStyle, setAvatarBorderStyle] = useState<AvatarBorderStyle>(profile?.avatarBorderStyle ?? 'none');
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [country, setCountry] = useState(profile?.country ?? '');
   const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+
+  const displayedAvatarUri = localImageUri ?? (removeExistingAvatar ? undefined : profile?.avatarUri);
+
+  async function handleAvatarPress() {
+    const action = await presentImagePickerActions(Boolean(displayedAvatarUri));
+    if (action.type === 'picked') {
+      setLocalImageUri(action.image.uri);
+      setRemoveExistingAvatar(false);
+    } else if (action.type === 'removed') {
+      setLocalImageUri(undefined);
+      setRemoveExistingAvatar(true);
+    }
+  }
 
   async function handleSave() {
     if (isSaving) return;
@@ -32,12 +58,28 @@ export default function EditProfileScreen() {
     if (!userId) return;
     setIsSaving(true);
     try {
+      const previousAvatarUri = profile?.avatarUri;
+      let avatarUri = previousAvatarUri;
+      if (localImageUri) {
+        avatarUri = await uploadUserAvatar(userId, localImageUri);
+      } else if (removeExistingAvatar) {
+        avatarUri = undefined;
+      }
+
       await updateProfile(userId, {
         displayName: displayName.trim(),
         country: country.trim(),
         website: website.trim() || undefined,
-        avatarUri: hasMockAvatar ? 'mock-avatar' : undefined,
+        avatarUri,
+        avatarBorderStyle,
       });
+
+      // Best-effort cleanup, only once the new state is confirmed saved --
+      // never blocks navigating away, never allowed to turn a successful
+      // save into a visible error.
+      if (previousAvatarUri && previousAvatarUri !== avatarUri) {
+        deleteAvatarByUrl(previousAvatarUri);
+      }
       router.back();
     } catch {
       Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
@@ -52,20 +94,25 @@ export default function EditProfileScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }} keyboardShouldPersistTaps="handled">
           <Pressable
-            onPress={() => setHasMockAvatar((prev) => !prev)}
-            style={[
-              styles.avatar,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.full, marginBottom: spacing.xl },
-            ]}
+            onPress={handleAvatarPress}
+            style={{ alignSelf: 'center', marginBottom: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel={displayedAvatarUri ? 'Change profile photo' : 'Add profile photo'}
           >
-            {hasMockAvatar ? (
-              <Text style={[typography.h2, { color: colors.textPrimary }]}>
-                {displayName.trim().slice(0, 1).toUpperCase() || 'F'}
-              </Text>
-            ) : (
-              <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
-            )}
+            <UserAvatar name={displayName.trim() || 'F'} avatarUri={displayedAvatarUri} borderStyle={avatarBorderStyle} size={88} />
+            <View
+              style={[
+                styles.cameraBadge,
+                { backgroundColor: colors.primaryAction, borderRadius: radius.full, borderColor: colors.background },
+              ]}
+            >
+              <Ionicons name="camera" size={14} color={colors.primaryActionText} />
+            </View>
           </Pressable>
+          <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl }]}>
+            {displayedAvatarUri ? 'Tap to change photo' : 'Tap to add a photo'}
+          </Text>
+
           <TextField
             label="Display Name"
             value={displayName}
@@ -81,8 +128,11 @@ export default function EditProfileScreen() {
             keyboardType="url"
             autoCapitalize="none"
             returnKeyType="done"
-            onSubmitEditing={handleSave}
           />
+
+          <View style={{ marginTop: spacing.base, marginBottom: spacing.lg }}>
+            <AvatarBorderPicker value={avatarBorderStyle} onChange={setAvatarBorderStyle} />
+          </View>
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
@@ -93,5 +143,14 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  avatar: { width: 88, height: 88, alignItems: 'center', justifyContent: 'center', borderWidth: 1, alignSelf: 'center' },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: 4,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
 });

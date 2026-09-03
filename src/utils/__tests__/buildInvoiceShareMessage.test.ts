@@ -25,6 +25,7 @@ const profile: Profile = {
   businessName: 'THINXIFY',
   country: 'United Arab Emirates',
   website: undefined,
+  avatarBorderStyle: 'none',
   onboardingCompleted: true,
 };
 

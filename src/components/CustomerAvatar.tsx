@@ -1,17 +1,58 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/useTheme';
+import { getInitials } from '../utils/getInitials';
 import type { Customer } from '../types';
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+interface CustomerAvatarProps {
+  name: string;
+  color: Customer['avatarColor'];
+  size?: number;
+  avatarUrl?: string;
+  imageType?: Customer['imageType'];
 }
 
-export function CustomerAvatar({ name, color, size = 44 }: { name: string; color: Customer['avatarColor']; size?: number }) {
+export function CustomerAvatar({ name, color, size = 44, avatarUrl, imageType }: CustomerAvatarProps) {
   const { colors, radius, typography } = useTheme();
   const bg = colors[`soft${capitalize(color)}` as keyof typeof colors] as string;
   const text = colors[`soft${capitalize(color)}Text` as keyof typeof colors] as string;
+
+  // Resets on a genuine image change (a new upload, a removal) so a prior
+  // load failure doesn't permanently hide a since-replaced, perfectly
+  // loadable image.
+  const [hasImageError, setHasImageError] = useState(false);
+  useEffect(() => setHasImageError(false), [avatarUrl]);
+
+  if (avatarUrl && !hasImageError) {
+    // Logos get a clean rounded-square, contain-fit treatment so the full
+    // mark is never cropped; individual photos stay circular and cover-fit,
+    // matching the initials fallback's shape.
+    const isLogo = imageType === 'logo';
+    return (
+      <View
+        style={[
+          styles.base,
+          {
+            width: size,
+            height: size,
+            borderRadius: isLogo ? radius.md : radius.full,
+            backgroundColor: isLogo ? colors.surface : bg,
+            borderWidth: isLogo ? 1 : 0,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          },
+        ]}
+      >
+        <Image
+          source={{ uri: avatarUrl }}
+          style={{ width: size, height: size }}
+          resizeMode={isLogo ? 'contain' : 'cover'}
+          onError={() => setHasImageError(true)}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+    );
+  }
 
   return (
     <View

@@ -190,7 +190,13 @@ export default function DetailsScreen() {
             >
               {selectedCustomer ? (
                 <>
-                  <CustomerAvatar name={selectedCustomer.name} color={selectedCustomer.avatarColor} size={36} />
+                  <CustomerAvatar
+                    name={selectedCustomer.name}
+                    color={selectedCustomer.avatarColor}
+                    avatarUrl={selectedCustomer.avatarUrl}
+                    imageType={selectedCustomer.imageType}
+                    size={36}
+                  />
                   <View style={{ marginLeft: spacing.sm, flex: 1 }}>
                     <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{selectedCustomer.name}</Text>
                     <Text style={[typography.caption, { color: colors.textMuted }]}>{selectedCustomer.email}</Text>
@@ -272,7 +278,13 @@ export default function DetailsScreen() {
                   onPress={() => handleSelectCustomer(customer.id)}
                   style={[styles.customerRow, { paddingVertical: spacing.sm }]}
                 >
-                  <CustomerAvatar name={customer.name} color={customer.avatarColor} size={36} />
+                  <CustomerAvatar
+                    name={customer.name}
+                    color={customer.avatarColor}
+                    avatarUrl={customer.avatarUrl}
+                    imageType={customer.imageType}
+                    size={36}
+                  />
                   <View style={{ marginLeft: spacing.sm, flex: 1 }}>
                     <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
                     <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>

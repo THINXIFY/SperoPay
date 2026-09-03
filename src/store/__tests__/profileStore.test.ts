@@ -30,7 +30,15 @@ beforeEach(() => {
 describe('loadForUser', () => {
   it('merges profiles + business_profiles rows into the flat Profile shape', async () => {
     const profilesBuilder = makeQueryBuilder({
-      data: { id: 'user-1', display_name: 'Jane', country: 'UAE', usage_type: 'business', avatar_url: null, onboarding_completed: true },
+      data: {
+        id: 'user-1',
+        display_name: 'Jane',
+        country: 'UAE',
+        usage_type: 'business',
+        avatar_url: null,
+        avatar_border_style: 'aurora',
+        onboarding_completed: true,
+      },
       error: null,
     });
     const businessBuilder = makeQueryBuilder({
@@ -52,6 +60,7 @@ describe('loadForUser', () => {
       country: 'UAE',
       website: 'https://jane.biz',
       avatarUri: undefined,
+      avatarBorderStyle: 'aurora',
       businessEmail: 'jane@biz.com',
       businessDescription: 'desc',
       businessLogoUri: undefined,
@@ -129,7 +138,7 @@ describe('loadForUser', () => {
 describe('reset', () => {
   it('clears profile back to idle', () => {
     useProfileStore.setState({
-      profile: { usageType: null, displayName: 'X', country: '', onboardingCompleted: false },
+      profile: { usageType: null, displayName: 'X', country: '', avatarBorderStyle: 'none', onboardingCompleted: false },
       status: 'loaded',
       error: null,
     });
@@ -143,7 +152,7 @@ describe('reset', () => {
 describe('updateProfile', () => {
   it('routes personal fields to profiles and business fields to business_profiles', async () => {
     useProfileStore.setState({
-      profile: { usageType: 'business', displayName: 'Jane', country: 'UAE', onboardingCompleted: true },
+      profile: { usageType: 'business', displayName: 'Jane', country: 'UAE', avatarBorderStyle: 'none', onboardingCompleted: true },
       status: 'loaded',
       error: null,
     });
@@ -160,5 +169,72 @@ describe('updateProfile', () => {
       expect.objectContaining({ user_id: 'user-1', business_name: 'Janet LLC' }),
       { onConflict: 'user_id' }
     );
+  });
+
+  it('persists a new avatarUri and avatarBorderStyle to profiles, and reflects both locally', async () => {
+    useProfileStore.setState({
+      profile: { usageType: null, displayName: 'Jane', country: '', avatarBorderStyle: 'none', onboardingCompleted: true },
+      status: 'loaded',
+      error: null,
+    });
+    const profilesBuilder = makeQueryBuilder({ data: {}, error: null });
+    mockedSupabase.from.mockReturnValue(profilesBuilder as never);
+
+    await useProfileStore
+      .getState()
+      .updateProfile('user-1', { avatarUri: 'https://cdn.example.com/users/user-1/1.jpg', avatarBorderStyle: 'lime' });
+
+    expect(profilesBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ avatar_url: 'https://cdn.example.com/users/user-1/1.jpg', avatar_border_style: 'lime' })
+    );
+    expect(useProfileStore.getState().profile?.avatarUri).toBe('https://cdn.example.com/users/user-1/1.jpg');
+    expect(useProfileStore.getState().profile?.avatarBorderStyle).toBe('lime');
+  });
+
+  it('clears avatarUri (removes the photo) by writing null, not omitting the field', async () => {
+    useProfileStore.setState({
+      profile: {
+        usageType: null,
+        displayName: 'Jane',
+        country: '',
+        avatarUri: 'https://cdn.example.com/old.jpg',
+        avatarBorderStyle: 'none',
+        onboardingCompleted: true,
+      },
+      status: 'loaded',
+      error: null,
+    });
+    const profilesBuilder = makeQueryBuilder({ data: {}, error: null });
+    mockedSupabase.from.mockReturnValue(profilesBuilder as never);
+
+    await useProfileStore.getState().updateProfile('user-1', { avatarUri: undefined });
+
+    expect(profilesBuilder.update).toHaveBeenCalledWith(expect.objectContaining({ avatar_url: null }));
+    expect(useProfileStore.getState().profile?.avatarUri).toBeUndefined();
+  });
+});
+
+describe('avatar border style fallback', () => {
+  it('falls back to "none" when the stored value is not one of the known presets', async () => {
+    const profilesBuilder = makeQueryBuilder({
+      data: {
+        id: 'user-4',
+        display_name: 'Jane',
+        country: '',
+        usage_type: null,
+        avatar_url: null,
+        avatar_border_style: 'some-future-value-this-client-does-not-know-about',
+        onboarding_completed: true,
+      },
+      error: null,
+    });
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockImplementation((table: string) =>
+      (table === 'profiles' ? profilesBuilder : businessBuilder) as never
+    );
+
+    await useProfileStore.getState().loadForUser('user-4');
+
+    expect(useProfileStore.getState().profile?.avatarBorderStyle).toBe('none');
   });
 });

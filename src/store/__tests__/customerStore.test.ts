@@ -40,6 +40,32 @@ describe('loadForUser', () => {
     expect(useCustomerStore.getState().status).toBe('loaded');
   });
 
+  it('maps an image-bearing row, including avatar_url and image_type', async () => {
+    const builder = makeQueryBuilder({
+      data: [
+        {
+          id: 'c2',
+          name: 'Bob',
+          email: 'bob@x.com',
+          avatar_color: 'mint',
+          avatar_url: 'https://cdn.example.com/customers/user-1/c2/1.jpg',
+          image_type: 'logo',
+          company: 'Bob LLC',
+          notes: null,
+        },
+      ],
+      error: null,
+    });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useCustomerStore.getState().loadForUser('user-1');
+
+    expect(useCustomerStore.getState().customers[0]).toMatchObject({
+      avatarUrl: 'https://cdn.example.com/customers/user-1/c2/1.jpg',
+      imageType: 'logo',
+    });
+  });
+
   it('sets a calm error on failure', async () => {
     const builder = makeQueryBuilder({ data: null, error: new Error('boom') });
     mockedSupabase.from.mockReturnValue(builder as never);
@@ -74,6 +100,47 @@ describe('addCustomer', () => {
   });
 });
 
+describe('updateCustomer', () => {
+  it('persists a new avatarUrl and imageType, scoped to both the customer and its owning user', async () => {
+    useCustomerStore.setState({
+      customers: [{ id: 'c1', name: 'Jane', email: 'jane@x.com', avatarColor: 'blue' }],
+      status: 'loaded',
+      error: null,
+    });
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useCustomerStore.getState().updateCustomer('user-1', 'c1', {
+      avatarUrl: 'https://cdn.example.com/customers/user-1/c1/1.jpg',
+      imageType: 'photo',
+    });
+
+    expect(builder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ avatar_url: 'https://cdn.example.com/customers/user-1/c1/1.jpg', image_type: 'photo' })
+    );
+    expect(builder.eq).toHaveBeenCalledWith('id', 'c1');
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(useCustomerStore.getState().customers[0].avatarUrl).toBe('https://cdn.example.com/customers/user-1/c1/1.jpg');
+  });
+
+  it('removing the image writes null for both columns, not just omitting them', async () => {
+    useCustomerStore.setState({
+      customers: [
+        { id: 'c1', name: 'Jane', email: 'jane@x.com', avatarColor: 'blue', avatarUrl: 'https://cdn.example.com/old.jpg', imageType: 'photo' },
+      ],
+      status: 'loaded',
+      error: null,
+    });
+    const builder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useCustomerStore.getState().updateCustomer('user-1', 'c1', { avatarUrl: undefined, imageType: undefined });
+
+    expect(builder.update).toHaveBeenCalledWith(expect.objectContaining({ avatar_url: null, image_type: null }));
+    expect(useCustomerStore.getState().customers[0].avatarUrl).toBeUndefined();
+  });
+});
+
 describe('reset', () => {
   it('clears customers back to idle', () => {
     useCustomerStore.setState({
@@ -86,9 +153,20 @@ describe('reset', () => {
     expect(useCustomerStore.getState().status).toBe('idle');
   });
 
-  it("does not leak User A's cached customers into User B's session after a reset + reload", async () => {
+  it("does not leak User A's cached customers (or their photos/logos) into User B's session after a reset + reload", async () => {
     const userABuilder = makeQueryBuilder({
-      data: [{ id: 'a1', name: 'Alice Customer', email: 'a@x.com', avatar_color: 'blue', company: null, notes: null }],
+      data: [
+        {
+          id: 'a1',
+          name: 'Alice Customer',
+          email: 'a@x.com',
+          avatar_color: 'blue',
+          avatar_url: 'https://cdn.example.com/customers/user-A/a1/1.jpg',
+          image_type: 'photo',
+          company: null,
+          notes: null,
+        },
+      ],
       error: null,
     });
     mockedSupabase.from.mockReturnValue(userABuilder as never);
@@ -104,5 +182,6 @@ describe('reset', () => {
 
     expect(useCustomerStore.getState().customers).toEqual([]);
     expect(useCustomerStore.getState().customers.some((c) => c.name === 'Alice Customer')).toBe(false);
+    expect(useCustomerStore.getState().customers.some((c) => c.avatarUrl?.includes('user-A'))).toBe(false);
   });
 });

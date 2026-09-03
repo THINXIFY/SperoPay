@@ -9,6 +9,7 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { ActivityRow } from '../../src/components/ActivityRow';
+import { UserAvatar } from '../../src/components/UserAvatar';
 import { TAB_BAR_CONTENT_HEIGHT } from '../../src/components/BottomNavigation';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
@@ -115,9 +116,8 @@ export default function HomeScreen() {
     [requests, transactions]
   );
 
-  const firstName = (
-    resolveDisplayName(profile?.displayName, authUserFullName, authUserEmail) || 'there'
-  ).split(' ')[0];
+  const resolvedName = resolveDisplayName(profile?.displayName, authUserFullName, authUserEmail) || 'there';
+  const firstName = resolvedName.split(' ')[0];
 
   function handleRequestPayment() {
     startFresh(defaultExpiryOption);
@@ -141,11 +141,7 @@ export default function HomeScreen() {
             accessibilityLabel="Open profile"
             hitSlop={4}
           >
-            <View style={[styles.avatar, { backgroundColor: colors.softLavender, borderRadius: radius.full }]}>
-              <Text style={[typography.bodyMedium, { color: colors.softLavenderText }]}>
-                {firstName.slice(0, 1).toUpperCase()}
-              </Text>
-            </View>
+            <UserAvatar name={resolvedName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={40} />
             <View style={[styles.headerTextWrap, { marginLeft: spacing.sm }]}>
               <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
                 {getGreeting()}, {firstName} 👋
@@ -273,6 +269,8 @@ export default function HomeScreen() {
                     <ActivityRow
                       customerName={customer?.name ?? 'Unknown'}
                       avatarColor={customer?.avatarColor ?? 'blue'}
+                      avatarUrl={customer?.avatarUrl}
+                      imageType={customer?.imageType}
                       amount={request.amount}
                       currency={request.currency}
                       status={request.status}
@@ -293,7 +291,6 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   headerTextWrap: { flexShrink: 1 },
-  avatar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   notificationButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   heroLabelRow: { flexDirection: 'row', alignItems: 'center' },
   heroIconWrap: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },

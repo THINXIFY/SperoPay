@@ -5,24 +5,35 @@ import { CustomerAvatar } from './CustomerAvatar';
 import { StatusBadge, COLOR_KEYS } from './StatusBadge';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
-import type { Customer, PaymentRequestStatus } from '../types';
+import type { Customer, CustomerImageType, PaymentRequestStatus } from '../types';
 
 interface ActivityRowProps {
   customerName: string;
   avatarColor: Customer['avatarColor'];
+  avatarUrl?: string;
+  imageType?: CustomerImageType;
   amount: number;
   currency: string;
   status: PaymentRequestStatus;
   createdAt: string;
 }
 
-export function ActivityRow({ customerName, avatarColor, amount, currency, status, createdAt }: ActivityRowProps) {
+export function ActivityRow({
+  customerName,
+  avatarColor,
+  avatarUrl,
+  imageType,
+  amount,
+  currency,
+  status,
+  createdAt,
+}: ActivityRowProps) {
   const { colors, spacing, typography } = useTheme();
   const amountColor = colors[COLOR_KEYS[status]];
 
   return (
     <View style={[styles.row, { paddingVertical: spacing.sm }]}>
-      <CustomerAvatar name={customerName} color={avatarColor} size={40} />
+      <CustomerAvatar name={customerName} color={avatarColor} avatarUrl={avatarUrl} imageType={imageType} size={40} />
       <View style={[styles.middle, { marginLeft: spacing.md }]}>
         <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
           {customerName}
