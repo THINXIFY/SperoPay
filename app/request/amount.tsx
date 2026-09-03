@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,13 +29,45 @@ export default function AmountScreen() {
   const stablecoinSheetRef = useRef<BottomSheet>(null);
   const networkSheetRef = useRef<BottomSheet>(null);
 
-  // React Navigation's native-stack keeps a screen mounted (not destroyed)
-  // once it's been visited, so gorhom's bottom sheets -- which own their
-  // open/closed index internally and only read the `index` prop once, on
-  // first mount -- can still be sitting open from an earlier visit when this
-  // screen comes back into focus. Force both closed on every focus (including
-  // the first) so the required "closed by default" state doesn't depend on
-  // whether this particular screen instance is fresh or reused.
+  // Neither sheet is rendered at all until the user has actually asked to
+  // open it once -- not just given index={-1} and left mounted. This is a
+  // structural guarantee, not a reactive one: there is nothing in the tree
+  // for gorhom to animate, position, or show a backdrop for before that
+  // point, so there's no mount-time window (layout-measurement race,
+  // reused-screen-instance state, or otherwise) in which either sheet could
+  // be visible without the user having tapped its trigger. Once mounted, a
+  // sheet stays mounted (closed) so re-opening it doesn't remount gorhom's
+  // internals every time.
+  const [isStablecoinSheetMounted, setIsStablecoinSheetMounted] = useState(false);
+  const [isNetworkSheetMounted, setIsNetworkSheetMounted] = useState(false);
+
+  useEffect(() => {
+    if (isStablecoinSheetMounted) stablecoinSheetRef.current?.expand();
+  }, [isStablecoinSheetMounted]);
+
+  useEffect(() => {
+    if (isNetworkSheetMounted) networkSheetRef.current?.expand();
+  }, [isNetworkSheetMounted]);
+
+  function openStablecoinSheet() {
+    if (isStablecoinSheetMounted) {
+      stablecoinSheetRef.current?.expand();
+    } else {
+      setIsStablecoinSheetMounted(true);
+    }
+  }
+
+  function openNetworkSheet() {
+    if (isNetworkSheetMounted) {
+      networkSheetRef.current?.expand();
+    } else {
+      setIsNetworkSheetMounted(true);
+    }
+  }
+
+  // Defense in depth for the (much narrower, now-unreachable-on-a-genuinely-
+  // fresh-visit) case where React Navigation reuses a backgrounded instance
+  // of this screen that had a sheet left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       stablecoinSheetRef.current?.forceClose();
@@ -75,11 +107,11 @@ export default function AmountScreen() {
         <AmountInput value={amount} onChange={setAmount} />
 
         <View style={{ marginTop: spacing.lg }}>
-          <SelectField icon="ellipse" label="USDC" onPress={() => stablecoinSheetRef.current?.expand()} />
+          <SelectField icon="ellipse" label="USDC" onPress={openStablecoinSheet} />
         </View>
 
         <Pressable
-          onPress={() => networkSheetRef.current?.expand()}
+          onPress={openNetworkSheet}
           style={({ pressed }) => [styles.networkCompactRow, { marginTop: spacing.md, opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
           accessibilityLabel="Network: Solana. Change"
@@ -97,15 +129,19 @@ export default function AmountScreen() {
         <PrimaryButton label="Continue" onPress={handleContinue} disabled={!canContinue} />
       </View>
 
-      <AppBottomSheet ref={stablecoinSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
-        <SheetOption label="USDC" selected />
-      </AppBottomSheet>
+      {isStablecoinSheetMounted ? (
+        <AppBottomSheet ref={stablecoinSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
+          <SheetOption label="USDC" selected />
+        </AppBottomSheet>
+      ) : null}
 
-      <AppBottomSheet ref={networkSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
-        <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
-        <SheetOption label="Solana" selected />
-      </AppBottomSheet>
+      {isNetworkSheetMounted ? (
+        <AppBottomSheet ref={networkSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
+          <SheetOption label="Solana" selected />
+        </AppBottomSheet>
+      ) : null}
     </SafeAreaView>
   );
 }
