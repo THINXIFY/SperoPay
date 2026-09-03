@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,16 +38,20 @@ export default function AmountScreen() {
   // be visible without the user having tapped its trigger. Once mounted, a
   // sheet stays mounted (closed) so re-opening it doesn't remount gorhom's
   // internals every time.
+  //
+  // The first mount targets initialIndex={0} (see AppBottomSheet) rather
+  // than mounting closed and calling the imperative .expand() ref method:
+  // gorhom's own expand() silently no-ops if native layout hasn't resolved
+  // yet (a one-shot check, not a queued/retried request), which a sheet
+  // that was *just* lazily mounted this render essentially never has.
+  // gorhom's declarative initial-index pathway *is* layout-aware -- it
+  // always starts fully closed and animates to the target index once
+  // layout resolves -- so it's the correct tool for "open immediately on
+  // this fresh mount," while imperative .expand() remains correct for
+  // every *subsequent* open, once the sheet has been through a mount+
+  // layout cycle already.
   const [isStablecoinSheetMounted, setIsStablecoinSheetMounted] = useState(false);
   const [isNetworkSheetMounted, setIsNetworkSheetMounted] = useState(false);
-
-  useEffect(() => {
-    if (isStablecoinSheetMounted) stablecoinSheetRef.current?.expand();
-  }, [isStablecoinSheetMounted]);
-
-  useEffect(() => {
-    if (isNetworkSheetMounted) networkSheetRef.current?.expand();
-  }, [isNetworkSheetMounted]);
 
   function openStablecoinSheet() {
     if (isStablecoinSheetMounted) {
@@ -77,6 +81,12 @@ export default function AmountScreen() {
 
   function handleClose() {
     reset();
+    // These are local UI state, not request-draft data, so reset() above
+    // doesn't touch them -- clear them explicitly too, so a screen instance
+    // React Navigation reuses on a later visit starts with both sheets
+    // genuinely unmounted again, not just mounted-but-forced-closed.
+    setIsStablecoinSheetMounted(false);
+    setIsNetworkSheetMounted(false);
     router.back();
   }
 
@@ -130,14 +140,14 @@ export default function AmountScreen() {
       </View>
 
       {isStablecoinSheetMounted ? (
-        <AppBottomSheet ref={stablecoinSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
+        <AppBottomSheet ref={stablecoinSheetRef} initialIndex={0} snapPoints={SHEET_SNAP_POINTS} scrollable>
           <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
           <SheetOption label="USDC" selected />
         </AppBottomSheet>
       ) : null}
 
       {isNetworkSheetMounted ? (
-        <AppBottomSheet ref={networkSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
+        <AppBottomSheet ref={networkSheetRef} initialIndex={0} snapPoints={SHEET_SNAP_POINTS} scrollable>
           <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
           <SheetOption label="Solana" selected />
         </AppBottomSheet>

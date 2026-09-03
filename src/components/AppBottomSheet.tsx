@@ -14,10 +14,22 @@ interface AppBottomSheetProps extends Partial<BottomSheetProps> {
   // BottomSheetView doesn't scroll, so unbounded content overflows past the
   // sheet's snap height with no way to reach it.
   scrollable?: boolean;
+  // Overrides the sheet's initial index (default -1, closed). The ONLY
+  // legitimate reason to set this is a sheet that's conditionally/lazily
+  // mounted already-targeting-open on its very first render (see
+  // request/amount.tsx): gorhom always starts the animated position fully
+  // closed regardless of this value (animateOnMount, on by default) and
+  // then animates to it once native layout resolves -- that mount pathway
+  // is layout-aware, unlike calling the imperative .expand() ref method
+  // immediately after a fresh mount, which silently no-ops if layout
+  // hasn't resolved yet (a one-shot check, not a queued/retried request).
+  // Every other consumer should leave this at its default and control
+  // open/close purely through the ref API.
+  initialIndex?: number;
 }
 
 export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
-  ({ children, scrollable, ...rest }, ref) => {
+  ({ children, scrollable, initialIndex = -1, ...rest }, ref) => {
     const { colors, spacing, radius } = useTheme();
     const snapPoints = useMemo(() => ['40%', '70%'], []);
     // Not adding useSafeAreaInsets() here: every screen that hosts a sheet
@@ -49,12 +61,11 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
         {...rest}
-        // Placed after `{...rest}` so it can never be accidentally overridden
-        // by a caller -- every sheet in this app opens only through the
-        // imperative ref API (.expand()/.close()/.forceClose()), never by
-        // passing a different initial `index`, so there's no legitimate
-        // reason for a consumer to start one open.
-        index={-1}
+        // Placed after `{...rest}` so a stray `index` in a spread `rest`
+        // can never accidentally override this -- the only sanctioned way
+        // to start a sheet non-closed is the explicit `initialIndex` prop
+        // above, not a generic passthrough prop.
+        index={initialIndex}
       >
         {scrollable ? (
           <BottomSheetScrollView
