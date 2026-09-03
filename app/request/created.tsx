@@ -31,6 +31,11 @@ export default function CreatedScreen() {
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const resetDraft = useRequestDraftStore((state) => state.reset);
   const [qrModalVisible, setQrModalVisible] = useState(false);
+  // Mounts the large QR lazily on first open rather than on screen load, but
+  // -- unlike gating render purely on `qrModalVisible` -- stays mounted after
+  // that so the modal's native fade-out on close has real content to animate
+  // instead of unmounting in the same commit the close starts.
+  const [hasShownQrModal, setHasShownQrModal] = useState(false);
 
   if (!request) {
     return (
@@ -144,7 +149,14 @@ export default function CreatedScreen() {
           <View style={[styles.actionsRow, { marginTop: spacing.base, gap: spacing.md }]}>
             <IconButton name="copy-outline" onPress={handleCopyLink} accessibilityLabel="Copy link" />
             <IconButton name="share-outline" onPress={handleShare} accessibilityLabel="Share" />
-            <IconButton name="qr-code-outline" onPress={() => setQrModalVisible(true)} accessibilityLabel="Show QR" />
+            <IconButton
+              name="qr-code-outline"
+              onPress={() => {
+                setHasShownQrModal(true);
+                setQrModalVisible(true);
+              }}
+              accessibilityLabel="Show QR"
+            />
             <IconButton name="logo-whatsapp" onPress={handleWhatsApp} accessibilityLabel="Share on WhatsApp" />
           </View>
         </View>
@@ -157,10 +169,11 @@ export default function CreatedScreen() {
 
       <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
         {/* RN's Modal renders its children regardless of `visible` -- it only
-            controls native presentation -- so this stays gated behind the
-            same flag to avoid generating the larger QR code before (or after)
-            the user has actually asked to see it. */}
-        {qrModalVisible ? (
+            controls native presentation -- so this stays gated to avoid
+            generating the larger QR code before the user has actually asked
+            to see it. Gated on `hasShownQrModal`, not `qrModalVisible`, so
+            the content is still mounted while the modal fades out on close. */}
+        {hasShownQrModal ? (
           <Pressable
             style={[styles.qrBackdrop, { backgroundColor: colors.overlayStrong }]}
             onPress={() => setQrModalVisible(false)}
