@@ -46,3 +46,6 @@ yarn-error.*
 
 # temporary verification artifacts (e.g. `expo export --output-dir .tmp-verify-*`)
 .tmp-*/
+
+# Supabase CLI local state (project link cache, version info) -- machine-specific, never project source
+supabase/.temp/
