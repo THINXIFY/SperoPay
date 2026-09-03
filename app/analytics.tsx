@@ -64,13 +64,19 @@ export default function AnalyticsScreen() {
     router.push('/request/amount');
   }
 
-  const hasAnyRevenue = transactions.length > 0;
+  // The empty state is specifically "nothing to analyze yet" -- a merchant
+  // with open requests but no payments yet still has real, non-fabricated
+  // Outstanding/Payment Overview data worth showing (e.g. "$2,300 across 5
+  // unpaid requests, 1 overdue"). Gating on transactions alone hid that
+  // behind a "receive your first payment" message that was simply wrong
+  // for their actual situation -- only gate on having neither.
+  const hasAnyData = transactions.length > 0 || requests.length > 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Analytics" onBackPress={() => router.back()} />
 
-      {!hasAnyRevenue ? (
+      {!hasAnyData ? (
         <View style={{ flex: 1 }}>
           <EmptyState
             icon="bar-chart-outline"
@@ -189,7 +195,7 @@ export default function AnalyticsScreen() {
                       key={entry.customerId}
                       onPress={() => router.push(`/(app)/customers/${entry.customerId}`)}
                       accessibilityRole="button"
-                      accessibilityLabel={`${customer?.name ?? 'Customer'}, ${formatCurrency(entry.totalReceived)} received`}
+                      accessibilityLabel={`${customer?.name ?? 'Former customer'}, ${formatCurrency(entry.totalReceived)} received`}
                       style={({ pressed }) => [
                         styles.customerRow,
                         {
@@ -200,7 +206,7 @@ export default function AnalyticsScreen() {
                       ]}
                     >
                       <CustomerAvatar
-                        name={customer?.name ?? 'Customer'}
+                        name={customer?.name ?? 'Former customer'}
                         color={customer?.avatarColor ?? 'blue'}
                         avatarUrl={customer?.avatarUrl}
                         imageType={customer?.imageType}
