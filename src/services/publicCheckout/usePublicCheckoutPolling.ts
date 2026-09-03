@@ -46,6 +46,17 @@ export function usePublicCheckoutPolling(
   // the verification trigger again while a previous tick's own trigger
   // call is still in flight (spec: "one verification request at a time").
   const verifyInFlightRef = useRef(false);
+  // Also persists across retryKey-triggered restarts (refresh(), and
+  // useRefreshOnForeground's automatic call every time the app returns to
+  // the foreground -- exactly the moment a payer comes back from their
+  // wallet app, when connectivity may not have fully re-settled yet). If
+  // this were a plain local reset on every effect run, a refresh() while
+  // offline would lose its sticky protection for that very tick and the
+  // error state would replace the last-good content the sticky logic
+  // exists to protect. Only a genuine token change (a different request
+  // entirely) resets it -- handled below, not via the dependency array.
+  const hasLoadedOnceRef = useRef(false);
+  const loadedTokenRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!token) {
@@ -53,9 +64,13 @@ export function usePublicCheckoutPolling(
       return;
     }
 
+    if (loadedTokenRef.current !== token) {
+      hasLoadedOnceRef.current = false;
+      loadedTokenRef.current = token;
+    }
+
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    let hasLoadedOnce = false;
 
     async function poll() {
       if (!verifyInFlightRef.current) {
@@ -72,7 +87,7 @@ export function usePublicCheckoutPolling(
       const next = await fetchPublicCheckout(token as string);
       if (cancelled) return;
 
-      if (!next.ok && next.code === 'network_error' && hasLoadedOnce) {
+      if (!next.ok && next.code === 'network_error' && hasLoadedOnceRef.current) {
         // We already have something good on screen -- a transient blip
         // must not blank it out. Keep the last result, flag the outage,
         // and keep trying on the same schedule (only ever reachable here
@@ -88,7 +103,7 @@ export function usePublicCheckoutPolling(
       setResult(next);
       setIsRefreshing(false);
       if (next.ok) {
-        hasLoadedOnce = true;
+        hasLoadedOnceRef.current = true;
         if (!isTerminalCheckoutStatus(next.data.status)) {
           timer = setTimeout(poll, pollIntervalMs);
         }

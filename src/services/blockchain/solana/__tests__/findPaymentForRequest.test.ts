@@ -319,32 +319,68 @@ describe('findPaymentForRequest', () => {
     expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
   });
 
-  it('stops checking further candidates once the overall time budget is exceeded, rather than exhausting every candidate', async () => {
-    let dateNowCalls = 0;
-    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => {
-      dateNowCalls++;
-      // Calls 1-3 cover: startedAt, the page-level budget check, and
-      // sig-1's own budget check -- all "budget OK". Every call after
-      // that reports far past the budget, so sig-2's check bails before
-      // matchPayment ever runs for it.
-      return dateNowCalls <= 3 ? 0 : 999_999;
-    });
+  it('the overall time budget is a genuine deadline, not just a between-steps check -- it cuts off a single candidate stuck mid-verification', async () => {
+    jest.useFakeTimers();
+    try {
+      // Neither RPC call ever resolves on its own -- simulates the exact
+      // scenario the budget exists for: a single candidate whose own
+      // internal retry/timeout logic (up to ~30s worst case, longer than
+      // the 20s overall budget) is still running. A between-steps-only
+      // check could never interrupt this; only a real race can.
+      const rpcProvider: SolanaRpcProvider = {
+        getParsedTransaction: jest.fn(() => new Promise(() => {})),
+        getSignatureStatus: jest.fn(() => new Promise(() => {})),
+      };
 
-    const getParsedTransaction = jest.fn().mockResolvedValue(fakeTx({ amount: '1' })); // never matches
-    const rpcProvider: SolanaRpcProvider = {
-      getParsedTransaction,
-      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
-    };
+      const outcomePromise = findPaymentForRequest(REFERENCE, expected, {
+        discoveryProvider: discoveryProvider(['sig-1']),
+        rpcProvider,
+        isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+      });
 
-    const outcome = await findPaymentForRequest(REFERENCE, expected, {
-      discoveryProvider: discoveryProvider(['sig-1', 'sig-2', 'sig-3']),
-      rpcProvider,
-      isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
-    });
+      // Advances past OVERALL_BUDGET_MS (20s) but well short of the stuck
+      // call's own eventual ~30s timeout -- if the deadline weren't a real
+      // race, this outcome would still be unresolved at this point.
+      await jest.advanceTimersByTimeAsync(20_000);
 
-    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
-    expect(getParsedTransaction).toHaveBeenCalledTimes(1);
+      await expect(outcomePromise).resolves.toEqual({ kind: 'no_match', lastReason: undefined });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
 
-    dateSpy.mockRestore();
+  it('the deadline reports confirming, not no_match, if an earlier candidate already showed insufficient confirmation', async () => {
+    jest.useFakeTimers();
+    try {
+      const getParsedTransaction = jest
+        .fn()
+        .mockResolvedValueOnce(fakeTx()) // sig-1: matches, but...
+        .mockImplementationOnce(() => new Promise(() => {})); // sig-2: stuck
+      const rpcProvider: SolanaRpcProvider = {
+        getParsedTransaction,
+        getSignatureStatus: jest
+          .fn()
+          .mockResolvedValueOnce(processedStatus()) // sig-1: found, not yet confirmed
+          .mockImplementationOnce(() => new Promise(() => {})),
+      };
+
+      const outcomePromise = findPaymentForRequest(REFERENCE, expected, {
+        discoveryProvider: discoveryProvider(['sig-1', 'sig-2']),
+        rpcProvider,
+        isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+      });
+
+      await jest.advanceTimersByTimeAsync(20_000);
+
+      // sig-1 already proved the real payment exists and is just not
+      // confirmed enough yet -- the deadline must report that, not treat
+      // the whole attempt as "found nothing" just because sig-2 never
+      // finished.
+      await expect(outcomePromise).resolves.toEqual({ kind: 'confirming' });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 });
