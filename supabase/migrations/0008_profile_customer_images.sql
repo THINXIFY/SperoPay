@@ -33,9 +33,18 @@ alter table public.customers
 -- not financial data) -- write access below is the actual security
 -- boundary, scoped per-owner exactly like every other table in this
 -- project.
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+--
+-- allowed_mime_types/file_size_limit: the insert/update policies below
+-- only check *who* is writing (via the path's owner-id segment), not
+-- *what* -- without a bucket-level constraint, an authenticated user could
+-- publicly host arbitrary files/sizes under their own id. The client only
+-- ever uploads a 512x512 JPEG it just produced (avatarUpload.ts), so 5MB
+-- and image/jpeg+png is generous headroom, not a tight fit.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png'])
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 -- Paths are always `<users|customers>/<owner-user-id>/...`, so the owner's
 -- id is always the SECOND path segment for both shapes:

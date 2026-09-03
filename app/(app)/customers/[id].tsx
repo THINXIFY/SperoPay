@@ -149,15 +149,21 @@ export default function CustomerDetailScreen() {
     if (nameError || emailError || !userId) return;
 
     setIsSavingEdit(true);
+    // Optional chaining, not customer.avatarUrl -- TS can't carry the
+    // early-return narrowing at the top of the component into a nested
+    // async function's closure (the same reason customerId was extracted
+    // as its own const above instead of using customer.id inline here).
+    const previousAvatarUrl = customer?.avatarUrl;
+    // Tracks a just-uploaded object updateCustomer hasn't successfully
+    // referenced yet -- if that write then fails, the catch block below
+    // (which needs to see this, hence declared outside the try) cleans it
+    // up so the upload doesn't outlive the save it was part of.
+    let uploadedButUnsavedUrl: string | undefined;
     try {
-      // Optional chaining, not customer.avatarUrl -- TS can't carry the
-      // early-return narrowing at the top of the component into a nested
-      // async function's closure (the same reason customerId was extracted
-      // as its own const above instead of using customer.id inline here).
-      const previousAvatarUrl = customer?.avatarUrl;
       let avatarUrl = previousAvatarUrl;
       if (editImage.localUri) {
         avatarUrl = await uploadCustomerAvatar(userId, customerId, editImage.localUri);
+        uploadedButUnsavedUrl = avatarUrl;
       } else if (editImage.removed) {
         avatarUrl = undefined;
       }
@@ -170,6 +176,7 @@ export default function CustomerDetailScreen() {
         avatarUrl,
         imageType: avatarUrl ? editImage.imageType : undefined,
       });
+      uploadedButUnsavedUrl = undefined;
 
       if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
         deleteAvatarByUrl(previousAvatarUrl);
@@ -178,6 +185,9 @@ export default function CustomerDetailScreen() {
     } catch {
       // updateCustomer already set a calm store-level error; keep the sheet
       // open with the entered values intact so the user can retry.
+      if (uploadedButUnsavedUrl) {
+        deleteAvatarByUrl(uploadedButUnsavedUrl);
+      }
     } finally {
       setIsSavingEdit(false);
     }

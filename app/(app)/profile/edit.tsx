@@ -57,11 +57,17 @@ export default function EditProfileScreen() {
     }
     if (!userId) return;
     setIsSaving(true);
+    const previousAvatarUri = profile?.avatarUri;
+    // Tracks a just-uploaded object that the profile write hasn't
+    // successfully referenced yet -- if that write then fails, this is
+    // what the catch block below needs to clean up so the upload doesn't
+    // outlive the save it was part of.
+    let uploadedButUnsavedUri: string | undefined;
     try {
-      const previousAvatarUri = profile?.avatarUri;
       let avatarUri = previousAvatarUri;
       if (localImageUri) {
         avatarUri = await uploadUserAvatar(userId, localImageUri);
+        uploadedButUnsavedUri = avatarUri;
       } else if (removeExistingAvatar) {
         avatarUri = undefined;
       }
@@ -73,6 +79,7 @@ export default function EditProfileScreen() {
         avatarUri,
         avatarBorderStyle,
       });
+      uploadedButUnsavedUri = undefined;
 
       // Best-effort cleanup, only once the new state is confirmed saved --
       // never blocks navigating away, never allowed to turn a successful
@@ -82,6 +89,9 @@ export default function EditProfileScreen() {
       }
       router.back();
     } catch {
+      if (uploadedButUnsavedUri) {
+        deleteAvatarByUrl(uploadedButUnsavedUri);
+      }
       Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
     } finally {
       setIsSaving(false);
