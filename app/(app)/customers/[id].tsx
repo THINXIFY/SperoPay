@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -9,6 +9,7 @@ import { AppHeader } from '../../../src/components/AppHeader';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
 import { CustomerImagePicker } from '../../../src/components/CustomerImagePicker';
 import { StatTile } from '../../../src/components/StatTile';
+import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -29,12 +30,8 @@ import { getDateLabel } from '../../../src/utils/getDateLabel';
 import { isValidEmail } from '../../../src/utils/validators';
 import type { PaymentRequest } from '../../../src/types';
 
-const NARROW_SCREEN_WIDTH = 360;
-
 export default function CustomerDetailScreen() {
   const { colors, spacing, radius, typography } = useTheme();
-  const { width } = useWindowDimensions();
-  const isNarrow = width < NARROW_SCREEN_WIDTH;
   const { id } = useLocalSearchParams<{ id: string }>();
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === id));
   const requests = useRequestStore((state) => state.requests);
@@ -215,18 +212,13 @@ export default function CustomerDetailScreen() {
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
         ListHeaderComponent={
           <View style={{ marginBottom: spacing.xl }}>
-            <View
-              style={[
-                styles.identityCard,
-                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl },
-              ]}
-            >
+            <ThemeAwareCard style={[styles.identityCard, { padding: spacing.xl }]}>
               <CustomerAvatar
                 name={customer.name}
                 color={customer.avatarColor}
                 avatarUrl={customer.avatarUrl}
                 imageType={customer.imageType}
-                size={80}
+                size={76}
               />
               <Text
                 style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }]}
@@ -241,7 +233,7 @@ export default function CustomerDetailScreen() {
                 <View
                   style={[
                     styles.companyPill,
-                    { backgroundColor: colors.softBlue, borderRadius: radius.full, paddingHorizontal: spacing.md, marginTop: spacing.sm },
+                    { backgroundColor: colors.softBlue, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, marginTop: spacing.md },
                   ]}
                 >
                   <Ionicons name="briefcase-outline" size={12} color={colors.softBlueText} />
@@ -253,24 +245,18 @@ export default function CustomerDetailScreen() {
                   </Text>
                 </View>
               ) : null}
-            </View>
+            </ThemeAwareCard>
 
-            <View style={[styles.statsRow, { marginTop: spacing.lg, gap: spacing.sm }]}>
-              <StatTile
-                label="Total Received"
-                value={formatCurrency(stats.totalReceived)}
-                style={isNarrow ? { width: '48%' } : { flex: 1 }}
-              />
-              <StatTile
-                label="Payments"
-                value={String(stats.totalRequests)}
-                style={isNarrow ? { width: '48%' } : { flex: 1 }}
-              />
-              <StatTile
-                label="Outstanding"
-                value={formatCurrency(stats.outstanding)}
-                style={isNarrow ? { width: '100%' } : { flex: 1 }}
-              />
+            <ThemeAwareCard variant="hero" style={{ marginTop: spacing.lg }}>
+              <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted }]}>Total Received</Text>
+              <Text style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.xs }]} numberOfLines={1}>
+                {formatCurrency(stats.totalReceived)}
+              </Text>
+            </ThemeAwareCard>
+
+            <View style={[styles.statsRow, { marginTop: spacing.sm, gap: spacing.sm }]}>
+              <StatTile label="Payments" value={String(stats.totalRequests)} style={{ flex: 1 }} />
+              <StatTile label="Outstanding" value={formatCurrency(stats.outstanding)} style={{ flex: 1 }} />
             </View>
 
             <View style={{ marginTop: spacing.xl }}>
@@ -288,13 +274,15 @@ export default function CustomerDetailScreen() {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="document-text-outline"
-            title="No requests yet"
-            description="Requests sent to this customer will show up here."
-            actionLabel="Request Payment"
-            onActionPress={handleRequestPayment}
-          />
+          <ThemeAwareCard>
+            <EmptyState
+              icon="document-text-outline"
+              title="No requests yet"
+              description="Requests sent to this customer will show up here."
+              actionLabel="Request Payment"
+              onActionPress={handleRequestPayment}
+            />
+          </ThemeAwareCard>
         }
         renderItem={renderHistoryRow}
       />
@@ -336,8 +324,8 @@ export default function CustomerDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  identityCard: { alignItems: 'center', borderWidth: 1 },
-  companyPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  identityCard: { alignItems: 'center' },
+  companyPill: { flexDirection: 'row', alignItems: 'center' },
+  statsRow: { flexDirection: 'row' },
   historyHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

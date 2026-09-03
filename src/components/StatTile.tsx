@@ -23,12 +23,7 @@ export function StatTile({ label, value, style }: StatTileProps) {
         style,
       ]}
     >
-      <Text
-        style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
+      <Text style={[typography.caption, { color: colors.textMuted }]}>{label}</Text>
       <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]} numberOfLines={1}>
         {value}
       </Text>
