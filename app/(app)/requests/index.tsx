@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, FlatList, RefreshControl, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,6 +10,7 @@ import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
+import { useRefreshMerchantPaymentData } from '../../../src/store/useRefreshMerchantPaymentData';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
 import type { PaymentRequest, PaymentRequestStatus } from '../../../src/types';
 
@@ -33,6 +34,7 @@ export default function RequestsScreen() {
   const transactions = useTransactionStore((state) => state.transactions);
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
 
   const filtered = useMemo(() => {
     const sorted = [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -153,6 +155,7 @@ export default function RequestsScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} tintColor={colors.primaryAction} />}
         ListEmptyComponent={
           status === 'loading' ? (
             <View style={{ gap: spacing.md }}>

@@ -144,6 +144,8 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, status: request.status });
     }
 
+    console.log(`verify-payment: verification requested for request ${request.id} (status=${request.status})`);
+
     const network = getServerSolanaNetwork();
     const { mint, decimals } = getUsdcConfig(network);
     const expected: ExpectedPayment = {
@@ -182,6 +184,7 @@ Deno.serve(async (req: Request) => {
 
     switch (outcome.kind) {
       case 'paid': {
+        console.log(`verify-payment: transaction found and fully verified for request ${request.id} (signature=${outcome.result.signature})`);
         const { data: transactions, error: completeError } = await supabase.rpc('complete_verified_payment', {
           p_request_id: request.id,
           p_tx_hash: outcome.result.signature,
@@ -191,10 +194,18 @@ Deno.serve(async (req: Request) => {
           return json({ ok: true, status: request.status });
         }
         const completed = Array.isArray(transactions) && transactions.length > 0;
+        if (completed) {
+          console.log(`verify-payment: request ${request.id} verified paid`);
+        } else {
+          // Row lock + tx_hash uniqueness rejected it -- almost always means
+          // a concurrent invocation already completed the same request.
+          console.log(`verify-payment: request ${request.id} already finalized by a concurrent verification (duplicate signature or already paid)`);
+        }
         return json({ ok: true, status: completed ? 'paid' : request.status });
       }
 
       case 'confirming': {
+        console.log(`verify-payment: request ${request.id} confirming (transaction found, not yet at required confirmation level)`);
         const { error: detectError } = await supabase.rpc('mark_payment_detected', { p_request_id: request.id });
         if (detectError) {
           console.error(`verify-payment: mark_payment_detected failed for ${request.id}`, detectError);
@@ -208,6 +219,14 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true, status: request.status, note: 'rpc_unavailable' });
 
       case 'no_match':
+        // lastReason is the specific reason the closest candidate (if any)
+        // didn't qualify -- e.g. wrong_amount, wrong_mint, wrong_destination,
+        // already_credited, transaction_failed, expired. Absent entirely
+        // means no candidate signature existed for this reference yet
+        // (the ordinary case while a payer hasn't paid at all).
+        console.log(`verify-payment: no qualifying transaction for request ${request.id} (last candidate reason: ${outcome.lastReason ?? 'no candidates found'})`);
+        return json({ ok: true, status: request.status });
+
       default:
         return json({ ok: true, status: request.status });
     }

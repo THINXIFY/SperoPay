@@ -109,7 +109,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
   });
 
   it('returns no_match for a candidate with the wrong token mint', async () => {
@@ -124,7 +124,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_mint' });
   });
 
   it('returns no_match for a candidate paid to the wrong merchant wallet', async () => {
@@ -139,7 +139,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_destination' });
   });
 
   it('returns no_match for a candidate whose transaction failed on-chain', async () => {
@@ -154,7 +154,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'transaction_failed' });
   });
 
   it('returns no_match (never re-confirming) for a signature already credited elsewhere', async () => {
@@ -169,7 +169,7 @@ describe('findPaymentForRequest', () => {
       isSignatureAlreadyUsed: jest.fn().mockResolvedValue(true),
     });
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'already_credited' });
   });
 
   it('checks candidates in order and returns paid on the first valid one, ignoring an earlier wrong candidate', async () => {
@@ -262,7 +262,7 @@ describe('findPaymentForRequest', () => {
       5
     );
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
     expect(getSignaturesForAddress).toHaveBeenCalledTimes(1);
   });
 
@@ -280,7 +280,7 @@ describe('findPaymentForRequest', () => {
       2
     );
 
-    expect(outcome).toEqual({ kind: 'no_match' });
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
     expect(getSignaturesForAddress).toHaveBeenCalledTimes(3); // MAX_PAGES, not unbounded
   });
 
@@ -302,5 +302,85 @@ describe('findPaymentForRequest', () => {
 
     expect(outcome.kind).toBe('paid');
     expect(getParsedTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the last failure reason on no_match, useful for server-side logging', async () => {
+    const rpcProvider: SolanaRpcProvider = {
+      getParsedTransaction: jest.fn().mockResolvedValue(fakeTx({ amount: '1' })), // wrong amount
+      getSignatureStatus: jest.fn().mockResolvedValue(confirmedStatus()),
+    };
+
+    const outcome = await findPaymentForRequest(REFERENCE, expected, {
+      discoveryProvider: discoveryProvider(['sig-1']),
+      rpcProvider,
+      isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+    });
+
+    expect(outcome).toEqual({ kind: 'no_match', lastReason: 'wrong_amount' });
+  });
+
+  it('the overall time budget is a genuine deadline, not just a between-steps check -- it cuts off a single candidate stuck mid-verification', async () => {
+    jest.useFakeTimers();
+    try {
+      // Neither RPC call ever resolves on its own -- simulates the exact
+      // scenario the budget exists for: a single candidate whose own
+      // internal retry/timeout logic (up to ~30s worst case, longer than
+      // the 20s overall budget) is still running. A between-steps-only
+      // check could never interrupt this; only a real race can.
+      const rpcProvider: SolanaRpcProvider = {
+        getParsedTransaction: jest.fn(() => new Promise(() => {})),
+        getSignatureStatus: jest.fn(() => new Promise(() => {})),
+      };
+
+      const outcomePromise = findPaymentForRequest(REFERENCE, expected, {
+        discoveryProvider: discoveryProvider(['sig-1']),
+        rpcProvider,
+        isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+      });
+
+      // Advances past OVERALL_BUDGET_MS (20s) but well short of the stuck
+      // call's own eventual ~30s timeout -- if the deadline weren't a real
+      // race, this outcome would still be unresolved at this point.
+      await jest.advanceTimersByTimeAsync(20_000);
+
+      await expect(outcomePromise).resolves.toEqual({ kind: 'no_match', lastReason: undefined });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('the deadline reports confirming, not no_match, if an earlier candidate already showed insufficient confirmation', async () => {
+    jest.useFakeTimers();
+    try {
+      const getParsedTransaction = jest
+        .fn()
+        .mockResolvedValueOnce(fakeTx()) // sig-1: matches, but...
+        .mockImplementationOnce(() => new Promise(() => {})); // sig-2: stuck
+      const rpcProvider: SolanaRpcProvider = {
+        getParsedTransaction,
+        getSignatureStatus: jest
+          .fn()
+          .mockResolvedValueOnce(processedStatus()) // sig-1: found, not yet confirmed
+          .mockImplementationOnce(() => new Promise(() => {})),
+      };
+
+      const outcomePromise = findPaymentForRequest(REFERENCE, expected, {
+        discoveryProvider: discoveryProvider(['sig-1', 'sig-2']),
+        rpcProvider,
+        isSignatureAlreadyUsed: jest.fn().mockResolvedValue(false),
+      });
+
+      await jest.advanceTimersByTimeAsync(20_000);
+
+      // sig-1 already proved the real payment exists and is just not
+      // confirmed enough yet -- the deadline must report that, not treat
+      // the whole attempt as "found nothing" just because sig-2 never
+      // finished.
+      await expect(outcomePromise).resolves.toEqual({ kind: 'confirming' });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 });

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Share, Alert } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
@@ -18,6 +18,7 @@ import { useWalletStore } from '../../../src/store/walletStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useRefreshMerchantPaymentData } from '../../../src/store/useRefreshMerchantPaymentData';
 import { supabase } from '../../../src/lib/supabase';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { buildReminderMessage } from '../../../src/utils/buildReminderMessage';
@@ -79,6 +80,16 @@ export default function RequestDetailScreen() {
   const deleteRequest = useRequestStore((state) => state.deleteRequest);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const userId = useAuthStore((state) => state.user?.id);
+  const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
+
+  // A real Solana payment is verified server-side, outside this session --
+  // refresh whenever the merchant returns to this screen so a payment that
+  // completed while they were elsewhere shows up without an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      refreshPaymentData();
+    }, [refreshPaymentData])
+  );
 
   async function recordEvent(requestId: string, type: 'shared' | 'reminder_sent') {
     if (!userId) return;
@@ -169,7 +180,10 @@ export default function RequestDetailScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Request Detail" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.xl }}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} tintColor={colors.primaryAction} />}
+      >
         <ThemeAwareCard variant="hero">
           <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>
           <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>

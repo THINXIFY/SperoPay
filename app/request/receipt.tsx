@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Alert, Share } from 'react-native';
+import { View, Text, ScrollView, Alert, Share, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -124,7 +124,18 @@ export default function ReceiptScreen() {
                 </Text>
               </View>
             </>
-          ) : null}
+          ) : (
+            // The request's own status already says paid -- a real payment
+            // is verified and its transaction row written atomically, so
+            // this only ever happens for a moment right after this screen's
+            // own store data was fetched. A brief note, not an error state.
+            <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.textMuted} />
+              <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.sm }]}>
+                Syncing transaction details…
+              </Text>
+            </View>
+          )}
         </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>

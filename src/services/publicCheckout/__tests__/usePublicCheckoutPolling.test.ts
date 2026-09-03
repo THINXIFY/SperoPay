@@ -214,4 +214,128 @@ describe('usePublicCheckoutPolling', () => {
     });
     expect(result.current.isRefreshing).toBe(false);
   });
+
+  it('keeps the last known-good data on screen and flags isOffline on a transient failure after a successful load', async () => {
+    const goodData = checkoutData({ status: 'pending' });
+    mockedFetch.mockResolvedValueOnce({ ok: true, data: goodData });
+
+    const { result } = await renderHook(() => usePublicCheckoutPolling(TOKEN, POLL_INTERVAL_MS));
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(1));
+    expect(result.current.isOffline).toBe(false);
+
+    mockedFetch.mockResolvedValueOnce({ ok: false, code: 'network_error', message: 'oops' });
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+    });
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(2));
+
+    expect(result.current.isOffline).toBe(true);
+    // Unchanged -- the transient failure never replaced the last good result.
+    expect(result.current.result).toEqual({ ok: true, data: goodData });
+  });
+
+  it('keeps polling during a transient outage and recovers automatically once a fetch succeeds again', async () => {
+    const goodData = checkoutData({ status: 'pending' });
+    mockedFetch.mockResolvedValueOnce({ ok: true, data: goodData });
+
+    const { result } = await renderHook(() => usePublicCheckoutPolling(TOKEN, POLL_INTERVAL_MS));
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(1));
+
+    mockedFetch.mockResolvedValueOnce({ ok: false, code: 'network_error', message: 'oops' });
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+    });
+    await waitFor(() => expect(result.current.isOffline).toBe(true));
+
+    const updatedData = checkoutData({ status: 'confirming' });
+    mockedFetch.mockResolvedValueOnce({ ok: true, data: updatedData });
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+    });
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(3));
+
+    expect(result.current.isOffline).toBe(false);
+    expect(result.current.result).toEqual({ ok: true, data: updatedData });
+  });
+
+  it('keeps sticky last-good data through a refresh() called while already offline (regression: refresh must not lose sticky protection)', async () => {
+    const goodData = checkoutData({ status: 'pending' });
+    mockedFetch.mockResolvedValueOnce({ ok: true, data: goodData });
+
+    const { result } = await renderHook(() => usePublicCheckoutPolling(TOKEN, POLL_INTERVAL_MS));
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(1));
+
+    // Go offline via an automatic tick first (e.g. useRefreshOnForeground
+    // firing refresh() right as the payer returns from their wallet app,
+    // before connectivity has fully re-settled, is exactly this sequence
+    // in practice).
+    mockedFetch.mockResolvedValueOnce({ ok: false, code: 'network_error', message: 'oops' });
+    await act(async () => {
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+    });
+    await waitFor(() => expect(result.current.isOffline).toBe(true));
+
+    // Now a refresh() (manual pull-to-refresh, or the same foreground-return
+    // nudge) fires while still offline. This must NOT replace the sticky
+    // result with the raw error, and must NOT report isOffline: false while
+    // doing so.
+    mockedFetch.mockResolvedValueOnce({ ok: false, code: 'network_error', message: 'still down' });
+    await act(async () => {
+      result.current.refresh();
+    });
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(3));
+
+    expect(result.current.isOffline).toBe(true);
+    expect(result.current.result).toEqual({ ok: true, data: goodData });
+  });
+
+  it('resets sticky protection for a genuinely different token, rather than carrying stale data across requests', async () => {
+    const firstGoodData = checkoutData({ status: 'pending' });
+    mockedFetch.mockResolvedValueOnce({ ok: true, data: firstGoodData });
+
+    const { result, rerender } = await renderHook(({ token }: { token: string }) => usePublicCheckoutPolling(token, POLL_INTERVAL_MS), {
+      initialProps: { token: TOKEN },
+    });
+    await waitFor(() => expect(mockedFetch).toHaveBeenCalledTimes(1));
+
+    const OTHER_TOKEN = 'b2c3d4e5-f6a7-4890-b123-456789abcdef';
+    mockedFetch.mockResolvedValueOnce({ ok: false, code: 'network_error', message: 'oops' });
+    await act(async () => {
+      await rerender({ token: OTHER_TOKEN });
+    });
+
+    // A different request has no sticky data to protect -- the network
+    // error for it must surface normally, not silently show the previous
+    // token's stale content.
+    expect(result.current.result).toEqual({ ok: false, code: 'network_error', message: 'oops' });
+    expect(result.current.isOffline).toBe(false);
+  });
+
+  it('skips a duplicate verification call while one is already in flight, but still fetches fresh status', async () => {
+    let resolveVerify: () => void = () => {};
+    mockedTriggerVerification.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveVerify = () => resolve(undefined);
+        })
+    );
+    mockedFetch.mockResolvedValue({ ok: true, data: checkoutData() });
+
+    const { result } = await renderHook(() => usePublicCheckoutPolling(TOKEN, POLL_INTERVAL_MS));
+    expect(mockedTriggerVerification).toHaveBeenCalledTimes(1);
+    expect(mockedFetch).not.toHaveBeenCalled(); // still waiting on the in-flight verification call
+
+    await act(async () => {
+      result.current.refresh();
+    });
+
+    // The refresh's own tick found a verification call already in flight
+    // and skipped re-triggering it, but still fetched current status.
+    expect(mockedTriggerVerification).toHaveBeenCalledTimes(1);
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveVerify();
+    });
+  });
 });

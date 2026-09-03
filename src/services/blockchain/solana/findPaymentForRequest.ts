@@ -1,6 +1,6 @@
 import type { SolanaSignatureDiscoveryProvider } from './client.ts';
 import { matchPayment, withRetry, type PaymentMatcherDeps } from './paymentMatcher.ts';
-import type { ExpectedPayment, PaymentVerificationResult } from './types.ts';
+import type { ExpectedPayment, PaymentVerificationFailureReason, PaymentVerificationResult } from './types.ts';
 
 const DEFAULT_CANDIDATE_LIMIT = 10;
 // Bounds total work per call to MAX_PAGES * limit signatures -- never
@@ -12,14 +12,32 @@ const DEFAULT_CANDIDATE_LIMIT = 10;
 // on-chain history), so a quiet reference costs exactly one RPC call.
 const MAX_PAGES = 3;
 
+// A wall-clock ceiling on top of MAX_PAGES: each matchPayment call can
+// itself retry (up to RPC_MAX_ATTEMPTS attempts of RPC_TIMEOUT_MS each,
+// plus backoff -- around 30s worst case for a *single* candidate), so a
+// pathological candidate list (many signatures that all time out) could
+// otherwise take minutes for one verification attempt -- far past a
+// payer's patience and a real risk of hitting an Edge Function platform
+// timeout mid-request. This is enforced as a genuine deadline via
+// Promise.race below (see findPaymentForRequest), not merely checked
+// between steps -- a between-steps check alone cannot cut off a single
+// slow in-flight call, which is exactly the scenario this budget exists
+// to bound.
+const OVERALL_BUDGET_MS = 20_000;
+
 export type PaymentDiscoveryOutcome =
   | { kind: 'paid'; result: Extract<PaymentVerificationResult, { valid: true }> }
   | { kind: 'confirming' }
-  | { kind: 'no_match' }
+  | { kind: 'no_match'; lastReason?: PaymentVerificationFailureReason }
   | { kind: 'rpc_unavailable' };
 
 export interface FindPaymentDeps extends PaymentMatcherDeps {
   discoveryProvider: SolanaSignatureDiscoveryProvider;
+}
+
+interface DiscoveryProgress {
+  sawInsufficientConfirmation: boolean;
+  lastReason: PaymentVerificationFailureReason | undefined;
 }
 
 // The one new piece of logic Phase 3D actually adds: given a Solana Pay
@@ -37,13 +55,47 @@ export interface FindPaymentDeps extends PaymentMatcherDeps {
 // confirming" from "nothing relevant here yet" (wrong amount/mint/wallet
 // on some unrelated transaction that happened to reference this account,
 // which must never move the request out of pending).
+//
+// Races the actual discovery work against a hard OVERALL_BUDGET_MS
+// deadline. Racing (not just checking Date.now() between steps) is what
+// makes this a genuine ceiling: a single slow matchPayment call can't
+// blow past it just because nothing checks the clock again until that
+// call resolves. The deadline branch still reports `confirming` if
+// progressToDate already saw it -- a slow-but-real payment must not be
+// reported as "nothing found" just because verification hasn't finished
+// double-checking every candidate yet. The losing side of the race (if
+// discovery is still running when the deadline wins) is simply abandoned;
+// it performs no writes itself, so there is nothing unsafe about it
+// continuing in the background for whatever the runtime allows.
 export async function findPaymentForRequest(
   reference: string,
   expected: ExpectedPayment,
   deps: FindPaymentDeps,
   limit: number = DEFAULT_CANDIDATE_LIMIT
 ): Promise<PaymentDiscoveryOutcome> {
-  let sawInsufficientConfirmation = false;
+  const progress: DiscoveryProgress = { sawInsufficientConfirmation: false, lastReason: undefined };
+
+  return Promise.race([
+    runDiscovery(reference, expected, deps, limit, progress),
+    new Promise<PaymentDiscoveryOutcome>((resolve) => {
+      setTimeout(() => resolve(progressToOutcome(progress)), OVERALL_BUDGET_MS);
+    }),
+  ]);
+}
+
+function progressToOutcome(progress: DiscoveryProgress): PaymentDiscoveryOutcome {
+  return progress.sawInsufficientConfirmation
+    ? { kind: 'confirming' }
+    : { kind: 'no_match', lastReason: progress.lastReason };
+}
+
+async function runDiscovery(
+  reference: string,
+  expected: ExpectedPayment,
+  deps: FindPaymentDeps,
+  limit: number,
+  progress: DiscoveryProgress
+): Promise<PaymentDiscoveryOutcome> {
   let before: string | undefined;
 
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -69,8 +121,9 @@ export async function findPaymentForRequest(
       if (result.valid) {
         return { kind: 'paid', result };
       }
+      progress.lastReason = result.reason;
       if (result.reason === 'insufficient_confirmation') {
-        sawInsufficientConfirmation = true;
+        progress.sawInsufficientConfirmation = true;
       }
     }
 
@@ -78,5 +131,5 @@ export async function findPaymentForRequest(
     before = signatures[signatures.length - 1];
   }
 
-  return sawInsufficientConfirmation ? { kind: 'confirming' } : { kind: 'no_match' };
+  return progressToOutcome(progress);
 }
