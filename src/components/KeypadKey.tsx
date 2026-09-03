@@ -9,8 +9,9 @@ interface KeypadKeyProps {
 }
 
 export function KeypadKey({ value, onPress }: KeypadKeyProps) {
-  const { colors, radius, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const isDelete = value === 'delete';
+  const isDecimal = value === '.';
 
   return (
     <Pressable
@@ -18,6 +19,7 @@ export function KeypadKey({ value, onPress }: KeypadKeyProps) {
       style={({ pressed }) => [
         styles.key,
         {
+          paddingVertical: spacing.base,
           borderRadius: radius.lg,
           backgroundColor: pressed ? colors.surface : 'transparent',
           opacity: pressed ? 0.6 : 1,
@@ -25,17 +27,22 @@ export function KeypadKey({ value, onPress }: KeypadKeyProps) {
         },
       ]}
       accessibilityRole="button"
-      accessibilityLabel={value === '.' ? 'Decimal point' : isDelete ? 'Delete' : `Digit ${value}`}
+      accessibilityLabel={isDecimal ? 'Decimal point' : isDelete ? 'Delete' : `Digit ${value}`}
+      hitSlop={4}
     >
       {isDelete ? (
-        <Ionicons name="backspace-outline" size={26} color={colors.textPrimary} />
+        <Ionicons name="backspace-outline" size={24} color={colors.textSecondary} />
       ) : (
-        <Text style={[typography.h1, { color: colors.textPrimary }]}>{value}</Text>
+        <Text
+          style={[typography.h1, { color: isDecimal ? colors.textSecondary : colors.textPrimary }]}
+        >
+          {value}
+        </Text>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  key: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
+  key: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

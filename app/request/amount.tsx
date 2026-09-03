@@ -21,7 +21,7 @@ import { isValidAmount } from '../../src/utils/validators';
 const SHEET_SNAP_POINTS = ['30%'];
 
 export default function AmountScreen() {
-  const { colors, spacing, radius, typography } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const amount = useRequestDraftStore((state) => state.amount);
   const setAmount = useRequestDraftStore((state) => state.setAmount);
   const reset = useRequestDraftStore((state) => state.reset);
@@ -66,39 +66,16 @@ export default function AmountScreen() {
 
         <Pressable
           onPress={() => networkSheetRef.current?.expand()}
-          style={[
-            styles.networkRow,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              borderRadius: radius.md,
-              padding: spacing.base,
-              marginTop: spacing.md,
-            },
-          ]}
+          style={({ pressed }) => [styles.networkCompactRow, { marginTop: spacing.md, opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
           accessibilityLabel="Network: Solana. Change"
+          hitSlop={8}
         >
-          <View
-            style={[
-              styles.networkIconChip,
-              { backgroundColor: colors.softMint, borderRadius: radius.full, marginRight: spacing.sm },
-            ]}
-          >
-            <Ionicons name="flash" size={14} color={colors.softMintText} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Solana</Text>
-            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
-              Fast · Low fees
-            </Text>
-          </View>
-          <View style={styles.changeAffordance}>
-            <Text style={[typography.bodySmall, { color: colors.textMuted, marginRight: spacing.xs / 2 }]}>
-              Change
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-          </View>
+          <Ionicons name="flash-outline" size={13} color={colors.textMuted} />
+          <Text style={[typography.caption, { color: colors.textMuted, marginLeft: spacing.xs / 2 }]}>
+            Network: Solana
+          </Text>
+          <Ionicons name="chevron-forward" size={12} color={colors.textMuted} style={{ marginLeft: spacing.xs / 2 }} />
         </Pressable>
       </ScrollView>
 
@@ -108,26 +85,42 @@ export default function AmountScreen() {
 
       <AppBottomSheet ref={stablecoinSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
-        <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
-          <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>USDC</Text>
-          <Ionicons name="checkmark" size={20} color={colors.primaryAction} />
-        </View>
+        <SheetOption label="USDC" selected />
       </AppBottomSheet>
 
       <AppBottomSheet ref={networkSheetRef} snapPoints={SHEET_SNAP_POINTS} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Network</Text>
-        <View style={[styles.optionRow, { paddingVertical: spacing.md }]}>
-          <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>Solana</Text>
-          <Ionicons name="checkmark" size={20} color={colors.primaryAction} />
-        </View>
+        <SheetOption label="Solana" selected />
       </AppBottomSheet>
     </SafeAreaView>
   );
 }
 
+function SheetOption({ label, selected }: { label: string; selected: boolean }) {
+  const { colors, spacing, radius, typography } = useTheme();
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.optionRow,
+        {
+          backgroundColor: selected ? colors.softMint : 'transparent',
+          borderRadius: radius.md,
+          paddingHorizontal: spacing.base,
+          paddingVertical: spacing.base,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+    >
+      <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>
+      {selected ? <Ionicons name="checkmark-circle" size={20} color={colors.softMintText} /> : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  networkRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
-  networkIconChip: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  changeAffordance: { flexDirection: 'row', alignItems: 'center' },
+  networkCompactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   optionRow: { flexDirection: 'row', alignItems: 'center' },
 });

@@ -11,6 +11,16 @@ interface AmountInputProps {
 const MAX_DECIMAL_PLACES = 2;
 const MAX_INTEGER_DIGITS = 9;
 
+// Adds thousands separators to the integer part for display only -- the raw,
+// unformatted digit string stays the source of truth (stored in the draft
+// and used for validation), so this never has to reconcile commas with
+// cursor position or backspacing.
+function formatAmountDisplay(raw: string): string {
+  const [integerPart, decimalPart] = raw.split('.');
+  const formattedInteger = (Number(integerPart) || 0).toLocaleString('en-US');
+  return decimalPart === undefined ? formattedInteger : `${formattedInteger}.${decimalPart}`;
+}
+
 export function AmountInput({ value, onChange }: AmountInputProps) {
   const { colors, spacing, typography } = useTheme();
 
@@ -36,7 +46,8 @@ export function AmountInput({ value, onChange }: AmountInputProps) {
 
   return (
     <View>
-      <View style={[styles.display, { marginBottom: spacing.xl }]}>
+      <View style={[styles.display, { marginBottom: spacing.lg }]}>
+        <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Amount</Text>
         <Text
           style={[typography.display, { color: colors.textPrimary, fontVariant: ['tabular-nums'] }]}
           numberOfLines={1}
@@ -44,7 +55,7 @@ export function AmountInput({ value, onChange }: AmountInputProps) {
           minimumFontScale={0.5}
           maxFontSizeMultiplier={1.3}
         >
-          ${value}
+          ${formatAmountDisplay(value)}
         </Text>
       </View>
       <NumericKeypad onKeyPress={handleKeyPress} onDelete={handleDelete} />
