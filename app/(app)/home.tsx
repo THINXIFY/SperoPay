@@ -158,46 +158,79 @@ export default function HomeScreen() {
               </Text>
             </View>
           </Pressable>
-          <Pressable
-            onPress={() => Alert.alert('Notifications', "You're all caught up.")}
-            style={({ pressed }) => [
-              styles.notificationButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderRadius: radius.full,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            hitSlop={6}
-          >
-            <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/analytics')}
+              style={({ pressed }) => [
+                styles.notificationButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.full,
+                  marginRight: spacing.sm,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Analytics"
+              hitSlop={6}
+            >
+              <Ionicons name="bar-chart-outline" size={20} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable
+              onPress={() => Alert.alert('Notifications', "You're all caught up.")}
+              style={({ pressed }) => [
+                styles.notificationButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.full,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={6}
+            >
+              <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
+            </Pressable>
+          </View>
         </View>
 
-        <ThemeAwareCard variant="hero" style={{ padding: spacing.xl, borderRadius: radius.xl }}>
-          <View style={styles.heroLabelRow}>
-            <View
-              style={[
-                styles.heroIconWrap,
-                { backgroundColor: `${colors.primaryAction}26`, borderRadius: radius.full },
-              ]}
-            >
-              <Ionicons name="trending-up" size={13} color={colors.primaryAction} />
+        <Pressable
+          onPress={() => router.push('/analytics')}
+          accessibilityRole="button"
+          accessibilityLabel="View analytics"
+          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+        >
+          <ThemeAwareCard variant="hero" style={{ padding: spacing.xl, borderRadius: radius.xl }}>
+            <View style={styles.heroLabelRow}>
+              <View
+                style={[
+                  styles.heroIconWrap,
+                  { backgroundColor: `${colors.primaryAction}26`, borderRadius: radius.full },
+                ]}
+              >
+                <Ionicons name="trending-up" size={13} color={colors.primaryAction} />
+              </View>
+              <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginLeft: spacing.xs }]}>
+                Received this month
+              </Text>
             </View>
-            <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginLeft: spacing.xs }]}>
-              Received this month
+            <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
+              {formatCurrency(receivedThisMonth)}
             </Text>
-          </View>
-          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
-            {formatCurrency(receivedThisMonth)}
-          </Text>
-          <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted, marginTop: spacing.sm }]}>
-            {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} · {monthLabel}
-          </Text>
-        </ThemeAwareCard>
+            <View style={[styles.heroFooterOuterRow, { marginTop: spacing.sm }]}>
+              <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted }]}>
+                {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} · {monthLabel}
+              </Text>
+              <View style={styles.heroFooterRow}>
+                <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted }]}>Analytics</Text>
+                <Ionicons name="chevron-forward" size={12} color={colors.heroSurfaceTextMuted} style={{ marginLeft: 2 }} />
+              </View>
+            </View>
+          </ThemeAwareCard>
+        </Pressable>
 
         <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
           <PrimaryButton label="Request Payment" icon="arrow-forward" onPress={handleRequestPayment} />
@@ -294,9 +327,12 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   headerTextWrap: { flexShrink: 1 },
   notificationButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   heroLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  heroFooterOuterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroFooterRow: { flexDirection: 'row', alignItems: 'center' },
   heroIconWrap: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   statsRow: { flexDirection: 'row' },
   statColumn: { flex: 1, minWidth: 0 },

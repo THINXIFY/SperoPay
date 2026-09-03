@@ -19,4 +19,5 @@ export * from './SkeletonLoader';
 export * from './ConfirmationModal';
 export * from './AppBottomSheet';
 export * from './AppRefreshControl';
+export * from './RevenueTrendChart';
 export * from './Logo';
