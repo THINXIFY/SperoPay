@@ -27,41 +27,42 @@ function getGreeting(): string {
   return 'Good evening';
 }
 
-function StatCard({
-  icon,
-  iconColor,
-  iconBg,
+function StatColumn({
+  dotColor,
   label,
   value,
   supporting,
+  isFirst,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  iconBg: string;
+  dotColor: string;
   label: string;
   value: number;
   supporting: string;
+  isFirst: boolean;
 }) {
   const { colors, spacing, radius, typography } = useTheme();
 
   return (
-    <ThemeAwareCard style={{ flex: 1, minWidth: 0, padding: spacing.sm }}>
+    <View
+      style={[
+        styles.statColumn,
+        { padding: spacing.base, borderLeftWidth: isFirst ? 0 : 1, borderLeftColor: colors.border },
+      ]}
+    >
       <View style={styles.statHeader}>
-        <View style={[styles.statIconWrap, { backgroundColor: iconBg, borderRadius: radius.full }]}>
-          <Ionicons name={icon} size={12} color={iconColor} />
-        </View>
-        <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.xs }]}>{label}</Text>
+        <View style={[styles.statDot, { backgroundColor: dotColor, borderRadius: radius.full }]} />
+        <Text style={[typography.bodySmall, { color: colors.textSecondary, marginLeft: spacing.xs }]}>{label}</Text>
       </View>
-      <Text style={[typography.h1, { color: colors.textPrimary, marginTop: spacing.xs }]}>{value}</Text>
+      <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.xs }]}>{value}</Text>
       <Text
         style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}
         numberOfLines={1}
         adjustsFontSizeToFit
-        minimumFontScale={0.85}
+        minimumFontScale={0.8}
       >
         {supporting}
       </Text>
-    </ThemeAwareCard>
+    </View>
   );
 }
 
@@ -83,17 +84,18 @@ export default function HomeScreen() {
   const paidTotal = useMemo(() => paidRequests.reduce((sum, r) => sum + r.amount, 0), [paidRequests]);
   const pendingTotal = useMemo(() => pendingRequests.reduce((sum, r) => sum + r.amount, 0), [pendingRequests]);
 
+  const now = useMemo(() => new Date(), []);
   const monthTransactions = useMemo(() => {
-    const now = new Date();
     return transactions.filter((t) => {
       const paidDate = new Date(t.paidAt);
       return paidDate.getFullYear() === now.getFullYear() && paidDate.getMonth() === now.getMonth();
     });
-  }, [transactions]);
+  }, [transactions, now]);
   const receivedThisMonth = useMemo(
     () => monthTransactions.reduce((sum, t) => sum + t.amount, 0),
     [monthTransactions]
   );
+  const monthLabel = useMemo(() => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now), [now]);
 
   const recentActivity = useMemo(
     () =>
@@ -112,6 +114,11 @@ export default function HomeScreen() {
     resolveDisplayName(profile?.displayName, authUser?.fullName, authUser?.email) || 'there'
   ).split(' ')[0];
 
+  function handleRequestPayment() {
+    startFresh(defaultExpiryOption);
+    router.push('/request/amount');
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
@@ -122,14 +129,20 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.headerRow, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
-          <View style={styles.headerLeft}>
+          <Pressable
+            onPress={() => router.push('/(app)/profile')}
+            style={({ pressed }) => [styles.headerLeft, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            hitSlop={4}
+          >
             <View style={[styles.avatar, { backgroundColor: colors.softLavender, borderRadius: radius.full }]}>
               <Text style={[typography.bodyMedium, { color: colors.softLavenderText }]}>
                 {firstName.slice(0, 1).toUpperCase()}
               </Text>
             </View>
             <View style={[styles.headerTextWrap, { marginLeft: spacing.sm }]}>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+              <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
                 {getGreeting()}, {firstName} 👋
               </Text>
               <Text
@@ -139,7 +152,7 @@ export default function HomeScreen() {
                 Welcome back to Spero
               </Text>
             </View>
-          </View>
+          </Pressable>
           <Pressable
             onPress={() => Alert.alert('Notifications', "You're all caught up.")}
             style={({ pressed }) => [
@@ -169,27 +182,20 @@ export default function HomeScreen() {
             >
               <Ionicons name="trending-up" size={13} color={colors.primaryAction} />
             </View>
-            <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.xs }]}>
+            <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginLeft: spacing.xs }]}>
               Received this month
             </Text>
           </View>
-          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.sm }]}>
+          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
             {formatCurrency(receivedThisMonth)}
           </Text>
-          <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
-            {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} this month
+          <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted, marginTop: spacing.sm }]}>
+            {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} · {monthLabel}
           </Text>
         </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-          <PrimaryButton
-            label="Request Payment"
-            icon="arrow-forward"
-            onPress={() => {
-              startFresh(defaultExpiryOption);
-              router.push('/request/amount');
-            }}
-          />
+          <PrimaryButton label="Request Payment" icon="arrow-forward" onPress={handleRequestPayment} />
           <SecondaryButton
             label="Send Payment"
             icon="arrow-forward"
@@ -197,49 +203,77 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View style={[styles.statsRow, { marginTop: spacing.lg, gap: spacing.md }]}>
-          <StatCard
-            icon="checkmark-circle"
-            iconColor={colors.success}
-            iconBg={`${colors.success}26`}
-            label="Paid"
-            value={paidCount}
-            supporting={formatCurrency(paidTotal)}
-          />
-          <StatCard
-            icon="time-outline"
-            iconColor={colors.pending}
-            iconBg={`${colors.pending}26`}
-            label="Pending"
-            value={pendingCount}
-            supporting={formatCurrency(pendingTotal)}
-          />
-        </View>
+        <ThemeAwareCard style={{ marginTop: spacing.lg, padding: 0, overflow: 'hidden' }}>
+          <View style={styles.statsRow}>
+            <StatColumn dotColor={colors.success} label="Paid" value={paidCount} supporting={formatCurrency(paidTotal)} isFirst />
+            <StatColumn
+              dotColor={colors.pending}
+              label="Pending"
+              value={pendingCount}
+              supporting={formatCurrency(pendingTotal)}
+              isFirst={false}
+            />
+          </View>
+        </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.lg }}>
           <SectionHeader
             title="Recent Activity"
-            actionLabel="View All"
+            actionLabel={recentActivity.length > 0 ? 'View All' : undefined}
             onActionPress={() => router.push('/(app)/requests')}
           />
           {recentActivity.length === 0 ? (
-            <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.sm }]}>
-              Paid activity will show up here.
-            </Text>
+            <ThemeAwareCard style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
+              <View
+                style={[
+                  styles.emptyIconWrap,
+                  { backgroundColor: colors.background, borderRadius: radius.full, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons name="receipt-outline" size={18} color={colors.textMuted} />
+              </View>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.sm }]}>
+                No activity yet
+              </Text>
+              <Text
+                style={[
+                  typography.bodySmall,
+                  { color: colors.textMuted, marginTop: spacing.xs / 2, textAlign: 'center' },
+                ]}
+              >
+                Your completed payments will appear here.
+              </Text>
+              <Pressable
+                onPress={handleRequestPayment}
+                style={({ pressed }) => ({ marginTop: spacing.md, opacity: pressed ? 0.6 : 1 })}
+                accessibilityRole="button"
+                accessibilityLabel="Create request"
+                hitSlop={8}
+              >
+                <Text style={[typography.bodySmall, { color: colors.primaryAction }]}>Create request →</Text>
+              </Pressable>
+            </ThemeAwareCard>
           ) : (
             recentActivity.map(({ request, activityAt }, index) => {
               const customer = customers.find((c) => c.id === request.customerId);
               return (
                 <View key={request.id}>
                   {index > 0 ? <View style={{ height: 1, backgroundColor: colors.border }} /> : null}
-                  <ActivityRow
-                    customerName={customer?.name ?? 'Unknown'}
-                    avatarColor={customer?.avatarColor ?? 'blue'}
-                    amount={request.amount}
-                    currency={request.currency}
-                    status={request.status}
-                    createdAt={activityAt}
-                  />
+                  <Pressable
+                    onPress={() => router.push(`/(app)/requests/${request.id}`)}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View request from ${customer?.name ?? 'Unknown'}`}
+                  >
+                    <ActivityRow
+                      customerName={customer?.name ?? 'Unknown'}
+                      avatarColor={customer?.avatarColor ?? 'blue'}
+                      amount={request.amount}
+                      currency={request.currency}
+                      status={request.status}
+                      createdAt={activityAt}
+                    />
+                  </Pressable>
                 </View>
               );
             })
@@ -259,6 +293,8 @@ const styles = StyleSheet.create({
   heroLabelRow: { flexDirection: 'row', alignItems: 'center' },
   heroIconWrap: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   statsRow: { flexDirection: 'row' },
+  statColumn: { flex: 1, minWidth: 0 },
   statHeader: { flexDirection: 'row', alignItems: 'center' },
-  statIconWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  statDot: { width: 8, height: 8 },
+  emptyIconWrap: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 });

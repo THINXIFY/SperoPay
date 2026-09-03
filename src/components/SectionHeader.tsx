@@ -19,6 +19,8 @@ export function SectionHeader({ title, actionLabel, onActionPress }: SectionHead
           onPress={onActionPress}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
+          hitSlop={8}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>{actionLabel}</Text>
         </Pressable>

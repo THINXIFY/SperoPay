@@ -33,6 +33,13 @@ export const lightColors = {
   // hardcoded rgba() literal.
   overlay: 'rgba(5, 5, 5, 0.5)',
   overlayStrong: 'rgba(5, 5, 5, 0.85)',
+  // Secondary text on top of heroSurface specifically -- heroSurface is a
+  // near-black card in BOTH themes (see heroSurface/heroSurfaceText above),
+  // so its muted text needs to be derived from heroSurfaceText, not from the
+  // page-level textMuted/textSecondary tokens (which are calibrated against
+  // the light background / dark surface, not this always-dark card, and fall
+  // well under WCAG AA contrast when used on it in dark mode).
+  heroSurfaceTextMuted: 'rgba(255, 255, 255, 0.62)',
 } as const;
 
 export type ThemeColors = Readonly<Record<keyof typeof lightColors, string>>;
@@ -68,4 +75,5 @@ export const darkColors: ThemeColors = {
   expired: '#D9848E',
   overlay: 'rgba(5, 5, 5, 0.5)',
   overlayStrong: 'rgba(5, 5, 5, 0.85)',
+  heroSurfaceTextMuted: 'rgba(255, 255, 255, 0.62)',
 };
