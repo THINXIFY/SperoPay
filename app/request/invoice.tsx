@@ -1,5 +1,7 @@
-import { View, Text, ScrollView, Alert, Share } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -7,6 +9,8 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
+import { DetailRow } from '../../src/components/DetailRow';
+import { CustomerAvatar } from '../../src/components/CustomerAvatar';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
@@ -19,11 +23,12 @@ import { buildInvoiceShareMessage } from '../../src/utils/buildInvoiceShareMessa
 import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
 
 export default function InvoiceScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = useRequestStore((state) => state.requests.find((r) => r.id === id));
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const profile = useProfileStore((state) => state.profile);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   if (!request) {
     return (
@@ -51,93 +56,117 @@ export default function InvoiceScreen() {
   async function handleCopyLink() {
     if (!request) return;
     await Clipboard.setStringAsync(getPublicPaymentUrl(request.publicToken));
-    Alert.alert('Copied', 'Payment link copied to clipboard.');
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Invoice" onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}>
-        <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
-          <Logo size={48} />
-          <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md }]}>SperoPay</Text>
-          <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>Invoice</Text>
-        </View>
-
-        <ThemeAwareCard>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Invoice ID</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{invoiceId}</Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>From</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{businessName}</Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>To</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {customer?.name ?? 'No customer'}
-            </Text>
-          </View>
-          {customer?.email ? (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Email</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{customer.email}</Text>
+        <ThemeAwareCard style={{ padding: spacing.xl }}>
+          <View style={[styles.docHeaderRow, { paddingBottom: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+            <View style={styles.docHeaderRow}>
+              <Logo size={36} />
+              <View style={{ marginLeft: spacing.sm }}>
+                <Text style={[typography.h3, { color: colors.textPrimary }]}>SperoPay</Text>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{invoiceId}</Text>
+              </View>
             </View>
-          ) : null}
+            <StatusBadge status={request.status} />
+          </View>
+
+          <View style={[styles.partiesRow, { marginTop: spacing.lg, gap: spacing.base }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4 }]}>FROM</Text>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={2}>
+                {businessName}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4 }]}>BILL TO</Text>
+              <View style={[styles.billToRow, { marginTop: spacing.xs / 2 }]}>
+                {customer ? (
+                  <CustomerAvatar
+                    name={customer.name}
+                    color={customer.avatarColor}
+                    avatarUrl={customer.avatarUrl}
+                    imageType={customer.imageType}
+                    size={20}
+                  />
+                ) : null}
+                <Text
+                  style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: customer ? spacing.xs : 0 }]}
+                  numberOfLines={1}
+                >
+                  {customer?.name ?? 'No customer'}
+                </Text>
+              </View>
+              {customer?.email ? (
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+                  {customer.email}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
           {request.description ? (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Service</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                {request.description}
+            <View
+              style={[
+                styles.serviceRow,
+                { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+              ]}
+            >
+              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{request.description}</Text>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.md }]}>
+                {formatCurrency(request.amount)}
               </Text>
             </View>
           ) : null}
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Amount</Text>
-            <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.amount} {request.currency}
-            </Text>
-            <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
-              Display Value: {formatCurrency(request.amount)}
-            </Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Network</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{request.network}</Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Issue Date</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {formatDocumentDate(request.createdAt)}
-            </Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Due / Expiry</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.expiresAt ? formatDocumentDate(request.expiresAt) : 'No expiry'}
-            </Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Status</Text>
-            <View style={{ marginTop: spacing.xs / 2 }}>
-              <StatusBadge status={request.status} />
+
+          <View
+            style={[
+              styles.totalRow,
+              { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+            ]}
+          >
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Total</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[typography.h2, { color: colors.textPrimary }]}>
+                {request.amount} {request.currency}
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+                ≈ {formatCurrency(request.amount)}
+              </Text>
             </View>
           </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Payment Request</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.paymentCode}
-            </Text>
+
+          <View style={{ marginTop: spacing.lg }}>
+            <DetailRow label="Network" value={request.network} />
+            <DetailRow label="Issue Date" value={formatDocumentDate(request.createdAt)} />
+            <DetailRow label="Due / Expiry" value={request.expiresAt ? formatDocumentDate(request.expiresAt) : 'No expiry'} />
+            <DetailRow label="Payment Request" value={request.paymentCode} last />
           </View>
         </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-          <SecondaryButton label="Share Invoice" onPress={handleShare} />
-          <SecondaryButton label="Copy Payment Link" onPress={handleCopyLink} />
+          <SecondaryButton label="Share Invoice" icon="share-outline" onPress={handleShare} />
+          <SecondaryButton
+            label={copiedLink ? 'Link Copied' : 'Copy Payment Link'}
+            icon={copiedLink ? 'checkmark' : 'link-outline'}
+            onPress={handleCopyLink}
+          />
           <SecondaryButton label="View Payment Request" onPress={() => router.push(`/pay/${request.id}`)} />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  docHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  partiesRow: { flexDirection: 'row' },
+  billToRow: { flexDirection: 'row', alignItems: 'center' },
+  serviceRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+});

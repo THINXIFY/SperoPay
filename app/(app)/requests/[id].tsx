@@ -11,6 +11,9 @@ import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { StatusBadge } from '../../../src/components/StatusBadge';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../../src/components/SecondaryButton';
+import { TextButton } from '../../../src/components/TextButton';
+import { DetailRow } from '../../../src/components/DetailRow';
+import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
 import { ConfirmationModal } from '../../../src/components/ConfirmationModal';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
@@ -199,88 +202,86 @@ export default function RequestDetailScreen() {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} tintColor={colors.primaryAction} />}
       >
         <ThemeAwareCard variant="hero">
-          <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>
+          <View style={{ marginBottom: spacing.sm }}>
+            <StatusBadge status={request.status} />
+          </View>
+          <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted }]}>Amount</Text>
           <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
             {formatCurrency(request.amount)} {request.currency}
           </Text>
-          <View style={{ marginTop: spacing.sm }}>
-            <StatusBadge status={request.status} />
-          </View>
-        </ThemeAwareCard>
-
-        <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Customer</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+          <View style={[styles.identityRow, { marginTop: spacing.base, paddingTop: spacing.base, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' }]}>
+            {customer ? (
+              <CustomerAvatar
+                name={customer.name}
+                color={customer.avatarColor}
+                avatarUrl={customer.avatarUrl}
+                imageType={customer.imageType}
+                size={28}
+              />
+            ) : null}
+            <Text
+              style={[
+                typography.bodyMedium,
+                { color: customer ? colors.heroSurfaceText : colors.heroSurfaceTextMuted, marginLeft: customer ? spacing.sm : 0 },
+              ]}
+              numberOfLines={1}
+            >
               {customer?.name ?? 'No customer'}
             </Text>
           </View>
-          {request.description ? (
-            <View>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Description</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                {request.description}
-              </Text>
-            </View>
-          ) : null}
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Payment ID</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.paymentCode}
-            </Text>
+        </ThemeAwareCard>
+
+        <View style={[styles.documentRow, { marginTop: spacing.base, gap: spacing.sm }]}>
+          <View style={{ flex: 1 }}>
+            <SecondaryButton
+              label="Invoice"
+              icon="document-text-outline"
+              onPress={() => router.push(`/request/invoice?id=${request.id}`)}
+            />
           </View>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Stablecoin & Network</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.currency} on {request.network}
-            </Text>
-          </View>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Created</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {formatEventDate(request.createdAt)}
-            </Text>
-          </View>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Expiry</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {request.expiresAt ? formatEventDate(request.expiresAt) : 'Never'}
-            </Text>
-          </View>
-          {wallet ? (
-            <View>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Receiving Wallet</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
-                {wallet.address}
-              </Text>
-            </View>
-          ) : null}
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Payment Link</Text>
-            <Text
-              style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}
-              numberOfLines={1}
-            >
-              {getPublicPaymentUrl(request.publicToken)}
-            </Text>
-          </View>
-          {transaction ? (
-            <View>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Paid Date</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                {formatEventDate(transaction.paidAt)}
-              </Text>
-            </View>
-          ) : null}
-          {transaction ? (
-            <View>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Transaction Hash</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
-                {truncateHash(transaction.txHash)}
-              </Text>
+          {request.status === 'paid' ? (
+            <View style={{ flex: 1 }}>
+              <SecondaryButton
+                label="Receipt"
+                icon="receipt-outline"
+                onPress={() => router.push(`/request/receipt?id=${request.id}`)}
+              />
             </View>
           ) : null}
         </View>
+
+        {request.description ? (
+          <View style={{ marginTop: spacing.xl }}>
+            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>DESCRIPTION</Text>
+            <ThemeAwareCard>
+              <Text style={[typography.body, { color: colors.textPrimary }]}>{request.description}</Text>
+            </ThemeAwareCard>
+          </View>
+        ) : null}
+
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm }]}>
+          REQUEST
+        </Text>
+        <ThemeAwareCard>
+          <DetailRow label="Payment ID" value={request.paymentCode} />
+          <DetailRow label="Stablecoin & Network" value={`${request.currency} on ${request.network}`} />
+          <DetailRow label="Created" value={formatEventDate(request.createdAt)} />
+          <DetailRow label="Expiry" value={request.expiresAt ? formatEventDate(request.expiresAt) : 'Never'} last />
+        </ThemeAwareCard>
+
+        {wallet || transaction ? (
+          <>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm }]}>
+              PAYMENT
+            </Text>
+            <ThemeAwareCard>
+              {wallet ? <DetailRow label="Receiving Wallet" value={truncateHash(wallet.address)} /> : null}
+              <DetailRow label="Payment Link" value={getPublicPaymentUrl(request.publicToken)} />
+              {transaction ? <DetailRow label="Paid Date" value={formatEventDate(transaction.paidAt)} /> : null}
+              {transaction ? <DetailRow label="Transaction Hash" value={truncateHash(transaction.txHash)} last /> : null}
+            </ThemeAwareCard>
+          </>
+        ) : null}
 
         <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm }]}>
           TIMELINE
@@ -290,11 +291,15 @@ export default function RequestDetailScreen() {
             <Text style={[typography.bodySmall, { color: colors.textMuted }]}>No activity recorded yet.</Text>
           ) : (
             events.map((event, index) => (
-              <View
-                key={event.id}
-                style={[styles.timelineRow, { marginTop: index === 0 ? 0 : spacing.md }]}
-              >
-                <Ionicons name={EVENT_ICONS[event.type]} size={18} color={colors.textSecondary} />
+              <View key={event.id} style={[styles.timelineRow, { marginTop: index === 0 ? 0 : spacing.md }]}>
+                <View
+                  style={[
+                    styles.timelineIcon,
+                    { width: 32, height: 32, borderRadius: radius.full, backgroundColor: colors.background },
+                  ]}
+                >
+                  <Ionicons name={EVENT_ICONS[event.type]} size={16} color={colors.textSecondary} />
+                </View>
                 <View style={{ marginLeft: spacing.sm, flex: 1 }}>
                   <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{EVENT_LABELS[event.type]}</Text>
                   <Text style={[typography.caption, { color: colors.textMuted }]}>{formatEventDate(event.occurredAt)}</Text>
@@ -304,10 +309,6 @@ export default function RequestDetailScreen() {
           )}
         </ThemeAwareCard>
 
-        <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-          <SecondaryButton label="View Invoice" onPress={() => router.push(`/request/invoice?id=${request.id}`)} />
-        </View>
-
         {request.status === 'confirming' ? (
           <>
             <ThemeAwareCard style={{ marginTop: spacing.xl, alignItems: 'center' }}>
@@ -316,34 +317,31 @@ export default function RequestDetailScreen() {
                 Confirming payment on the network…
               </Text>
             </ThemeAwareCard>
-            <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-              <SecondaryButton label="Cancel Request" onPress={() => setCancelModalVisible(true)} />
+            <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+              <TextButton label="Cancel Request" tone="danger" onPress={() => setCancelModalVisible(true)} />
             </View>
           </>
         ) : null}
 
         {request.status === 'pending' ? (
-          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-            <PrimaryButton label="Share Again" onPress={handleShareAgain} />
-            <SecondaryButton label="Send Reminder" onPress={handleSendReminder} />
-            <SecondaryButton label="Copy Reminder Message" onPress={handleCopyReminder} />
-            <SecondaryButton label="Cancel Request" onPress={() => setCancelModalVisible(true)} />
-          </View>
-        ) : null}
-
-        {request.status === 'paid' ? (
-          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-            <SecondaryButton
-              label="View Receipt"
-              onPress={() => router.push(`/request/receipt?id=${request.id}`)}
-            />
+          <View style={{ marginTop: spacing.xl }}>
+            <View style={{ gap: spacing.sm }}>
+              <PrimaryButton label="Share Again" onPress={handleShareAgain} />
+              <SecondaryButton label="Send Reminder" onPress={handleSendReminder} />
+              <SecondaryButton label="Copy Reminder Message" onPress={handleCopyReminder} />
+            </View>
+            <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+              <TextButton label="Cancel Request" tone="danger" onPress={() => setCancelModalVisible(true)} />
+            </View>
           </View>
         ) : null}
 
         {request.status === 'expired' || request.status === 'cancelled' ? (
-          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+          <View style={{ marginTop: spacing.xl }}>
             <PrimaryButton label="Create Again" onPress={handleCreateAgain} />
-            <SecondaryButton label="Delete" onPress={() => setDeleteModalVisible(true)} />
+            <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+              <TextButton label="Delete" tone="danger" onPress={() => setDeleteModalVisible(true)} />
+            </View>
           </View>
         ) : null}
       </ScrollView>
@@ -374,5 +372,8 @@ export default function RequestDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  identityRow: { flexDirection: 'row', alignItems: 'center' },
+  documentRow: { flexDirection: 'row' },
+  timelineRow: { flexDirection: 'row', alignItems: 'center' },
+  timelineIcon: { alignItems: 'center', justifyContent: 'center' },
 });

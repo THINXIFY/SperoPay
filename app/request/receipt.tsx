@@ -1,11 +1,14 @@
-import { View, Text, ScrollView, Alert, Share, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, Share, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
+import { DetailRow } from '../../src/components/DetailRow';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
@@ -19,12 +22,13 @@ import { buildReceiptShareMessage } from '../../src/utils/buildReceiptShareMessa
 import { truncateHash } from '../../src/utils/truncateHash';
 
 export default function ReceiptScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const request = useRequestStore((state) => state.requests.find((r) => r.id === id));
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const profile = useProfileStore((state) => state.profile);
   const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
+  const [copiedHash, setCopiedHash] = useState(false);
 
   if (!request || request.status !== 'paid') {
     return (
@@ -53,7 +57,8 @@ export default function ReceiptScreen() {
     if (!request) return;
     if (!transaction) return;
     await Clipboard.setStringAsync(transaction.txHash);
-    Alert.alert('Copied', 'Transaction hash copied to clipboard.');
+    setCopiedHash(true);
+    setTimeout(() => setCopiedHash(false), 2000);
   }
 
   return (
@@ -61,88 +66,86 @@ export default function ReceiptScreen() {
       <AppHeader title="Receipt" onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}>
         <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
-          <Logo size={48} />
-          <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md }]}>SperoPay</Text>
-          <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
-            Payment Receipt
-          </Text>
+          <Logo size={40} />
+          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.sm }]}>SperoPay</Text>
         </View>
 
-        <ThemeAwareCard variant="hero">
-          <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount</Text>
-          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
+        <ThemeAwareCard variant="hero" style={{ alignItems: 'center' }}>
+          <View
+            style={[
+              styles.checkCircle,
+              { width: 48, height: 48, borderRadius: radius.full, backgroundColor: 'rgba(199,245,0,0.16)' },
+            ]}
+          >
+            <Ionicons name="checkmark" size={26} color={colors.primaryAction} />
+          </View>
+          <Text style={[typography.h3, { color: colors.heroSurfaceText, marginTop: spacing.md }]}>
+            Payment Received
+          </Text>
+          <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginTop: spacing.xs / 2 }]}>
+            Verified on {request.network}
+          </Text>
+          <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.lg }]}>
             {request.amount} {request.currency}
           </Text>
-          <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs }]}>
-            Display Value: {formatCurrency(request.amount)}
+          <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginTop: spacing.xs }]}>
+            ≈ {formatCurrency(request.amount)}
           </Text>
         </ThemeAwareCard>
 
-        <ThemeAwareCard style={{ marginTop: spacing.lg }}>
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Receipt ID</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{receiptId}</Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Merchant</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{businessName}</Text>
-          </View>
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Customer</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-              {customer?.name ?? 'No customer'}
-            </Text>
-          </View>
-          {request.description ? (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Description</Text>
-              <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                {request.description}
-              </Text>
+        <ThemeAwareCard style={{ marginTop: spacing.lg, padding: spacing.xl }}>
+          <View style={[styles.docHeaderRow, { paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+            <View>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>Receipt ID</Text>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{receiptId}</Text>
             </View>
-          ) : null}
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Network</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>{request.network}</Text>
+            <View style={[styles.verifiedPill, { backgroundColor: colors.softMint, borderRadius: radius.full, paddingHorizontal: spacing.sm }]}>
+              <Ionicons name="shield-checkmark" size={12} color={colors.softMintText} />
+              <Text style={[typography.caption, { color: colors.softMintText, marginLeft: spacing.xs / 2 }]}>Verified</Text>
+            </View>
           </View>
+
           <View style={{ marginTop: spacing.md }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Status</Text>
-            <Text style={[typography.bodyMedium, { color: colors.success, marginTop: spacing.xs / 2 }]}>Paid</Text>
-          </View>
-          {transaction ? (
-            <>
-              <View style={{ marginTop: spacing.md }}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Paid Date</Text>
-                <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                  {formatDocumentDate(transaction.paidAt)}
+            <DetailRow label="Merchant" value={businessName} />
+            <DetailRow label="Customer" value={customer?.name ?? 'No customer'} />
+            {request.description ? <DetailRow label="Description" value={request.description} /> : null}
+            <DetailRow label="Network" value={request.network} />
+            {transaction ? <DetailRow label="Paid Date" value={formatDocumentDate(transaction.paidAt)} /> : null}
+            {transaction ? (
+              <DetailRow label="Transaction" value={truncateHash(transaction.txHash)} last />
+            ) : (
+              // The request's own status already says paid -- a real payment
+              // is verified and its transaction row written atomically, so
+              // this only ever happens for a moment right after this
+              // screen's own store data was fetched. A brief note, not an
+              // error state.
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm }}>
+                <ActivityIndicator size="small" color={colors.textMuted} />
+                <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.sm }]}>
+                  Syncing transaction details…
                 </Text>
               </View>
-              <View style={{ marginTop: spacing.md }}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Transaction</Text>
-                <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
-                  {truncateHash(transaction.txHash)}
-                </Text>
-              </View>
-            </>
-          ) : (
-            // The request's own status already says paid -- a real payment
-            // is verified and its transaction row written atomically, so
-            // this only ever happens for a moment right after this screen's
-            // own store data was fetched. A brief note, not an error state.
-            <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={colors.textMuted} />
-              <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.sm }]}>
-                Syncing transaction details…
-              </Text>
-            </View>
-          )}
+            )}
+          </View>
         </ThemeAwareCard>
 
         <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-          <SecondaryButton label="Share Receipt" onPress={handleShare} />
-          {transaction ? <SecondaryButton label="View Transaction" onPress={handleViewTransaction} /> : null}
+          <SecondaryButton label="Share Receipt" icon="share-outline" onPress={handleShare} />
+          {transaction ? (
+            <SecondaryButton
+              label={copiedHash ? 'Copied' : 'Copy Transaction Hash'}
+              icon={copiedHash ? 'checkmark' : 'copy-outline'}
+              onPress={handleViewTransaction}
+            />
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  checkCircle: { alignItems: 'center', justifyContent: 'center' },
+  docHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  verifiedPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+});

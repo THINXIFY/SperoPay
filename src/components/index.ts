@@ -1,5 +1,7 @@
 export * from './PrimaryButton';
 export * from './SecondaryButton';
+export * from './TextButton';
+export * from './DetailRow';
 export * from './IconButton';
 export * from './TextField';
 export * from './NumericKeypad';
