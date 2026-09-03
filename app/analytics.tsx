@@ -88,7 +88,9 @@ export default function AnalyticsScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl + spacing.lg }}
+          showsVerticalScrollIndicator={false}
           refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         >
           <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.lg }]}>
@@ -121,7 +123,7 @@ export default function AnalyticsScreen() {
           </ThemeAwareCard>
 
           {/* Two supporting metrics only -- never squeezed into a 3rd column. */}
-          <View style={[styles.metricsRow, { marginTop: spacing.md, gap: spacing.sm }]}>
+          <View style={[styles.metricsRow, { marginTop: spacing.xl, gap: spacing.sm }]}>
             <View style={{ flex: 1 }}>
               <StatTile label="Outstanding" value={formatCurrency(outstanding.amount)} />
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs, marginLeft: spacing.xs }]}>

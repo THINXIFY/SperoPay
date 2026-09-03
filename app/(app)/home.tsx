@@ -23,13 +23,6 @@ import { useRefreshMerchantPaymentData } from '../../src/store/useRefreshMerchan
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { resolveDisplayName } from '../../src/utils/resolveDisplayName';
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
 function StatColumn({
   dotColor,
   label,
@@ -148,7 +141,7 @@ export default function HomeScreen() {
             <UserAvatar name={resolvedName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={40} />
             <View style={[styles.headerTextWrap, { marginLeft: spacing.sm }]}>
               <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
-                {getGreeting()}, {firstName} 👋
+                Welcome, {firstName}
               </Text>
               <Text
                 style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}
