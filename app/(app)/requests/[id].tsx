@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet, Share, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { StatusBadge } from '../../../src/components/StatusBadge';
@@ -199,7 +200,7 @@ export default function RequestDetailScreen() {
       <AppHeader title="Request Detail" onBackPress={() => router.back()} />
       <ScrollView
         contentContainerStyle={{ padding: spacing.xl }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} tintColor={colors.primaryAction} />}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} />}
       >
         <ThemeAwareCard variant="hero">
           <View style={{ marginBottom: spacing.sm }}>

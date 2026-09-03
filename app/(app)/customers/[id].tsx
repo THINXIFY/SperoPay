@@ -15,12 +15,14 @@ import { EmptyState } from '../../../src/components/EmptyState';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { TextField } from '../../../src/components/TextField';
+import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useRefreshCustomerData } from '../../../src/store/useRefreshCustomerData';
 import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
 import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
 import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
@@ -40,6 +42,7 @@ export default function CustomerDetailScreen() {
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
   const userId = useAuthStore((state) => state.user?.id);
+  const { refresh: refreshCustomerData, isRefreshing } = useRefreshCustomerData();
 
   const history = useMemo(
     () =>
@@ -210,6 +213,7 @@ export default function CustomerDetailScreen() {
         data={history}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshCustomerData} />}
         ListHeaderComponent={
           <View style={{ marginBottom: spacing.xl }}>
             <ThemeAwareCard style={[styles.identityCard, { padding: spacing.xl }]}>

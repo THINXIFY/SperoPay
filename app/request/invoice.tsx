@@ -13,9 +13,11 @@ import { DetailRow } from '../../src/components/DetailRow';
 import { CustomerAvatar } from '../../src/components/CustomerAvatar';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
+import { AppRefreshControl } from '../../src/components/AppRefreshControl';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useProfileStore } from '../../src/store/profileStore';
+import { useRefreshMerchantPaymentData } from '../../src/store/useRefreshMerchantPaymentData';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getInvoiceId } from '../../src/utils/documentIds';
@@ -33,6 +35,7 @@ export default function InvoiceScreen() {
   useEffect(() => () => {
     if (copiedLinkTimeout.current) clearTimeout(copiedLinkTimeout.current);
   }, []);
+  const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
 
   if (!request) {
     return (
@@ -68,7 +71,10 @@ export default function InvoiceScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Invoice" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} />}
+      >
         <ThemeAwareCard style={{ padding: spacing.xl }}>
           <View style={[styles.docHeaderRow, { paddingBottom: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
             <View style={styles.docHeaderRow}>

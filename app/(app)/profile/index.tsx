@@ -11,10 +11,12 @@ import { UserAvatar } from '../../../src/components/UserAvatar';
 import { SectionLabel } from '../../../src/components/SectionLabel';
 import { SettingsGroup } from '../../../src/components/SettingsGroup';
 import { SettingsRow } from '../../../src/components/SettingsRow';
+import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useThemeStore } from '../../../src/store/themeStore';
 import { useWalletStore } from '../../../src/store/walletStore';
+import { useRefreshProfileData } from '../../../src/store/useRefreshProfileData';
 import { resolveDisplayName } from '../../../src/utils/resolveDisplayName';
 import type { ThemePreference } from '../../../src/types';
 
@@ -41,6 +43,7 @@ export default function ProfileScreen() {
   const preference = useThemeStore((state) => state.preference);
   const setPreference = useThemeStore((state) => state.setPreference);
   const wallet = useWalletStore((state) => state.wallet);
+  const { refresh: refreshProfileData, isRefreshing } = useRefreshProfileData();
   const appearanceSheetRef = useRef<BottomSheet>(null);
   const currencySheetRef = useRef<BottomSheet>(null);
 
@@ -102,7 +105,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.xl }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.xl }}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshProfileData} />}
+      >
         <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>Profile</Text>
 
         <Pressable

@@ -11,10 +11,12 @@ import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { DetailRow } from '../../src/components/DetailRow';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
+import { AppRefreshControl } from '../../src/components/AppRefreshControl';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
+import { useRefreshMerchantPaymentData } from '../../src/store/useRefreshMerchantPaymentData';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getReceiptId } from '../../src/utils/documentIds';
@@ -33,6 +35,7 @@ export default function ReceiptScreen() {
   useEffect(() => () => {
     if (copiedHashTimeout.current) clearTimeout(copiedHashTimeout.current);
   }, []);
+  const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
 
   if (!request || request.status !== 'paid') {
     return (
@@ -69,7 +72,10 @@ export default function ReceiptScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Receipt" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl }}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} />}
+      >
         <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
           <Logo size={40} />
           <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.sm }]}>SperoPay</Text>

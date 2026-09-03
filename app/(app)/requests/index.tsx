@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, FlatList, RefreshControl, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import { useTheme } from '../../../src/theme/useTheme';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
+import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useTransactionStore } from '../../../src/store/transactionStore';
@@ -165,7 +166,7 @@ export default function RequestsScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} tintColor={colors.primaryAction} />}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} />}
         ListEmptyComponent={
           status === 'loading' ? (
             <View style={{ gap: spacing.md }}>

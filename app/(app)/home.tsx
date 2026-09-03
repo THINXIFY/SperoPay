@@ -10,6 +10,7 @@ import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { ActivityRow } from '../../src/components/ActivityRow';
 import { UserAvatar } from '../../src/components/UserAvatar';
+import { AppRefreshControl } from '../../src/components/AppRefreshControl';
 import { TAB_BAR_CONTENT_HEIGHT } from '../../src/components/BottomNavigation';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
@@ -18,6 +19,7 @@ import { useTransactionStore } from '../../src/store/transactionStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../src/store/paymentDefaultsStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { useRefreshMerchantPaymentData } from '../../src/store/useRefreshMerchantPaymentData';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { resolveDisplayName } from '../../src/utils/resolveDisplayName';
 
@@ -82,6 +84,7 @@ export default function HomeScreen() {
   // name/email, which would otherwise re-render this whole screen for nothing.
   const authUserFullName = useAuthStore((state) => state.user?.fullName);
   const authUserEmail = useAuthStore((state) => state.user?.email);
+  const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
 
   const paidRequests = useMemo(() => requests.filter((r) => r.status === 'paid'), [requests]);
   const pendingRequests = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
@@ -132,6 +135,7 @@ export default function HomeScreen() {
           paddingBottom: insets.bottom + TAB_BAR_CONTENT_HEIGHT + spacing.md,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshPaymentData} />}
       >
         <View style={[styles.headerRow, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
           <Pressable

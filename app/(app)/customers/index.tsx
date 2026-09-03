@@ -12,9 +12,11 @@ import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
+import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { useRefreshCustomerData } from '../../../src/store/useRefreshCustomerData';
 import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
 import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
 import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
@@ -85,6 +87,7 @@ export default function CustomersScreen() {
   const error = useCustomerStore((state) => state.error);
   const requests = useRequestStore((state) => state.requests);
   const userId = useAuthStore((state) => state.user?.id);
+  const { refresh: refreshCustomerData, isRefreshing } = useRefreshCustomerData();
 
   const sheetRef = useRef<BottomSheet>(null);
 
@@ -268,6 +271,7 @@ export default function CustomersScreen() {
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.base, gap: spacing.sm }}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshCustomerData} />}
         ListEmptyComponent={
           status === 'loading' ? (
             <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Animated, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { Logo } from '../../src/components/Logo';
+import { AppRefreshControl } from '../../src/components/AppRefreshControl';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { SkeletonLoader } from '../../src/components/SkeletonLoader';
@@ -51,7 +52,7 @@ export default function PublicCheckoutScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={colors.primaryAction} />}
+        refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
       >
         <View style={[styles.content, { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxl + spacing.base }]}>
           <View style={styles.header}>
