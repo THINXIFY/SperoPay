@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
@@ -214,21 +215,38 @@ export default function CustomerDetailScreen() {
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
         ListHeaderComponent={
           <View style={{ marginBottom: spacing.xl }}>
-            <View style={styles.headerRow}>
+            <View
+              style={[
+                styles.identityCard,
+                { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl },
+              ]}
+            >
               <CustomerAvatar
                 name={customer.name}
                 color={customer.avatarColor}
                 avatarUrl={customer.avatarUrl}
                 imageType={customer.imageType}
-                size={56}
+                size={80}
               />
-              <View style={{ marginLeft: spacing.md, flex: 1 }}>
-                <Text style={[typography.h3, { color: colors.textPrimary }]}>{customer.name}</Text>
-                <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{customer.email}</Text>
-                {customer.company ? (
-                  <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.company}</Text>
-                ) : null}
-              </View>
+              <Text style={[typography.h2, { color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }]}>
+                {customer.name}
+              </Text>
+              <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+                {customer.email}
+              </Text>
+              {customer.company ? (
+                <View
+                  style={[
+                    styles.companyPill,
+                    { backgroundColor: colors.softBlue, borderRadius: radius.full, paddingHorizontal: spacing.md, marginTop: spacing.sm },
+                  ]}
+                >
+                  <Ionicons name="briefcase-outline" size={12} color={colors.softBlueText} />
+                  <Text style={[typography.caption, { color: colors.softBlueText, marginLeft: spacing.xs }]}>
+                    {customer.company}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={[styles.statsRow, { marginTop: spacing.lg, gap: spacing.sm }]}>
@@ -250,16 +268,27 @@ export default function CustomerDetailScreen() {
             </View>
 
             <View style={{ marginTop: spacing.xl }}>
-              <PrimaryButton label="Request Payment" onPress={handleRequestPayment} />
+              <PrimaryButton label="Request Payment" onPress={handleRequestPayment} icon="arrow-forward" />
             </View>
 
-            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm }]}>
-              HISTORY
-            </Text>
+            <View style={[styles.historyHeaderRow, { marginTop: spacing.xl, marginBottom: spacing.sm }]}>
+              <Text style={[typography.h3, { color: colors.textPrimary }]}>History</Text>
+              {history.length > 0 ? (
+                <Text style={[typography.caption, { color: colors.textMuted }]}>
+                  {history.length} {history.length === 1 ? 'request' : 'requests'}
+                </Text>
+              ) : null}
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <EmptyState icon="document-text-outline" title="No requests yet" description="Requests sent to this customer will show up here." />
+          <EmptyState
+            icon="document-text-outline"
+            title="No requests yet"
+            description="Requests sent to this customer will show up here."
+            actionLabel="Request Payment"
+            onActionPress={handleRequestPayment}
+          />
         }
         renderItem={renderHistoryRow}
       />
@@ -301,6 +330,8 @@ export default function CustomerDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  identityCard: { alignItems: 'center', borderWidth: 1 },
+  companyPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  historyHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

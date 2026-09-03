@@ -19,14 +19,17 @@ export function StatTile({ label, value, style }: StatTileProps) {
     <View
       style={[
         styles.tile,
-        { borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm },
+        { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md },
         style,
       ]}
     >
-      <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+      <Text
+        style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
-      <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+      <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]} numberOfLines={1}>
         {value}
       </Text>
     </View>

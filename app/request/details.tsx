@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -52,6 +52,7 @@ export default function DetailsScreen() {
   const [newCustomerNameError, setNewCustomerNameError] = useState<string | undefined>();
   const [newCustomerEmailError, setNewCustomerEmailError] = useState<string | undefined>();
   const [isSavingNewCustomer, setIsSavingNewCustomer] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
 
   // Neither sheet is rendered at all until first opened -- see
   // request/amount.tsx for why this is the correct fix: gorhom's imperative
@@ -63,6 +64,8 @@ export default function DetailsScreen() {
   const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
 
   function openCustomerSheet() {
+    setCustomerSearch('');
+    setIsAddingCustomer(false);
     if (isCustomerSheetMounted) {
       customerSheetRef.current?.expand();
     } else {
@@ -89,6 +92,12 @@ export default function DetailsScreen() {
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const expiryLabel = EXPIRY_OPTIONS.find((opt) => opt.value === expiryOption)?.label ?? '7 days';
+
+  const filteredCustomers = useMemo(() => {
+    const trimmed = customerSearch.trim().toLowerCase();
+    if (trimmed.length === 0) return customers;
+    return customers.filter((c) => [c.name, c.email, c.company].some((value) => value?.toLowerCase().includes(trimmed)));
+  }, [customers, customerSearch]);
 
   function handleSelectCustomer(id: string) {
     setCustomerId(id);
@@ -249,7 +258,17 @@ export default function DetailsScreen() {
         <AppBottomSheet ref={customerSheetRef} initialIndex={0} scrollable>
           {isAddingCustomer ? (
             <>
-              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add New Customer</Text>
+              <View style={[styles.sheetHeaderRow, { marginBottom: spacing.md }]}>
+                <Pressable
+                  onPress={() => setIsAddingCustomer(false)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to customer list"
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+                </Pressable>
+                <Text style={[typography.h3, { color: colors.textPrimary, marginLeft: spacing.sm }]}>New Customer</Text>
+              </View>
               <TextField
                 label="Name"
                 value={newCustomerName}
@@ -271,31 +290,80 @@ export default function DetailsScreen() {
             </>
           ) : (
             <>
-              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Customer</Text>
-              {customers.map((customer) => (
-                <Pressable
-                  key={customer.id}
-                  onPress={() => handleSelectCustomer(customer.id)}
-                  style={[styles.customerRow, { paddingVertical: spacing.sm }]}
+              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Select Customer</Text>
+              {customers.length > 5 ? (
+                <View
+                  style={[
+                    styles.sheetSearchRow,
+                    { backgroundColor: colors.background, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+                  ]}
                 >
-                  <CustomerAvatar
-                    name={customer.name}
-                    color={customer.avatarColor}
-                    avatarUrl={customer.avatarUrl}
-                    imageType={customer.imageType}
-                    size={36}
+                  <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+                  <TextInput
+                    value={customerSearch}
+                    onChangeText={setCustomerSearch}
+                    placeholder="Search customers"
+                    placeholderTextColor={colors.textMuted}
+                    style={[typography.body, { color: colors.textPrimary, flex: 1, marginLeft: spacing.sm }]}
+                    accessibilityLabel="Search customers"
                   />
-                  <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                    <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
-                    <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>
-                  </View>
-                </Pressable>
-              ))}
+                </View>
+              ) : null}
+              {filteredCustomers.length === 0 ? (
+                <Text style={[typography.bodySmall, { color: colors.textMuted, paddingVertical: spacing.md }]}>
+                  No customers match "{customerSearch}".
+                </Text>
+              ) : (
+                filteredCustomers.map((customer) => {
+                  const isSelected = customer.id === customerId;
+                  return (
+                    <Pressable
+                      key={customer.id}
+                      onPress={() => handleSelectCustomer(customer.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      style={({ pressed }) => [
+                        styles.customerRow,
+                        {
+                          paddingVertical: spacing.sm,
+                          paddingHorizontal: spacing.sm,
+                          borderRadius: radius.md,
+                          backgroundColor: isSelected ? colors.softMint : pressed ? colors.background : 'transparent',
+                        },
+                      ]}
+                    >
+                      <CustomerAvatar
+                        name={customer.name}
+                        color={customer.avatarColor}
+                        avatarUrl={customer.avatarUrl}
+                        imageType={customer.imageType}
+                        size={36}
+                      />
+                      <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
+                        <Text style={[typography.caption, { color: colors.textMuted }]}>{customer.email}</Text>
+                      </View>
+                      {isSelected ? <Ionicons name="checkmark-circle" size={20} color={colors.softMintText} /> : null}
+                    </Pressable>
+                  );
+                })
+              )}
+              <View style={[styles.sheetDivider, { backgroundColor: colors.border, marginVertical: spacing.sm }]} />
               <Pressable
                 onPress={() => setIsAddingCustomer(true)}
-                style={[styles.customerRow, { paddingVertical: spacing.md, marginTop: spacing.xs }]}
+                style={({ pressed }) => [
+                  styles.customerRow,
+                  { paddingVertical: spacing.md, borderRadius: radius.md, opacity: pressed ? 0.7 : 1 },
+                ]}
               >
-                <Ionicons name="add-circle-outline" size={20} color={colors.textPrimary} />
+                <View
+                  style={[
+                    styles.addIconCircle,
+                    { width: 36, height: 36, borderRadius: radius.full, backgroundColor: colors.heroSurface },
+                  ]}
+                >
+                  <Ionicons name="add" size={20} color={colors.heroSurfaceText} />
+                </View>
                 <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
                   Add new customer
                 </Text>
@@ -331,4 +399,8 @@ const styles = StyleSheet.create({
   readonlyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1 },
   customerRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
   overlay: { alignItems: 'center', justifyContent: 'center' },
+  sheetHeaderRow: { flexDirection: 'row', alignItems: 'center' },
+  sheetSearchRow: { flexDirection: 'row', alignItems: 'center', height: 40, borderWidth: 1 },
+  sheetDivider: { height: 1 },
+  addIconCircle: { alignItems: 'center', justifyContent: 'center' },
 });

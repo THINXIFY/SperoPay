@@ -32,18 +32,28 @@ interface CustomerRowProps {
 }
 
 const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }: CustomerRowProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   return (
     <Pressable
-      style={({ pressed }) => [styles.row, { paddingVertical: spacing.sm, opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: pressed ? colors.surfaceRaised : colors.surface,
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+          padding: spacing.md,
+        },
+      ]}
       onPress={() => onPress(customer.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${customer.name}, ${formatCurrency(stats.totalReceived)} received`}
     >
       <CustomerAvatar
         name={customer.name}
         color={customer.avatarColor}
         avatarUrl={customer.avatarUrl}
         imageType={customer.imageType}
-        size={32}
+        size={40}
       />
       <View style={{ marginLeft: spacing.md, flex: 1 }}>
         <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -54,13 +64,14 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end', marginLeft: spacing.sm }}>
-        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
-          {stats.totalRequests} {stats.totalRequests === 1 ? 'payment' : 'payments'}
-        </Text>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
           {formatCurrency(stats.totalReceived)}
         </Text>
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+          {stats.totalRequests} {stats.totalRequests === 1 ? 'payment' : 'payments'}
+        </Text>
       </View>
+      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
     </Pressable>
   );
 });
@@ -102,6 +113,7 @@ export default function CustomersScreen() {
   );
 
   const [query, setQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
@@ -199,10 +211,18 @@ export default function CustomersScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <View style={[styles.headerRow, { paddingHorizontal: spacing.xl, paddingTop: spacing.md }]}>
-        <Text style={[typography.h1, { color: colors.textPrimary }]}>Customers</Text>
+        <View>
+          <Text style={[typography.h1, { color: colors.textPrimary }]}>Customers</Text>
+          <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+            {customers.length} {customers.length === 1 ? 'customer' : 'customers'}
+          </Text>
+        </View>
         <Pressable
           onPress={openAddCustomerSheet}
-          style={[styles.addButton, { backgroundColor: colors.primaryAction, borderRadius: radius.full }]}
+          style={({ pressed }) => [
+            styles.addButton,
+            { backgroundColor: colors.primaryAction, borderRadius: radius.full, opacity: pressed ? 0.85 : 1 },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Add customer"
           hitSlop={4}
@@ -217,7 +237,7 @@ export default function CustomersScreen() {
             styles.searchRow,
             {
               backgroundColor: colors.surface,
-              borderColor: colors.border,
+              borderColor: isSearchFocused ? colors.textPrimary : colors.border,
               borderRadius: radius.md,
               marginTop: spacing.base,
               paddingHorizontal: spacing.md,
@@ -228,36 +248,42 @@ export default function CustomersScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
             placeholder="Search customers"
             placeholderTextColor={colors.textMuted}
             returnKeyType="search"
             style={[typography.body, { color: colors.textPrimary, flex: 1, marginLeft: spacing.sm }]}
             accessibilityLabel="Search customers"
           />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search">
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.base }}
-        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
+        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.base, gap: spacing.sm }}
         ListEmptyComponent={
           status === 'loading' ? (
-            <View style={{ marginTop: spacing.sm }}>
+            <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
               {[0, 1, 2, 3, 4].map((i) => (
-                <View key={i}>
-                  {i > 0 ? <View style={{ height: 1, backgroundColor: colors.border }} /> : null}
-                  <View style={[styles.row, { paddingVertical: spacing.sm }]}>
-                    <SkeletonLoader width={32} height={32} style={{ borderRadius: radius.full }} />
-                    <View style={{ marginLeft: spacing.md, flex: 1, gap: spacing.xs }}>
-                      <SkeletonLoader width="55%" height={14} />
-                      <SkeletonLoader width="35%" height={11} />
-                    </View>
-                    <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
-                      <SkeletonLoader width={60} height={11} />
-                      <SkeletonLoader width={50} height={14} />
-                    </View>
+                <View
+                  key={i}
+                  style={[styles.row, { borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md }]}
+                >
+                  <SkeletonLoader width={40} height={40} style={{ borderRadius: radius.full }} />
+                  <View style={{ marginLeft: spacing.md, flex: 1, gap: spacing.xs }}>
+                    <SkeletonLoader width="55%" height={14} />
+                    <SkeletonLoader width="35%" height={11} />
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
+                    <SkeletonLoader width={60} height={14} />
+                    <SkeletonLoader width={50} height={11} />
                   </View>
                 </View>
               ))}
@@ -268,13 +294,15 @@ export default function CustomersScreen() {
               title="Couldn't load customers"
               description={error ?? 'Something went wrong. Pull to refresh or try again.'}
             />
+          ) : query.length > 0 ? (
+            <EmptyState icon="search-outline" title="No matching customers" description="Try a different search term." />
           ) : (
             <EmptyState
               icon="people-outline"
-              title={query.length > 0 ? 'No matching customers' : 'No customers yet'}
-              description={
-                query.length > 0 ? 'Try a different search term.' : 'Add a customer to start requesting payments from them.'
-              }
+              title="No customers yet"
+              description="Add a customer to start requesting payments from them."
+              actionLabel="Add Customer"
+              onActionPress={openAddCustomerSheet}
             />
           )
         }
@@ -321,5 +349,5 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   addButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   searchRow: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1 },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
 });
