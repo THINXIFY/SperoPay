@@ -209,7 +209,7 @@ export default function RequestDetailScreen() {
           <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
             {formatCurrency(request.amount)} {request.currency}
           </Text>
-          <View style={[styles.identityRow, { marginTop: spacing.base, paddingTop: spacing.base, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)' }]}>
+          <View style={[styles.identityRow, { marginTop: spacing.base, paddingTop: spacing.base, borderTopWidth: 1, borderTopColor: colors.heroSurfaceBorder }]}>
             {customer ? (
               <CustomerAvatar
                 name={customer.name}
@@ -275,7 +275,7 @@ export default function RequestDetailScreen() {
             </Text>
             <ThemeAwareCard>
               {wallet ? <DetailRow label="Receiving Wallet" value={truncateHash(wallet.address)} /> : null}
-              <DetailRow label="Payment Link" value={getPublicPaymentUrl(request.publicToken)} />
+              <DetailRow label="Payment Link" value={getPublicPaymentUrl(request.publicToken)} last={!transaction} />
               {transaction ? <DetailRow label="Paid Date" value={formatEventDate(transaction.paidAt)} /> : null}
               {transaction ? <DetailRow label="Transaction Hash" value={truncateHash(transaction.txHash)} last /> : null}
             </ThemeAwareCard>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Share, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,10 @@ export default function InvoiceScreen() {
   const customer = useCustomerStore((state) => state.customers.find((c) => c.id === request?.customerId));
   const profile = useProfileStore((state) => state.profile);
   const [copiedLink, setCopiedLink] = useState(false);
+  const copiedLinkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copiedLinkTimeout.current) clearTimeout(copiedLinkTimeout.current);
+  }, []);
 
   if (!request) {
     return (
@@ -57,7 +61,8 @@ export default function InvoiceScreen() {
     if (!request) return;
     await Clipboard.setStringAsync(getPublicPaymentUrl(request.publicToken));
     setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    if (copiedLinkTimeout.current) clearTimeout(copiedLinkTimeout.current);
+    copiedLinkTimeout.current = setTimeout(() => setCopiedLink(false), 2000);
   }
 
   return (

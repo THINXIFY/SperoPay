@@ -40,6 +40,13 @@ export const lightColors = {
   // the light background / dark surface, not this always-dark card, and fall
   // well under WCAG AA contrast when used on it in dark mode).
   heroSurfaceTextMuted: 'rgba(255, 255, 255, 0.62)',
+  // Same rationale as heroSurfaceTextMuted above -- heroSurface is
+  // near-black in BOTH themes, so a hairline/tint drawn on top of it is
+  // derived from a fixed white/lime translucency rather than the
+  // page-level border/primaryAction tokens (calibrated for a light
+  // background or dark surface, not this always-dark card).
+  heroSurfaceBorder: 'rgba(255, 255, 255, 0.12)',
+  primaryActionSoft: 'rgba(199, 245, 0, 0.16)',
 } as const;
 
 export type ThemeColors = Readonly<Record<keyof typeof lightColors, string>>;
@@ -76,4 +83,6 @@ export const darkColors: ThemeColors = {
   overlay: 'rgba(5, 5, 5, 0.5)',
   overlayStrong: 'rgba(5, 5, 5, 0.85)',
   heroSurfaceTextMuted: 'rgba(255, 255, 255, 0.62)',
+  heroSurfaceBorder: 'rgba(255, 255, 255, 0.12)',
+  primaryActionSoft: 'rgba(199, 245, 0, 0.16)',
 };

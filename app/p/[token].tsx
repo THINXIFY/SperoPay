@@ -163,10 +163,17 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
   const canPay = canPayRequest(data.status) && !hasInitiated;
 
   // A one-shot entrance for the reassurance moment when a payment lands --
-  // scale/opacity only (no layout-affecting animation), and only on mount
-  // of this Paid-specific view, not on every re-render while paid.
-  const paidScale = useRef(new Animated.Value(isPaid ? 0.9 : 1)).current;
-  const paidOpacity = useRef(new Animated.Value(isPaid ? 0 : 1)).current;
+  // scale/opacity only (no layout-affecting animation). Seeded at the
+  // hidden values UNCONDITIONALLY (not gated on isPaid at mount time):
+  // useRef's initializer only ever runs once, so gating it on isPaid would
+  // freeze these at "already visible" for a request that starts unpaid and
+  // later transitions to paid -- exactly the live-transition case this
+  // animation exists for. Seeding hidden always and letting the effect
+  // below animate to visible the first time isPaid becomes true (whether
+  // that's on this initial render, for a link opened after it was already
+  // paid, or on a later poll) covers both cases with one code path.
+  const paidScale = useRef(new Animated.Value(0.9)).current;
+  const paidOpacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!isPaid) return;
     Animated.parallel([

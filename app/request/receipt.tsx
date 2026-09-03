@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Share, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +29,10 @@ export default function ReceiptScreen() {
   const profile = useProfileStore((state) => state.profile);
   const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
   const [copiedHash, setCopiedHash] = useState(false);
+  const copiedHashTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copiedHashTimeout.current) clearTimeout(copiedHashTimeout.current);
+  }, []);
 
   if (!request || request.status !== 'paid') {
     return (
@@ -58,7 +62,8 @@ export default function ReceiptScreen() {
     if (!transaction) return;
     await Clipboard.setStringAsync(transaction.txHash);
     setCopiedHash(true);
-    setTimeout(() => setCopiedHash(false), 2000);
+    if (copiedHashTimeout.current) clearTimeout(copiedHashTimeout.current);
+    copiedHashTimeout.current = setTimeout(() => setCopiedHash(false), 2000);
   }
 
   return (
@@ -74,7 +79,7 @@ export default function ReceiptScreen() {
           <View
             style={[
               styles.checkCircle,
-              { width: 48, height: 48, borderRadius: radius.full, backgroundColor: 'rgba(199,245,0,0.16)' },
+              { width: 48, height: 48, borderRadius: radius.full, backgroundColor: colors.primaryActionSoft },
             ]}
           >
             <Ionicons name="checkmark" size={26} color={colors.primaryAction} />
@@ -109,7 +114,7 @@ export default function ReceiptScreen() {
             <DetailRow label="Merchant" value={businessName} />
             <DetailRow label="Customer" value={customer?.name ?? 'No customer'} />
             {request.description ? <DetailRow label="Description" value={request.description} /> : null}
-            <DetailRow label="Network" value={request.network} />
+            <DetailRow label="Network" value={request.network} last={!transaction} />
             {transaction ? <DetailRow label="Paid Date" value={formatDocumentDate(transaction.paidAt)} /> : null}
             {transaction ? (
               <DetailRow label="Transaction" value={truncateHash(transaction.txHash)} last />
