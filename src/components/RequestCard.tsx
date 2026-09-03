@@ -49,8 +49,13 @@ export const RequestCard = React.memo(function RequestCard({
       ]}
     >
       <View style={styles.headerRow}>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary, flexShrink: 1 }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text
+          style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}
+          numberOfLines={1}
+        >
           {formatCurrency(amount)} {currency}
         </Text>
       </View>

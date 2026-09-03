@@ -101,7 +101,13 @@ export default function RequestsScreen() {
         <View
           style={[
             styles.searchRow,
-            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, marginTop: spacing.base },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              marginTop: spacing.base,
+              paddingHorizontal: spacing.md,
+            },
           ]}
         >
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -132,13 +138,17 @@ export default function RequestsScreen() {
               <Pressable
                 key={item.value}
                 onPress={() => setFilter(item.value)}
-                style={[
+                accessibilityRole="button"
+                accessibilityLabel={`Filter: ${item.label}`}
+                accessibilityState={{ selected: isActive }}
+                style={({ pressed }) => [
                   styles.filterChip,
                   {
                     backgroundColor: isActive ? colors.heroSurface : colors.surface,
                     borderColor: colors.border,
                     borderRadius: radius.full,
                     paddingHorizontal: spacing.md,
+                    opacity: pressed ? 0.7 : 1,
                   },
                 ]}
               >
@@ -204,7 +214,7 @@ export default function RequestsScreen() {
 }
 
 const styles = StyleSheet.create({
-  searchRow: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1, paddingHorizontal: 12 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  filterChip: { paddingVertical: 8, borderWidth: 1 },
+  filterChip: { paddingVertical: 12, borderWidth: 1 },
 });

@@ -101,18 +101,26 @@ export default function WalletSettingsScreen() {
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.base }}>
                 <Pressable
                   onPress={handleCopy}
-                  style={[styles.actionRow, { borderColor: colors.border, borderRadius: radius.md }]}
+                  style={[
+                    styles.actionRow,
+                    { borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel="Copy wallet address"
+                  hitSlop={6}
                 >
                   <Ionicons name="copy-outline" size={16} color={colors.textPrimary} />
                   <Text style={[typography.bodySmall, { color: colors.textPrimary, marginLeft: spacing.xs }]}>Copy</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleStartEdit}
-                  style={[styles.actionRow, { borderColor: colors.border, borderRadius: radius.md }]}
+                  style={[
+                    styles.actionRow,
+                    { borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel="Edit wallet address"
+                  hitSlop={6}
                 >
                   <Ionicons name="create-outline" size={16} color={colors.textPrimary} />
                   <Text style={[typography.bodySmall, { color: colors.textPrimary, marginLeft: spacing.xs }]}>Edit</Text>
@@ -143,5 +151,5 @@ export default function WalletSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  actionRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
 });

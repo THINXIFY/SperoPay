@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,6 +10,7 @@ import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { ConfirmationModal } from '../../../src/components/ConfirmationModal';
 import { useTemplateStore } from '../../../src/store/templateStore';
 import { useRequestDraftStore } from '../../../src/store/requestDraftStore';
 import { useAuthStore } from '../../../src/store/authStore';
@@ -44,6 +45,8 @@ export default function TemplatesScreen() {
   const [expiryOption, setExpiryOption] = useState<ExpiryOption>('7d');
   const [error, setError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   function openCreateForm() {
     setEditingId(null);
@@ -94,9 +97,17 @@ export default function TemplatesScreen() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!userId) return;
-    await deleteTemplate(userId, id).catch(() => {});
+  async function handleConfirmDelete() {
+    if (!userId || !deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteTemplate(userId, deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      Alert.alert("Couldn't Delete", "We couldn't delete this template. Check your connection and try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   function handleUseTemplate(template: Template) {
@@ -112,7 +123,13 @@ export default function TemplatesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
-      <AppHeader title="Templates" onBackPress={() => router.back()} rightIcon="add" onRightPress={openCreateForm} />
+      <AppHeader
+        title="Templates"
+        onBackPress={() => router.back()}
+        rightIcon="add"
+        onRightPress={openCreateForm}
+        rightAccessibilityLabel="Add template"
+      />
       <FlatList
         data={templates}
         keyExtractor={(item) => item.id}
@@ -160,7 +177,7 @@ export default function TemplatesScreen() {
                   <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
                 </Pressable>
                 <Pressable
-                  onPress={() => handleDelete(item.id)}
+                  onPress={() => setDeleteTarget(item)}
                   accessibilityRole="button"
                   accessibilityLabel={`Delete ${item.name}`}
                   hitSlop={8}
@@ -213,6 +230,17 @@ export default function TemplatesScreen() {
           </Pressable>
         ))}
       </AppBottomSheet>
+
+      <ConfirmationModal
+        visible={deleteTarget !== null}
+        title="Delete this template?"
+        description={deleteTarget ? `"${deleteTarget.name}" will be permanently removed. This can't be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={isDeleting}
+      />
     </SafeAreaView>
   );
 }

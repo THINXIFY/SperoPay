@@ -33,6 +33,7 @@ export default function SecurityScreen() {
   }, [clearError]);
 
   async function handleUpdatePassword() {
+    if (isSaving) return;
     if (!isValidPassword(newPassword)) {
       setFieldError('New password must be at least 8 characters');
       return;

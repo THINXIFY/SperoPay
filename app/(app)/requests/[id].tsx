@@ -6,6 +6,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { EmptyState } from '../../../src/components/EmptyState';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { StatusBadge } from '../../../src/components/StatusBadge';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -76,6 +77,8 @@ export default function RequestDetailScreen() {
   const transaction = useTransactionStore((state) => (request ? state.getTransactionForRequest(request.id) : undefined));
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const cancelRequest = useRequestStore((state) => state.cancelRequest);
   const deleteRequest = useRequestStore((state) => state.deleteRequest);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
@@ -135,13 +138,15 @@ export default function RequestDetailScreen() {
   }
 
   async function handleConfirmCancel() {
-    if (!request || !userId) return;
+    if (!request || !userId || isCancelling) return;
+    setIsCancelling(true);
     try {
       await cancelRequest(userId, request.id);
       setCancelModalVisible(false);
     } catch {
-      setCancelModalVisible(false);
       Alert.alert('Couldn\'t Cancel', "We couldn't cancel this request. Check your connection and try again.");
+    } finally {
+      setIsCancelling(false);
     }
   }
 
@@ -158,21 +163,30 @@ export default function RequestDetailScreen() {
   }
 
   async function handleConfirmDelete() {
-    if (!request || !userId) return;
+    if (!request || !userId || isDeleting) return;
+    setIsDeleting(true);
     try {
       await deleteRequest(userId, request.id);
       setDeleteModalVisible(false);
       router.replace('/(app)/requests');
     } catch {
-      setDeleteModalVisible(false);
       Alert.alert('Couldn\'t Delete', "We couldn't delete this request. Check your connection and try again.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
   if (!request) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <AppHeader title="Request" onBackPress={() => router.back()} />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="document-text-outline"
+            title="We couldn't load this request."
+            description="It may still be syncing, or no longer exists."
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -243,7 +257,10 @@ export default function RequestDetailScreen() {
           ) : null}
           <View>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Payment Link</Text>
-            <Text style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+            <Text
+              style={[typography.body, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}
+              numberOfLines={1}
+            >
               {getPublicPaymentUrl(request.publicToken)}
             </Text>
           </View>
@@ -339,6 +356,7 @@ export default function RequestDetailScreen() {
         cancelLabel="Keep Request"
         onConfirm={handleConfirmCancel}
         onCancel={() => setCancelModalVisible(false)}
+        loading={isCancelling}
       />
 
       <ConfirmationModal
@@ -349,6 +367,7 @@ export default function RequestDetailScreen() {
         cancelLabel="Keep"
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteModalVisible(false)}
+        loading={isDeleting}
       />
     </SafeAreaView>
   );

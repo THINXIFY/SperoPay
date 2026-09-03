@@ -36,16 +36,18 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
     >
       <CustomerAvatar name={customer.name} color={customer.avatarColor} size={32} />
       <View style={{ marginLeft: spacing.md, flex: 1 }}>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{customer.name}</Text>
-        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+          {customer.name}
+        </Text>
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
           {customer.company || customer.email}
         </Text>
       </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
+      <View style={{ alignItems: 'flex-end', marginLeft: spacing.sm }}>
+        <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
           {stats.totalRequests} {stats.totalRequests === 1 ? 'payment' : 'payments'}
         </Text>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
           {formatCurrency(stats.totalReceived)}
         </Text>
       </View>
@@ -145,7 +147,13 @@ export default function CustomersScreen() {
         <View
           style={[
             styles.searchRow,
-            { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md, marginTop: spacing.base },
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              marginTop: spacing.base,
+              paddingHorizontal: spacing.md,
+            },
           ]}
         >
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -205,7 +213,7 @@ export default function CustomersScreen() {
         renderItem={renderCustomerRow}
       />
 
-      <AppBottomSheet ref={sheetRef}>
+      <AppBottomSheet ref={sheetRef} scrollable>
         <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Add Customer</Text>
         <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
         <TextField
@@ -233,6 +241,6 @@ export default function CustomersScreen() {
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   addButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, paddingHorizontal: 12 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', height: 48, borderWidth: 1 },
   row: { flexDirection: 'row', alignItems: 'center' },
 });

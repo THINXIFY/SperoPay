@@ -8,9 +8,11 @@ interface AppHeaderProps {
   onBackPress?: () => void;
   rightIcon?: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap;
   onRightPress?: () => void;
+  /** What the right-side icon actually does (e.g. "Edit customer", "Add template") -- falls back to a generic label only if omitted. */
+  rightAccessibilityLabel?: string;
 }
 
-export function AppHeader({ title, onBackPress, rightIcon, onRightPress }: AppHeaderProps) {
+export function AppHeader({ title, onBackPress, rightIcon, onRightPress, rightAccessibilityLabel }: AppHeaderProps) {
   const { colors, spacing, typography } = useTheme();
 
   return (
@@ -23,7 +25,11 @@ export function AppHeader({ title, onBackPress, rightIcon, onRightPress }: AppHe
       <Text style={[typography.h3, { color: colors.textPrimary }]}>{title}</Text>
       <View style={[styles.side, styles.sideRight]}>
         {rightIcon && onRightPress ? (
-          <IconButton name={rightIcon} onPress={onRightPress} accessibilityLabel={`${title} action`} />
+          <IconButton
+            name={rightIcon}
+            onPress={onRightPress}
+            accessibilityLabel={rightAccessibilityLabel ?? `${title} action`}
+          />
         ) : null}
       </View>
     </View>

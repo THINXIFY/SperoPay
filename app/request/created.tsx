@@ -9,6 +9,7 @@ import { IconButton } from '../../src/components/IconButton';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
+import { EmptyState } from '../../src/components/EmptyState';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
@@ -32,7 +33,17 @@ export default function CreatedScreen() {
   const [qrModalVisible, setQrModalVisible] = useState(false);
 
   if (!request) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} />;
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="We couldn't load this request."
+            description="It may still be syncing, or no longer exists."
+          />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   const publicLink = getPublicPaymentUrl(request.publicToken);
@@ -125,7 +136,7 @@ export default function CreatedScreen() {
             >
               {publicLink}
             </Text>
-            <Pressable onPress={handleCopyLink} accessibilityRole="button" accessibilityLabel="Copy link">
+            <Pressable onPress={handleCopyLink} accessibilityRole="button" accessibilityLabel="Copy link" hitSlop={12}>
               <Ionicons name="copy-outline" size={20} color={colors.textPrimary} />
             </Pressable>
           </View>
@@ -146,7 +157,7 @@ export default function CreatedScreen() {
 
       <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
         <Pressable
-          style={[styles.qrBackdrop, { backgroundColor: 'rgba(5,5,5,0.85)' }]}
+          style={[styles.qrBackdrop, { backgroundColor: colors.overlayStrong }]}
           onPress={() => setQrModalVisible(false)}
         >
           <QRCodeCard value={publicLink} size={260} />

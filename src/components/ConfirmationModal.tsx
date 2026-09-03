@@ -12,6 +12,8 @@ interface ConfirmationModalProps {
   cancelLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Shows a busy state on the confirm button and disables both buttons while a confirm action is in flight -- prevents a double-tap from firing a destructive action twice. */
+  loading?: boolean;
 }
 
 export function ConfirmationModal({
@@ -22,12 +24,13 @@ export function ConfirmationModal({
   cancelLabel,
   onConfirm,
   onCancel,
+  loading,
 }: ConfirmationModalProps) {
   const { colors, spacing, radius, typography } = useTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={[styles.backdrop, { padding: spacing.xl }]}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={loading ? undefined : onCancel}>
+      <View style={[styles.backdrop, { backgroundColor: colors.overlay, padding: spacing.xl }]}>
         <View
           style={[{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl }]}
         >
@@ -36,8 +39,8 @@ export function ConfirmationModal({
             {description}
           </Text>
           <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
-            <PrimaryButton label={confirmLabel} onPress={onConfirm} />
-            <SecondaryButton label={cancelLabel} onPress={onCancel} />
+            <PrimaryButton label={confirmLabel} onPress={onConfirm} loading={loading} />
+            <SecondaryButton label={cancelLabel} onPress={onCancel} disabled={loading} />
           </View>
         </View>
       </View>
@@ -46,5 +49,5 @@ export function ConfirmationModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(5,5,5,0.5)', alignItems: 'stretch', justifyContent: 'center' },
+  backdrop: { flex: 1, alignItems: 'stretch', justifyContent: 'center' },
 });

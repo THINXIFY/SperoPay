@@ -22,6 +22,14 @@ const LABELS: Record<string, string> = {
   profile: 'Profile',
 };
 
+// The bar's own content height, above the device safe-area inset: container paddingTop
+// (spacing.sm = 8) + a tab's paddingVertical (6+6=12) + icon (22) + label gap
+// (spacing.xs / 2 = 2) + caption lineHeight (16) + dot gap (3) + dot (4) + container
+// paddingBottom (spacing.xs = 4) = 71. Screens using a plain ScrollView (which, unlike
+// this floating custom bar, isn't auto-avoided by the layout) combine this with their
+// own useSafeAreaInsets().bottom to size clearance for the last item instead of guessing.
+export const TAB_BAR_CONTENT_HEIGHT = 71;
+
 // Explicit, always-square dimensions — the radius is derived from the size so the
 // button can never render as anything but a perfect circle, on any screen or platform.
 const CENTER_BUTTON_SIZE = 50;

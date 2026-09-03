@@ -14,7 +14,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { isValidWalletAddress } from '../../src/utils/validators';
 
 export default function WalletSetupScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const wallet = useWalletStore((state) => state.wallet);
   const setWalletAddress = useWalletStore((state) => state.setWalletAddress);
   const completeOnboarding = useProfileStore((state) => state.completeOnboarding);
@@ -85,7 +85,7 @@ export default function WalletSetupScreen() {
             style={{
               flexDirection: 'row',
               backgroundColor: colors.softBlue,
-              borderRadius: 12,
+              borderRadius: radius.md,
               padding: spacing.base,
               marginTop: spacing.sm,
               gap: spacing.sm,

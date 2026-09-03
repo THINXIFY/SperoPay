@@ -27,6 +27,12 @@ export const lightColors = {
   pending: '#F59E0B',
   error: '#EF4444',
   expired: '#D9848E',
+  // Modal/lightbox scrims -- deliberately the same dark value in both
+  // palettes (a backdrop dims whatever's behind it regardless of the
+  // active theme), so this is a real token rather than a per-screen
+  // hardcoded rgba() literal.
+  overlay: 'rgba(5, 5, 5, 0.5)',
+  overlayStrong: 'rgba(5, 5, 5, 0.85)',
 } as const;
 
 export type ThemeColors = Readonly<Record<keyof typeof lightColors, string>>;
@@ -60,4 +66,6 @@ export const darkColors: ThemeColors = {
   pending: '#F59E0B',
   error: '#EF4444',
   expired: '#D9848E',
+  overlay: 'rgba(5, 5, 5, 0.5)',
+  overlayStrong: 'rgba(5, 5, 5, 0.85)',
 };

@@ -52,7 +52,7 @@ export default function PublicCheckoutScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={colors.primaryAction} />}
       >
-        <View style={[styles.content, { paddingHorizontal: spacing.xl, paddingTop: spacing.xl }]}>
+        <View style={[styles.content, { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxl + spacing.base }]}>
           <View style={styles.header}>
             <Logo size={40} />
           </View>
@@ -176,7 +176,13 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
           <View
             style={[
               styles.devnetBadge,
-              { backgroundColor: colors.softLavender, borderRadius: radius.full, marginLeft: spacing.xs },
+              {
+                backgroundColor: colors.softLavender,
+                borderRadius: radius.full,
+                marginLeft: spacing.xs,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs / 2,
+              },
             ]}
           >
             <Text style={[typography.caption, { color: colors.softLavenderText }]}>Devnet</Text>
@@ -227,9 +233,17 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
           </Text>
         </View>
       ) : canPay ? (
-        <Text style={[typography.bodySmall, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg }]}>
-          Waiting for payment
-        </Text>
+        <View
+          style={[
+            styles.statusArea,
+            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl },
+          ]}
+        >
+          <Ionicons name="time-outline" size={28} color={colors.textMuted} />
+          <Text style={[typography.bodyMedium, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+            Waiting for payment
+          </Text>
+        </View>
       ) : null}
 
       {/* Pay controls -- only while the request is genuinely still payable */}
@@ -280,7 +294,7 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
                 </Text>
                 <Pressable
                   onPress={() => onCopyWallet(data.destinationWallet as string)}
-                  style={({ pressed }) => [styles.copyButton, { opacity: pressed ? 0.7 : 1 }]}
+                  style={({ pressed }) => [styles.copyButton, { opacity: pressed ? 0.7 : 1, marginLeft: spacing.md }]}
                   accessibilityRole="button"
                   accessibilityLabel="Copy receiving wallet address"
                   hitSlop={8}
@@ -328,7 +342,7 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
       ]}
     >
       <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1, textAlign: 'right', marginLeft: 12 }]} numberOfLines={1}>
+      <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1, textAlign: 'right', marginLeft: spacing.md }]} numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -337,14 +351,14 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
 
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, alignItems: 'center' },
-  content: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, paddingBottom: 48 },
+  content: { width: '100%', maxWidth: MAX_CONTENT_WIDTH },
   header: { alignItems: 'center' },
   statusArea: { alignItems: 'center' },
   networkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  devnetBadge: { paddingHorizontal: 8, paddingVertical: 2 },
+  devnetBadge: {},
   detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   walletRow: { flexDirection: 'row', alignItems: 'center' },
-  copyButton: { flexDirection: 'row', alignItems: 'center', marginLeft: 12 },
+  copyButton: { flexDirection: 'row', alignItems: 'center' },
   retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   offlineBanner: { flexDirection: 'row', alignItems: 'center' },
 });

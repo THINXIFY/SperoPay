@@ -53,6 +53,8 @@ export default function CustomerDetailScreen() {
     return map;
   }, [transactions]);
 
+  const stats = useMemo(() => getCustomerStats(id ?? '', requests), [id, requests]);
+
   const handleHistoryRowPress = useCallback((requestId: string) => {
     router.push(`/(app)/requests/${requestId}`);
   }, []);
@@ -83,13 +85,19 @@ export default function CustomerDetailScreen() {
 
   if (!customer) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <AppHeader title="Customer" onBackPress={() => router.back()} />
+        <View style={{ flex: 1 }}>
+          <EmptyState
+            icon="person-outline"
+            title="We couldn't load this customer."
+            description="They may still be syncing, or no longer exist."
+          />
+        </View>
       </SafeAreaView>
     );
   }
 
-  const stats = getCustomerStats(customer.id, requests);
   const customerId = customer.id;
 
   function handleRequestPayment() {
@@ -135,7 +143,13 @@ export default function CustomerDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
-      <AppHeader title="Customer" onBackPress={() => router.back()} rightIcon="create-outline" onRightPress={openEditSheet} />
+      <AppHeader
+        title="Customer"
+        onBackPress={() => router.back()}
+        rightIcon="create-outline"
+        onRightPress={openEditSheet}
+        rightAccessibilityLabel="Edit customer"
+      />
       <FlatList
         data={history}
         keyExtractor={(item) => item.id}

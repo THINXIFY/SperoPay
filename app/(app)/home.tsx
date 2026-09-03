@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -9,6 +9,7 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { ActivityRow } from '../../src/components/ActivityRow';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../src/components/BottomNavigation';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
@@ -66,6 +67,7 @@ function StatCard({
 
 export default function HomeScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const profile = useProfileStore((state) => state.profile);
   const requests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
@@ -113,7 +115,10 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: 110 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingBottom: insets.bottom + TAB_BAR_CONTENT_HEIGHT + spacing.md,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.headerRow, { marginTop: spacing.sm, marginBottom: spacing.lg }]}>
