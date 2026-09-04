@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -7,25 +7,60 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
 import { PasswordField } from '../../src/components/PasswordField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function LoginScreen() {
   const { colors, spacing, typography } = useTheme();
   const signIn = useAuthStore((state) => state.signIn);
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
+  const isEmailNotConfirmed = useAuthStore((state) => state.isEmailNotConfirmed);
   const clearError = useAuthStore((state) => state.clearError);
+  const resendConfirmationEmail = useAuthStore((state) => state.resendConfirmationEmail);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Clears any error left over from another auth screen (e.g. Sign Up, or a
   // swallowed Forgot Password failure) so it never renders here unearned.
   useEffect(() => {
     clearError();
   }, [clearError]);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    };
+  }, []);
+
+  async function handleResend() {
+    if (resendState === 'sending' || cooldown > 0 || !isValidEmail(email)) return;
+    setResendState('sending');
+    try {
+      await resendConfirmationEmail(email.trim());
+      setResendState('sent');
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+      cooldownTimer.current = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch {
+      setResendState('idle');
+    }
+  }
 
   // Validates as the user leaves a field, not just on submit -- an obvious
   // "enter a valid email" shouldn't wait for a full form submission to
@@ -73,7 +108,30 @@ export default function LoginScreen() {
           <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }]}>
             Sign in to continue to Spero.
           </Text>
-          {authError ? (
+          {authError && isEmailNotConfirmed ? (
+            <View style={{ marginBottom: spacing.base }}>
+              <Text
+                style={[typography.bodySmall, { color: colors.error }]}
+                accessibilityLiveRegion="polite"
+              >
+                {authError}
+              </Text>
+              {resendState === 'sent' && cooldown > 0 ? (
+                <Text style={[typography.bodySmall, { color: colors.success, marginTop: spacing.xs }]}>
+                  Confirmation email sent. Check your inbox.
+                </Text>
+              ) : (
+                <View style={{ marginTop: spacing.sm }}>
+                  <SecondaryButton
+                    label={cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend confirmation email'}
+                    onPress={handleResend}
+                    loading={resendState === 'sending'}
+                    disabled={cooldown > 0 || !isValidEmail(email)}
+                  />
+                </View>
+              )}
+            </View>
+          ) : authError ? (
             <Text
               style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}
               accessibilityLiveRegion="polite"

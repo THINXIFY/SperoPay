@@ -28,6 +28,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [cooldown, setCooldown] = useState(0);
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,8 +67,13 @@ export default function SignUpScreen() {
     if (nextErrors.fullName || nextErrors.email || nextErrors.password || isLoading) return;
 
     try {
-      const { needsEmailConfirmation } = await signUp(fullName.trim(), email.trim(), password);
-      if (needsEmailConfirmation) {
+      const result = await signUp(fullName.trim(), email.trim(), password);
+      if (result.alreadyRegistered) {
+        // Supabase silently sent no email here (see authStore.signUp) — showing
+        // the "Check your email" panel would be a real lie, so this is a
+        // deliberately distinct screen with no resend action.
+        setAlreadyRegistered(true);
+      } else if (result.needsEmailConfirmation) {
         setNeedsConfirmation(true);
       }
       // No explicit navigation on the non-confirmation path: AuthGate
@@ -106,6 +112,39 @@ export default function SignUpScreen() {
     // for "open the mail app's inbox" in this Expo Go / no-custom-native-
     // module setup. Silently no-ops if it doesn't work on this device.
     Linking.openURL('message://').catch(() => {});
+  }
+
+  if (alreadyRegistered) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+        <AppHeader title="Create Account" onBackPress={() => router.back()} />
+        <View style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
+          <View
+            style={[
+              styles.mailIconCircle,
+              { width: 64, height: 64, borderRadius: radius.full, backgroundColor: colors.softBlue, alignSelf: 'center' },
+            ]}
+          >
+            <Ionicons name="person-outline" size={28} color={colors.softBlueText} />
+          </View>
+          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }]}>
+            Account already exists
+          </Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
+            An account for{' '}
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{email.trim()}</Text> already
+            exists. Sign in, or reset your password if you don't remember it.
+          </Text>
+          <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
+            <PrimaryButton label="Sign In" onPress={() => router.replace('/(auth)/login')} />
+            <SecondaryButton label="Reset Password" onPress={() => router.push('/(auth)/forgot-password')} />
+          </View>
+          <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+            <TextButton label="Use another email" onPress={() => setAlreadyRegistered(false)} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (needsConfirmation) {

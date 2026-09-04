@@ -1,4 +1,4 @@
-import { getAuthErrorMessage } from '../authErrors';
+import { getAuthErrorMessage, isEmailNotConfirmedError } from '../authErrors';
 
 describe('getAuthErrorMessage', () => {
   it('maps invalid credentials', () => {
@@ -87,5 +87,19 @@ describe('getAuthErrorMessage', () => {
 
   it('handles non-Error values safely', () => {
     expect(getAuthErrorMessage('a plain string')).toBe("We couldn't sign you in right now. Please try again.");
+  });
+});
+
+describe('isEmailNotConfirmedError', () => {
+  it('returns true for Supabase\'s unconfirmed-email error', () => {
+    expect(isEmailNotConfirmedError(new Error('Email not confirmed'))).toBe(true);
+  });
+
+  it('returns false for wrong credentials, so it never shows a Resend action for a plain typo', () => {
+    expect(isEmailNotConfirmedError(new Error('Invalid login credentials'))).toBe(false);
+  });
+
+  it('handles non-Error values safely', () => {
+    expect(isEmailNotConfirmedError('a plain string')).toBe(false);
   });
 });

@@ -1,5 +1,15 @@
 export type AuthErrorContext = 'sign-in' | 'sign-up' | 'reset-password' | 'update-password';
 
+// A structured check, not string-matching getAuthErrorMessage's own
+// user-facing copy from the UI layer -- a screen that needs to branch on
+// "was this specifically an unconfirmed-email failure" (e.g. to show a
+// Resend action) should check the real Supabase error, not compare
+// against display text that's free to change independently.
+export function isEmailNotConfirmedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes('email not confirmed');
+}
+
 const CONTEXT_FALLBACKS: Record<AuthErrorContext, string> = {
   'sign-in': "We couldn't sign you in right now. Please try again.",
   'sign-up': "We couldn't create your account right now. Please try again.",

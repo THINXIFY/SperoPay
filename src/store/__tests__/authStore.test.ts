@@ -52,6 +52,7 @@ beforeEach(() => {
     isLoading: false,
     hasHydrated: false,
     error: null,
+    isEmailNotConfirmed: false,
     isPasswordRecovery: false,
     sessionExpiredNotice: false,
   });
@@ -80,17 +81,37 @@ describe('signIn', () => {
     await expect(useAuthStore.getState().signIn('jane@example.com', 'wrong')).rejects.toThrow();
     expect(useAuthStore.getState().error).toBe('Email or password is incorrect.');
     expect(useAuthStore.getState().isLoading).toBe(false);
+    expect(useAuthStore.getState().isEmailNotConfirmed).toBe(false);
+  });
+
+  it('sets isEmailNotConfirmed when Supabase reports an unconfirmed email, distinct from wrong credentials', async () => {
+    mockedSupabase.auth.signInWithPassword.mockResolvedValue({
+      data: {},
+      error: new Error('Email not confirmed'),
+    } as never);
+
+    await expect(useAuthStore.getState().signIn('jane@example.com', 'password123')).rejects.toThrow();
+    expect(useAuthStore.getState().isEmailNotConfirmed).toBe(true);
+  });
+
+  it('clears a stale isEmailNotConfirmed flag from a previous attempt on a fresh call', async () => {
+    useAuthStore.setState({ isEmailNotConfirmed: true });
+    mockedSupabase.auth.signInWithPassword.mockResolvedValue({ data: {}, error: null } as never);
+
+    await useAuthStore.getState().signIn('jane@example.com', 'password123');
+
+    expect(useAuthStore.getState().isEmailNotConfirmed).toBe(false);
   });
 });
 
 describe('signUp', () => {
-  it('reports needsEmailConfirmation: false when a session is returned', async () => {
+  it('reports needsEmailConfirmation: false, alreadyRegistered: false when a session is returned', async () => {
     const session = makeSession();
     mockedSupabase.auth.signUp.mockResolvedValue({ data: { session, user: session.user }, error: null } as never);
 
     const result = await useAuthStore.getState().signUp('Jane Doe', 'jane@example.com', 'password123');
 
-    expect(result).toEqual({ needsEmailConfirmation: false });
+    expect(result).toEqual({ needsEmailConfirmation: false, alreadyRegistered: false });
     expect(mockedSupabase.auth.signUp).toHaveBeenCalledWith({
       email: 'jane@example.com',
       password: 'password123',
@@ -98,13 +119,34 @@ describe('signUp', () => {
     });
   });
 
-  it('reports needsEmailConfirmation: true when no session is returned', async () => {
+  it('reports needsEmailConfirmation: true for a brand-new signup (no session, one identity)', async () => {
     const session = makeSession();
-    mockedSupabase.auth.signUp.mockResolvedValue({ data: { session: null, user: session.user }, error: null } as never);
+    const user = { ...session.user, identities: [{ id: 'identity-1' }] };
+    mockedSupabase.auth.signUp.mockResolvedValue({ data: { session: null, user }, error: null } as never);
 
     const result = await useAuthStore.getState().signUp('Jane Doe', 'jane@example.com', 'password123');
 
-    expect(result).toEqual({ needsEmailConfirmation: true });
+    expect(result).toEqual({ needsEmailConfirmation: true, alreadyRegistered: false });
+  });
+
+  it('reports needsEmailConfirmation: true for a re-signup against an existing UNCONFIRMED account (Supabase resends)', async () => {
+    const session = makeSession();
+    const user = { ...session.user, identities: [{ id: 'identity-1' }] };
+    mockedSupabase.auth.signUp.mockResolvedValue({ data: { session: null, user }, error: null } as never);
+
+    const result = await useAuthStore.getState().signUp('Jane Doe', 'jane@example.com', 'password123');
+
+    expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  it('reports alreadyRegistered: true (and needsEmailConfirmation: false) for an existing CONFIRMED account -- Supabase sends no email in this case', async () => {
+    const session = makeSession();
+    const user = { ...session.user, identities: [] };
+    mockedSupabase.auth.signUp.mockResolvedValue({ data: { session: null, user }, error: null } as never);
+
+    const result = await useAuthStore.getState().signUp('Jane Doe', 'jane@example.com', 'password123');
+
+    expect(result).toEqual({ needsEmailConfirmation: false, alreadyRegistered: true });
   });
 
   it('sets a human-friendly error and rethrows on failure', async () => {

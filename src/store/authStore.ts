@@ -3,8 +3,27 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { User } from '../types';
 import { mapSupabaseUser } from '../utils/mapSupabaseUser';
-import { getAuthErrorMessage } from '../utils/authErrors';
+import { getAuthErrorMessage, isEmailNotConfirmedError } from '../utils/authErrors';
 import { getAuthCallbackUrl } from '../utils/authDeepLink';
+import { authDebugLog } from '../utils/authDebugLog';
+
+export interface SignUpResult {
+  // A real confirmation email was sent -- either a brand-new signup, or a
+  // re-attempt against an email that already has an UNCONFIRMED account
+  // (Supabase resends in that case, rather than erroring, so a user who
+  // lost the first email can just sign up again to get another).
+  needsEmailConfirmation: boolean;
+  // Supabase's documented signal for "this email already has a CONFIRMED
+  // account": signUp() returns success (no `error`), no session, AND an
+  // empty `identities` array -- deliberately indistinguishable from a
+  // real send at the network level, to avoid leaking account existence to
+  // an attacker. From this app's own perspective, though, it means NO
+  // email was actually sent, and showing "Check your email" here would be
+  // a real, silent lie -- this is the specific case that previously made
+  // "sign up again with an email already used during testing" look like a
+  // successful signup with a confirmation email that would never arrive.
+  alreadyRegistered: boolean;
+}
 
 interface AuthState {
   session: Session | null;
@@ -13,9 +32,12 @@ interface AuthState {
   isLoading: boolean;
   hasHydrated: boolean;
   error: string | null;
+  // Structured, not string-matched from `error`'s display text -- see
+  // isEmailNotConfirmedError in authErrors.ts.
+  isEmailNotConfirmed: boolean;
   isPasswordRecovery: boolean;
   sessionExpiredNotice: boolean;
-  signUp: (fullName: string, email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>;
+  signUp: (fullName: string, email: string, password: string) => Promise<SignUpResult>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -41,6 +63,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   isLoading: false,
   hasHydrated: false,
   error: null,
+  isEmailNotConfirmed: false,
   isPasswordRecovery: false,
   sessionExpiredNotice: false,
 
@@ -52,20 +75,38 @@ export const useAuthStore = create<AuthState>()((set) => ({
       options: { data: { full_name: fullName }, emailRedirectTo: getAuthCallbackUrl() },
     });
     if (error) {
+      authDebugLog('signUp error', { name: error.name, message: error.message });
       set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-up') });
       throw error;
     }
+    const identityCount = data.user?.identities?.length ?? 0;
+    // Supabase's anti-enumeration behavior: an email that already has a
+    // CONFIRMED account returns success with no session and an empty
+    // identities array, and sends no email at all. A brand-new email, or
+    // one with an existing UNCONFIRMED account, returns a non-empty
+    // identities array and Supabase does send (or resend) a real email.
+    const alreadyRegistered = !data.session && identityCount === 0;
+    authDebugLog('signUp success', {
+      hasSession: !!data.session,
+      hasUser: !!data.user,
+      emailConfirmedAt: data.user?.email_confirmed_at ?? null,
+      identityCount,
+      alreadyRegistered,
+    });
     set({ isLoading: false });
-    return { needsEmailConfirmation: !data.session };
+    return { needsEmailConfirmation: !data.session && !alreadyRegistered, alreadyRegistered };
   },
 
   signIn: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, isEmailNotConfirmed: false });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in') });
+      const emailNotConfirmed = isEmailNotConfirmedError(error);
+      authDebugLog('signIn error', { name: error.name, message: error.message, emailNotConfirmed });
+      set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in'), isEmailNotConfirmed: emailNotConfirmed });
       throw error;
     }
+    authDebugLog('signIn success', {});
     set({ isLoading: false });
   },
 
@@ -122,9 +163,11 @@ export const useAuthStore = create<AuthState>()((set) => ({
       options: { emailRedirectTo: getAuthCallbackUrl() },
     });
     if (error) {
+      authDebugLog('resend error', { name: error.name, message: error.message });
       set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-up') });
       throw error;
     }
+    authDebugLog('resend success', {});
     set({ isLoading: false });
   },
 
@@ -132,15 +175,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({ isLoading: true, error: null });
     const { error } = await supabase.auth.exchangeCodeForSession(code, flowId ? { flowId } : undefined);
     if (error) {
+      authDebugLog('exchangeAuthCode error', { name: error.name, message: error.message });
       set({ isLoading: false, error: getAuthErrorMessage(error, 'sign-in') });
       throw error;
     }
+    authDebugLog('exchangeAuthCode success', {});
     set({ isLoading: false });
   },
 
   clearPasswordRecovery: () => set({ isPasswordRecovery: false }),
   clearSessionExpiredNotice: () => set({ sessionExpiredNotice: false }),
-  clearError: () => set({ error: null }),
+  clearError: () => set({ error: null, isEmailNotConfirmed: false }),
 
   _setSession: (session) => {
     set({
