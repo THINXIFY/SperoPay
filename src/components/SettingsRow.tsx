@@ -41,6 +41,16 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
             height: ICON_COLUMN_WIDTH,
             borderRadius: radius.full,
             backgroundColor: destructive ? colors.softRed : colors.background,
+            // colors.background and the card's own colors.surface differ by
+            // only a hair in both themes (by design -- background is
+            // meant to read as "barely off the card"), so the neutral
+            // chip needs a hairline border to stay visible as a distinct
+            // shape -- same fix home.tsx's emptyIconWrap already uses for
+            // the identical background-on-surface situation. Not needed
+            // for the destructive variant, whose softRed tint has its own
+            // real contrast, but applied uniformly for one consistent look.
+            borderWidth: 1,
+            borderColor: colors.border,
           },
         ]}
       >

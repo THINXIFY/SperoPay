@@ -109,7 +109,12 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: spacing.xl }}
+        // Horizontal/top only -- bottom clearance comes entirely from the
+        // spacer View below (see its own comment). Using the `padding`
+        // shorthand here too would apply spacing.xl to the bottom edge as
+        // well, stacking with that spacer into ~32px more trailing
+        // whitespace than home.tsx's own equivalent formula.
+        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl }}
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshProfileData} />}
       >
