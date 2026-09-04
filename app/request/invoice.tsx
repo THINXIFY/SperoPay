@@ -11,6 +11,7 @@ import { StatusBadge } from '../../src/components/StatusBadge';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { DetailRow } from '../../src/components/DetailRow';
 import { CustomerAvatar } from '../../src/components/CustomerAvatar';
+import { BusinessLogo } from '../../src/components/BusinessLogo';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AppRefreshControl } from '../../src/components/AppRefreshControl';
@@ -90,9 +91,16 @@ export default function InvoiceScreen() {
           <View style={[styles.partiesRow, { marginTop: spacing.lg, gap: spacing.base }]}>
             <View style={{ flex: 1 }}>
               <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4 }]}>FROM</Text>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]} numberOfLines={2}>
-                {businessName}
-              </Text>
+              <View style={[styles.billToRow, { marginTop: spacing.xs / 2 }]}>
+                {profile?.businessLogoUri ? (
+                  <BusinessLogo name={businessName} logoUrl={profile.businessLogoUri} size={20} />
+                ) : null}
+                <View style={{ flex: 1, marginLeft: profile?.businessLogoUri ? spacing.xs : 0 }}>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={2}>
+                    {businessName}
+                  </Text>
+                </View>
+              </View>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[typography.caption, { color: colors.textMuted, letterSpacing: 0.4 }]}>BILL TO</Text>

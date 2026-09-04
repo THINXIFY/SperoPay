@@ -9,6 +9,7 @@ export * from './NumericKeypad';
 export * from './AmountInput';
 export * from './StatusBadge';
 export * from './CustomerAvatar';
+export * from './BusinessLogo';
 export * from './SectionHeader';
 export * from './ActivityRow';
 export * from './RequestCard';

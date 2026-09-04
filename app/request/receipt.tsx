@@ -9,6 +9,7 @@ import { AppHeader } from '../../src/components/AppHeader';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { DetailRow } from '../../src/components/DetailRow';
+import { BusinessLogo } from '../../src/components/BusinessLogo';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AppRefreshControl } from '../../src/components/AppRefreshControl';
@@ -117,7 +118,19 @@ export default function ReceiptScreen() {
           </View>
 
           <View style={{ marginTop: spacing.md }}>
-            <DetailRow label="Merchant" value={businessName} />
+            {profile?.businessLogoUri ? (
+              <View style={[styles.merchantRow, { marginBottom: spacing.md }]}>
+                <BusinessLogo name={businessName} logoUrl={profile.businessLogoUri} size={28} />
+                <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Merchant</Text>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {businessName}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <DetailRow label="Merchant" value={businessName} />
+            )}
             <DetailRow label="Customer" value={customer?.name ?? 'No customer'} />
             {request.description ? <DetailRow label="Description" value={request.description} /> : null}
             <DetailRow label="Network" value={request.network} last={!transaction} />
@@ -159,4 +172,5 @@ const styles = StyleSheet.create({
   checkCircle: { alignItems: 'center', justifyContent: 'center' },
   docHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   verifiedPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  merchantRow: { flexDirection: 'row', alignItems: 'center' },
 });

@@ -28,6 +28,7 @@ interface PublicCheckoutRpcRow {
   status: string;
   expires_at: string | null;
   merchant_name: string | null;
+  merchant_logo_url: string | null;
   destination_wallet: string | null;
   solana_reference: string | null;
 }
@@ -46,6 +47,7 @@ function normalize(row: PublicCheckoutRpcRow): PublicCheckoutData {
     status: row.status as PublicCheckoutData['status'],
     expiresAt: row.expires_at,
     merchantName: row.merchant_name,
+    merchantLogoUrl: row.merchant_logo_url,
     destinationWallet: row.destination_wallet,
     solanaReference: row.solana_reference,
   };

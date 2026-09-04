@@ -108,6 +108,10 @@ function buildCustomerAvatarPath(userId: string, customerId: string): string {
   return `customers/${userId}/${customerId}/${Date.now()}.jpg`;
 }
 
+function buildBusinessLogoPath(userId: string): string {
+  return `businesses/${userId}/${Date.now()}.jpg`;
+}
+
 async function uploadToPath(path: string, base64: string): Promise<string> {
   const bytes = decode(base64);
   avatarDebugLog('storage upload: start', { bucket: AVATAR_BUCKET, path, byteLength: bytes.byteLength, contentType: 'image/jpeg' });
@@ -155,6 +159,21 @@ export async function uploadCustomerAvatar(userId: string, customerId: string, l
   const base64 = await normalizeForUpload(localUri);
   const url = await uploadToPath(buildCustomerAvatarPath(userId, customerId), base64);
   avatarDebugLog('uploadCustomerAvatar: done', { userId, customerId, url });
+  return url;
+}
+
+// The storage RLS check (see supabase/migrations/0008_profile_customer_images.sql)
+// keys on the SECOND path segment matching auth.uid(), regardless of what
+// the first segment is named -- businesses/<user-id>/... satisfies that
+// exactly the same way users/<user-id>/... and customers/<user-id>/<id>/...
+// already do, so this needed no new storage policy, only this new path
+// builder and a business_profiles.logo_url column that (per migration
+// 0001) already existed.
+export async function uploadBusinessLogo(userId: string, localUri: string): Promise<string> {
+  avatarDebugLog('uploadBusinessLogo: start', { userId, localUri });
+  const base64 = await normalizeForUpload(localUri);
+  const url = await uploadToPath(buildBusinessLogoPath(userId), base64);
+  avatarDebugLog('uploadBusinessLogo: done', { userId, url });
   return url;
 }
 

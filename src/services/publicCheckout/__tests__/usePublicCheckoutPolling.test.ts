@@ -28,6 +28,7 @@ function checkoutData(overrides: Partial<PublicCheckoutData> = {}): PublicChecko
     status: 'pending',
     expiresAt: null,
     merchantName: 'Acme Co',
+    merchantLogoUrl: null,
     destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
     solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
     ...overrides,

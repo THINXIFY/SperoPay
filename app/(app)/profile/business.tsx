@@ -7,23 +7,47 @@ import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
+import { BusinessLogo } from '../../../src/components/BusinessLogo';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
+import { uploadBusinessLogo, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
+import { presentImagePickerActions } from '../../../src/utils/presentImagePickerActions';
+import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import { isValidEmail } from '../../../src/utils/validators';
 
 export default function BusinessProfileScreen() {
-  const { colors, spacing, radius, typography } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const profile = useProfileStore((state) => state.profile);
   const updateProfile = useProfileStore((state) => state.updateProfile);
   const userId = useAuthStore((state) => state.user?.id);
 
-  const [hasMockLogo, setHasMockLogo] = useState(Boolean(profile?.businessLogoUri));
+  // Same Choose -> Crop (native) -> Preview -> Save discipline as
+  // profile/edit.tsx's avatar flow: the picked local file previews
+  // immediately, but nothing uploads/persists until Save Changes, so a
+  // cancelled screen or a failed save never touches the real stored logo.
+  const [localLogoUri, setLocalLogoUri] = useState<string | undefined>(undefined);
+  const [removeExistingLogo, setRemoveExistingLogo] = useState(false);
   const [businessName, setBusinessName] = useState(profile?.businessName ?? '');
   const [website, setWebsite] = useState(profile?.website ?? '');
   const [businessEmail, setBusinessEmail] = useState(profile?.businessEmail ?? '');
   const [description, setDescription] = useState(profile?.businessDescription ?? '');
   const [error, setError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+
+  const displayedLogoUri = localLogoUri ?? (removeExistingLogo ? undefined : profile?.businessLogoUri);
+
+  async function handleLogoPress() {
+    const action = await presentImagePickerActions(Boolean(displayedLogoUri));
+    avatarDebugLog('business logo: picker action', { type: action.type });
+    if (action.type === 'picked') {
+      setLocalLogoUri(action.image.uri);
+      setRemoveExistingLogo(false);
+    } else if (action.type === 'removed') {
+      setLocalLogoUri(undefined);
+      setRemoveExistingLogo(true);
+    }
+  }
 
   async function handleSave() {
     if (isSaving) return;
@@ -33,16 +57,49 @@ export default function BusinessProfileScreen() {
     }
     if (!userId) return;
     setIsSaving(true);
+    const previousLogoUri = profile?.businessLogoUri;
+    // Tracks a just-uploaded object the profile write hasn't successfully
+    // referenced yet -- if that write then fails, the catch block cleans
+    // it up so the upload doesn't outlive the save it was part of.
+    let uploadedButUnsavedUri: string | undefined;
+    avatarDebugLog('business logo: save start', {
+      userId,
+      hasLocalLogo: Boolean(localLogoUri),
+      removeExistingLogo,
+    });
     try {
+      let logoUri = previousLogoUri;
+      if (localLogoUri) {
+        logoUri = await uploadBusinessLogo(userId, localLogoUri);
+        uploadedButUnsavedUri = logoUri;
+      } else if (removeExistingLogo) {
+        logoUri = undefined;
+      }
+
       await updateProfile(userId, {
         businessName: businessName.trim() || undefined,
         website: website.trim() || undefined,
         businessEmail: businessEmail.trim() || undefined,
         businessDescription: description.trim() || undefined,
-        businessLogoUri: hasMockLogo ? 'mock-logo' : undefined,
+        businessLogoUri: logoUri,
       });
+      uploadedButUnsavedUri = undefined;
+      avatarDebugLog('business logo: database update succeeded', { logoUri });
+
+      // Best-effort cleanup, only once the new state is confirmed saved --
+      // never blocks navigating away, never turns a successful save into a
+      // visible error.
+      if (previousLogoUri && previousLogoUri !== logoUri) {
+        deleteAvatarByUrl(previousLogoUri);
+      }
       router.back();
-    } catch {
+    } catch (saveError) {
+      avatarDebugLog('business logo: save FAILED', {
+        message: saveError instanceof Error ? saveError.message : String(saveError),
+      });
+      if (uploadedButUnsavedUri) {
+        deleteAvatarByUrl(uploadedButUnsavedUri);
+      }
       Alert.alert('Save Failed', "We couldn't save your changes. Try again.");
     } finally {
       setIsSaving(false);
@@ -54,24 +111,37 @@ export default function BusinessProfileScreen() {
       <AppHeader title="Business Profile" onBackPress={() => router.back()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }} keyboardShouldPersistTaps="handled">
-          <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.xl }]}>
-            This will appear on your customer-facing payment pages in a future update.
+          <ThemeAwareCard style={{ alignItems: 'center', padding: spacing.xl, marginBottom: spacing.xl }}>
+            <Pressable
+              onPress={handleLogoPress}
+              accessibilityRole="button"
+              accessibilityLabel={displayedLogoUri ? 'Change business logo' : 'Add business logo'}
+            >
+              <BusinessLogo name={businessName.trim() || 'Your Business'} logoUrl={displayedLogoUri} size={88} />
+              <View
+                style={[
+                  styles.cameraBadge,
+                  { backgroundColor: colors.primaryAction, borderRadius: 999, borderColor: colors.surface },
+                ]}
+              >
+                <Ionicons name="camera" size={14} color={colors.primaryActionText} />
+              </View>
+            </Pressable>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
+              {displayedLogoUri ? 'Tap to change logo' : 'Tap to add a logo'}
+            </Text>
+            <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.md }]} numberOfLines={1}>
+              {businessName.trim() || 'Your Business'}
+            </Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
+              Business Profile
+            </Text>
+          </ThemeAwareCard>
+
+          <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.lg }]}>
+            This appears on your invoices, receipts, and customer-facing payment pages.
           </Text>
-          <Pressable
-            onPress={() => setHasMockLogo((prev) => !prev)}
-            style={[
-              styles.logo,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg, marginBottom: spacing.xl },
-            ]}
-          >
-            {hasMockLogo ? (
-              <Text style={[typography.h2, { color: colors.textPrimary }]}>
-                {businessName.trim().slice(0, 1).toUpperCase() || 'S'}
-              </Text>
-            ) : (
-              <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-            )}
-          </Pressable>
+
           <TextField label="Business Name" value={businessName} onChangeText={setBusinessName} returnKeyType="next" />
           <TextField
             label="Website (Optional)"
@@ -101,5 +171,14 @@ export default function BusinessProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  logo: { width: 88, height: 88, alignItems: 'center', justifyContent: 'center', borderWidth: 1, alignSelf: 'center' },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: 4,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
 });

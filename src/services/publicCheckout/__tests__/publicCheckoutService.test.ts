@@ -19,6 +19,7 @@ function rpcRow(overrides: Record<string, unknown> = {}) {
     status: 'pending',
     expires_at: '2026-09-01T00:00:00.000Z',
     merchant_name: 'Acme Co',
+    merchant_logo_url: 'https://bfilrksvaprlnumpchqc.supabase.co/storage/v1/object/public/avatars/businesses/owner-uuid/1.jpg',
     destination_wallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
     solana_reference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
     ...overrides,
@@ -66,6 +67,7 @@ describe('fetchPublicCheckout', () => {
         status: 'pending',
         expiresAt: '2026-09-01T00:00:00.000Z',
         merchantName: 'Acme Co',
+        merchantLogoUrl: 'https://bfilrksvaprlnumpchqc.supabase.co/storage/v1/object/public/avatars/businesses/owner-uuid/1.jpg',
         destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
         solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
       },
@@ -140,6 +142,7 @@ describe('fetchPublicCheckout', () => {
           'status',
           'expiresAt',
           'merchantName',
+          'merchantLogoUrl',
           'destinationWallet',
           'solanaReference',
         ].sort()

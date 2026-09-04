@@ -6,6 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { Logo } from '../../src/components/Logo';
+import { BusinessLogo } from '../../src/components/BusinessLogo';
 import { AppRefreshControl } from '../../src/components/AppRefreshControl';
 import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { EmptyState } from '../../src/components/EmptyState';
@@ -188,7 +189,15 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
 
   return (
     <View style={{ marginTop: spacing.xl }}>
-      {/* Summary */}
+      {/* Summary -- the merchant's logo is only shown when they've actually
+          set one (never a fallback-initials box here); it adds a real
+          trust signal for the payer without decorating a link that has
+          nothing to show. */}
+      {data.merchantLogoUrl ? (
+        <View style={{ alignItems: 'center', marginBottom: spacing.sm }}>
+          <BusinessLogo name={merchantName} logoUrl={data.merchantLogoUrl} size={48} />
+        </View>
+      ) : null}
       <Text style={[typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center' }]}>
         You're paying <Text style={{ color: colors.textPrimary }}>{merchantName}</Text>
       </Text>
