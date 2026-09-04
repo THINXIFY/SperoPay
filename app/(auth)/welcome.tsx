@@ -10,7 +10,7 @@ import { useAuthStore } from '../../src/store/authStore';
 // The asset's own pixel size (1462x900) -- used to derive a correct height
 // from whatever width we pick, instead of letting the image size itself.
 const CARD_ASPECT_RATIO = 1462 / 900;
-const CARD_WIDTH_RATIO = 0.78; // ~78% of screen width -- prominent but not dominant, now that it sits below the copy rather than leading the screen
+const CARD_WIDTH_RATIO = 0.78; // ~78% of screen width -- prominent but not dominant, since it sits below the copy rather than leading the screen
 const CARD_MAX_WIDTH = 360;
 
 export default function WelcomeScreen() {
@@ -29,6 +29,15 @@ export default function WelcomeScreen() {
   // previously let the image render at its native intrinsic size).
   const cardWidth = Math.min(windowWidth * CARD_WIDTH_RATIO, CARD_MAX_WIDTH);
   const cardHeight = cardWidth / CARD_ASPECT_RATIO;
+
+  // A single soft ambient shape bleeding off the top edge, behind the
+  // headline -- gives the top of the screen a designed, intentional feel
+  // instead of flat empty space, without competing with the card's own
+  // glow lower down. Positioned with explicit pixel values (not a `left:
+  // '50%'`) to sidestep any doubt about percentage resolution on an
+  // absolutely-positioned child -- same reasoning as the card sizing above.
+  const ambientSize = windowWidth * 1.6;
+  const ambientLeft = (windowWidth - ambientSize) / 2;
 
   // One-time entrance choreography, sequenced to match the on-screen reading
   // order (copy, then card, then actions) -- each value is seeded at its
@@ -69,7 +78,21 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <View style={[styles.content, { paddingHorizontal: spacing.xl }]}>
+      <View
+        style={[
+          styles.ambientShape,
+          {
+            width: ambientSize,
+            height: ambientSize,
+            top: -ambientSize * 0.62,
+            left: ambientLeft,
+            borderRadius: ambientSize / 2,
+            backgroundColor: colors.primaryActionSoft,
+          },
+        ]}
+        pointerEvents="none"
+      />
+      <View style={[styles.content, { paddingHorizontal: spacing.xl, paddingTop: spacing.md }]}>
         {showSessionExpiredNotice ? (
           <View
             style={{
@@ -77,7 +100,6 @@ export default function WelcomeScreen() {
               borderRadius: radius.md,
               padding: spacing.md,
               marginBottom: spacing.lg,
-              alignSelf: 'stretch',
             }}
           >
             <Text style={[typography.bodyMedium, { color: colors.softRedText }]}>Your session expired</Text>
@@ -89,28 +111,22 @@ export default function WelcomeScreen() {
 
         <Animated.View
           style={{
-            alignItems: 'center',
             opacity: copyAnim,
             transform: [{ translateY: copyAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
           }}
         >
-          <Text style={[typography.display, { color: colors.textPrimary, textAlign: 'center' }]}>Spero</Text>
-          <Text
-            style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs, textAlign: 'center' }]}
-          >
+          <Text style={[typography.display, { color: colors.textPrimary }]}>Spero</Text>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.sm }]}>
             Request. Share. Get Paid.
           </Text>
           <Text
-            style={[
-              typography.body,
-              { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center', maxWidth: 300 },
-            ]}
+            style={[typography.body, { color: colors.textSecondary, marginTop: spacing.base, maxWidth: 320 }]}
           >
             Simple crypto payments for modern businesses.
           </Text>
         </Animated.View>
 
-        <View style={[styles.cardSection, { marginTop: spacing.xxl }]}>
+        <View style={[styles.cardSection, { marginTop: spacing.xxl + spacing.sm }]}>
           <View
             style={[
               styles.glow,
@@ -166,8 +182,9 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: { flex: 1, justifyContent: 'flex-start' },
   cardSection: { alignItems: 'center', justifyContent: 'center' },
+  ambientShape: { position: 'absolute', opacity: 0.5 },
   glow: { position: 'absolute', opacity: 0.7 },
   cardShadow: {
     ...Platform.select({
