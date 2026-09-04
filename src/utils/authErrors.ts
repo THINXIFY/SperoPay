@@ -30,6 +30,12 @@ export function getAuthErrorMessage(error: unknown, context: AuthErrorContext = 
   if (normalized.includes('network') || normalized.includes('fetch') || normalized.includes('timeout')) {
     return "We couldn't connect right now. Check your internet connection and try again.";
   }
+  if (normalized.includes('rate limit') || normalized.includes('too many requests') || normalized.includes('you can only request this after')) {
+    return "You've tried a few too many times. Wait a moment and try again.";
+  }
+  if (normalized.includes('user not found')) {
+    return 'Email or password is incorrect.';
+  }
 
   return CONTEXT_FALLBACKS[context];
 }

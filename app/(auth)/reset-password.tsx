@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
-import { TextField } from '../../src/components/TextField';
+import { PasswordField } from '../../src/components/PasswordField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { useProfileStore } from '../../src/store/profileStore';
@@ -12,7 +13,7 @@ import { resolveInitialRoute } from '../../src/utils/authRouting';
 import { isValidPassword } from '../../src/utils/validators';
 
 export default function ResetPasswordScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const updatePassword = useAuthStore((state) => state.updatePassword);
   const clearPasswordRecovery = useAuthStore((state) => state.clearPasswordRecovery);
   const signOut = useAuthStore((state) => state.signOut);
@@ -30,12 +31,24 @@ export default function ResetPasswordScreen() {
     clearError();
   }, [clearError]);
 
+  function handlePasswordBlur() {
+    setErrors((prev) => ({ ...prev, password: isValidPassword(password) ? undefined : 'Use at least 8 characters' }));
+  }
+
+  function handleConfirmBlur() {
+    setErrors((prev) => ({
+      ...prev,
+      confirmPassword: password === confirmPassword ? undefined : 'Passwords do not match',
+    }));
+  }
+
   async function handleSubmit() {
-    const nextErrors: typeof errors = {};
-    if (!isValidPassword(password)) nextErrors.password = 'Use at least 8 characters';
-    if (password !== confirmPassword) nextErrors.confirmPassword = 'Passwords do not match';
+    const nextErrors: typeof errors = {
+      password: isValidPassword(password) ? undefined : 'Use at least 8 characters',
+      confirmPassword: password === confirmPassword ? undefined : 'Passwords do not match',
+    };
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || isLoading) return;
+    if (nextErrors.password || nextErrors.confirmPassword || isLoading) return;
 
     try {
       await updatePassword(password);
@@ -70,7 +83,22 @@ export default function ResetPasswordScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <View style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
-          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center' }]}>Password updated</Text>
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: radius.full,
+              backgroundColor: colors.softMint,
+              alignSelf: 'center',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="checkmark" size={30} color={colors.softMintText} />
+          </View>
+          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }]}>
+            Password updated
+          </Text>
           <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}>
             Your new password is ready to use.
           </Text>
@@ -94,24 +122,38 @@ export default function ResetPasswordScreen() {
             Choose a new password
           </Text>
           {authError ? (
-            <Text style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}>
+            <Text
+              style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}
+              accessibilityLiveRegion="polite"
+            >
               {authError}
             </Text>
           ) : null}
-          <TextField
+          <PasswordField
             label="New Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            }}
+            onBlur={handlePasswordBlur}
             error={errors.password}
-            secureTextEntry
+            showStrength
+            autoComplete="new-password"
+            textContentType="newPassword"
             returnKeyType="next"
           />
-          <TextField
+          <PasswordField
             label="Confirm Password"
             value={confirmPassword}
-            onChangeText={setConfirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+            }}
+            onBlur={handleConfirmBlur}
             error={errors.confirmPassword}
-            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
           />

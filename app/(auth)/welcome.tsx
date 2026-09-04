@@ -35,7 +35,7 @@ export function WelcomeVisual() {
 }
 
 export default function WelcomeScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const sessionExpiredNotice = useAuthStore((state) => state.sessionExpiredNotice);
   const clearSessionExpiredNotice = useAuthStore((state) => state.clearSessionExpiredNotice);
   // Captured once so the banner doesn't disappear mid-render the instant the
@@ -54,26 +54,30 @@ export default function WelcomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={[styles.content, { paddingHorizontal: spacing.xl }]}>
         {showSessionExpiredNotice ? (
-          <Text
+          <View
             style={[
-              typography.bodySmall,
-              { color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
+              styles.sessionExpiredCard,
+              { backgroundColor: colors.softRed, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
             ]}
           >
-            Your session has ended. Please sign in again.
-          </Text>
+            <Text style={[typography.bodyMedium, { color: colors.softRedText }]}>Your session expired</Text>
+            <Text style={[typography.caption, { color: colors.softRedText, marginTop: spacing.xs / 2 }]}>
+              Sign in again to continue.
+            </Text>
+          </View>
         ) : null}
         <WelcomeVisual />
-        <Text style={[typography.h1, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
-          Stablecoin payments made simple.
+        <Text style={[typography.display, { color: colors.textPrimary, marginTop: spacing.xxl }]}>Spero</Text>
+        <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]}>
+          Request. Share. Get Paid.
         </Text>
-        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.md }]}>
-          Request payments, share a link or QR code, and keep your payment activity organized.
+        <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+          Simple crypto payments for modern businesses.
         </Text>
       </View>
       <View style={{ paddingHorizontal: spacing.xl, gap: spacing.sm, paddingBottom: spacing.lg }}>
-        <PrimaryButton label="Get Started" onPress={() => router.push('/(auth)/sign-up')} />
-        <SecondaryButton label="I already have an account" onPress={() => router.push('/(auth)/login')} />
+        <PrimaryButton label="Create Account" onPress={() => router.push('/(auth)/sign-up')} />
+        <SecondaryButton label="Sign In" onPress={() => router.push('/(auth)/login')} />
       </View>
     </SafeAreaView>
   );
@@ -82,6 +86,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   content: { flex: 1, justifyContent: 'center' },
+  sessionExpiredCard: {},
   visualWrap: { height: 220, justifyContent: 'center' },
   visualCardBack: { position: 'absolute', width: '80%', height: 140, top: 20, left: '4%', opacity: 0.9 },
   visualCardFront: { position: 'absolute', width: '70%', height: 130, top: 60, left: '16%' },

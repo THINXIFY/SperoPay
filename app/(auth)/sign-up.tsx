@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Linking, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
+import { PasswordField } from '../../src/components/PasswordField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
+import { TextButton } from '../../src/components/TextButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function SignUpScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const signUp = useAuthStore((state) => state.signUp);
   const isLoading = useAuthStore((state) => state.isLoading);
   const authError = useAuthStore((state) => state.error);
@@ -41,13 +44,26 @@ export default function SignUpScreen() {
     };
   }, []);
 
+  function handleFullNameBlur() {
+    setErrors((prev) => ({ ...prev, fullName: fullName.trim().length === 0 ? 'Enter your full name' : undefined }));
+  }
+
+  function handleEmailBlur() {
+    setErrors((prev) => ({ ...prev, email: isValidEmail(email) ? undefined : 'Enter a valid email address' }));
+  }
+
+  function handlePasswordBlur() {
+    setErrors((prev) => ({ ...prev, password: isValidPassword(password) ? undefined : 'Use at least 8 characters' }));
+  }
+
   async function handleSubmit() {
-    const nextErrors: typeof errors = {};
-    if (fullName.trim().length === 0) nextErrors.fullName = 'Enter your full name';
-    if (!isValidEmail(email)) nextErrors.email = 'Enter a valid email';
-    if (!isValidPassword(password)) nextErrors.password = 'Use at least 8 characters';
+    const nextErrors: typeof errors = {
+      fullName: fullName.trim().length === 0 ? 'Enter your full name' : undefined,
+      email: isValidEmail(email) ? undefined : 'Enter a valid email address',
+      password: isValidPassword(password) ? undefined : 'Use at least 8 characters',
+    };
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || isLoading) return;
+    if (nextErrors.fullName || nextErrors.email || nextErrors.password || isLoading) return;
 
     try {
       const { needsEmailConfirmation } = await signUp(fullName.trim(), email.trim(), password);
@@ -94,37 +110,35 @@ export default function SignUpScreen() {
 
   if (needsConfirmation) {
     const resendLabel =
-      cooldown > 0
-        ? `Resend available in ${cooldown}s`
-        : resendState === 'sending'
-          ? 'Sending...'
-          : 'Resend Confirmation';
+      cooldown > 0 ? `Resend in ${cooldown}s` : resendState === 'sending' ? 'Sending...' : 'Resend Email';
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
         <AppHeader title="Create Account" onBackPress={() => router.back()} />
         <View style={{ flex: 1, padding: spacing.xl, justifyContent: 'center' }}>
-          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center' }]}>Check your email</Text>
+          <View
+            style={[
+              styles.mailIconCircle,
+              { width: 64, height: 64, borderRadius: radius.full, backgroundColor: colors.softBlue, alignSelf: 'center' },
+            ]}
+          >
+            <Ionicons name="mail-outline" size={28} color={colors.softBlueText} />
+          </View>
+          <Text style={[typography.h2, { color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }]}>
+            Check your email
+          </Text>
           <Text
             style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}
           >
-            We sent a confirmation link to:
-          </Text>
-          <Text
-            style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs, textAlign: 'center' }]}
-          >
-            {email.trim()}
-          </Text>
-          <Text
-            style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' }]}
-          >
-            Confirm your email to finish setting up your Spero account.
+            We sent a verification link to{' '}
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{email.trim()}</Text>
           </Text>
           {resendState === 'sent' && cooldown > 0 ? (
             <Text
               style={[typography.bodySmall, { color: colors.success, marginTop: spacing.md, textAlign: 'center' }]}
+              accessibilityLiveRegion="polite"
             >
-              Confirmation email sent. Check your inbox for a new link.
+              Verification email sent. Check your inbox for a new link.
             </Text>
           ) : null}
           <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
@@ -134,7 +148,10 @@ export default function SignUpScreen() {
               onPress={handleResend}
               disabled={cooldown > 0 || resendState === 'sending'}
             />
-            <SecondaryButton label="Back to Sign In" onPress={() => router.replace('/(auth)/login')} />
+          </View>
+          <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+            <TextButton label="Use another email" onPress={() => setNeedsConfirmation(false)} />
+            <TextButton label="Back to Sign In" onPress={() => router.replace('/(auth)/login')} />
           </View>
         </View>
       </SafeAreaView>
@@ -149,45 +166,76 @@ export default function SignUpScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>
-            Create your Spero account
+          <Text style={[typography.h1, { color: colors.textPrimary }]}>Create your account</Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }]}>
+            Just the basics for now — the rest comes during setup.
           </Text>
           {authError ? (
-            <Text style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}>
+            <Text
+              style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}
+              accessibilityLiveRegion="polite"
+            >
               {authError}
             </Text>
           ) : null}
           <TextField
             label="Full Name"
             value={fullName}
-            onChangeText={setFullName}
+            onChangeText={(text) => {
+              setFullName(text);
+              if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: undefined }));
+            }}
+            onBlur={handleFullNameBlur}
             error={errors.fullName}
             autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
             returnKeyType="next"
           />
           <TextField
             label="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            onBlur={handleEmailBlur}
             error={errors.email}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
             returnKeyType="next"
           />
-          <TextField
+          <PasswordField
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            }}
+            onBlur={handlePasswordBlur}
             error={errors.password}
-            secureTextEntry
+            showStrength
+            autoComplete="new-password"
+            textContentType="newPassword"
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
           />
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
           <PrimaryButton label="Create Account" onPress={handleSubmit} loading={isLoading} />
+          <Pressable onPress={() => router.replace('/(auth)/login')} hitSlop={8} style={{ marginTop: spacing.md, alignSelf: 'center' }}>
+            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+              Already have an account? <Text style={{ color: colors.textPrimary }}>Sign in</Text>
+            </Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  mailIconCircle: { alignItems: 'center', justifyContent: 'center' },
+});

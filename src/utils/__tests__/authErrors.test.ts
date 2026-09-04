@@ -29,6 +29,22 @@ describe('getAuthErrorMessage', () => {
     );
   });
 
+  it('maps rate-limit errors', () => {
+    expect(getAuthErrorMessage(new Error('Email rate limit exceeded'))).toBe(
+      "You've tried a few too many times. Wait a moment and try again."
+    );
+  });
+
+  it('maps the resend cooldown message Supabase returns', () => {
+    expect(getAuthErrorMessage(new Error('For security purposes, you can only request this after 34 seconds.'))).toBe(
+      "You've tried a few too many times. Wait a moment and try again."
+    );
+  });
+
+  it('maps user-not-found the same as invalid credentials, without revealing account existence', () => {
+    expect(getAuthErrorMessage(new Error('User not found'))).toBe('Email or password is incorrect.');
+  });
+
   it('maps PKCE/deep-link code-exchange failures by error name', () => {
     const error = new Error('No code detected.');
     error.name = 'AuthPKCEGrantCodeExchangeError';

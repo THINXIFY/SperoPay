@@ -4,6 +4,7 @@ export * from './TextButton';
 export * from './DetailRow';
 export * from './IconButton';
 export * from './TextField';
+export * from './PasswordField';
 export * from './NumericKeypad';
 export * from './AmountInput';
 export * from './StatusBadge';

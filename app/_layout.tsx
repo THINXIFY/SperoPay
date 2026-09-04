@@ -56,12 +56,6 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  useEffect(() => {
     const unsubscribe = initializeAuthListener();
     return unsubscribe;
   }, []);
@@ -70,6 +64,21 @@ export default function RootLayout() {
   const authHasHydrated = useAuthStore((state) => state.hasHydrated);
   const fullName = useAuthStore((state) => state.user?.fullName);
   const lastLoadedUserId = useRef<string | null>(null);
+
+  // Hidden only once BOTH fonts and the auth session are ready, not fonts
+  // alone -- the native splash's background (#050505, app.json) matches
+  // the app's near-black hero surfaces, but not the default light theme's
+  // background (#F5F6F4). Hiding on fontsLoaded alone left a brief window
+  // where AuthGate was still returning null (waiting on hasHydrated) and
+  // the Stack's own contentStyle background showed through underneath --
+  // a visible black-to-off-white flash for a light-theme user, right
+  // before the real first screen (which may itself require a redirect)
+  // ever rendered.
+  useEffect(() => {
+    if (fontsLoaded && authHasHydrated) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, authHasHydrated]);
 
   useEffect(() => {
     if (!authHasHydrated) return;

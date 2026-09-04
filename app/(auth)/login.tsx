@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
+import { PasswordField } from '../../src/components/PasswordField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail, isValidPassword } from '../../src/utils/validators';
@@ -26,12 +27,26 @@ export default function LoginScreen() {
     clearError();
   }, [clearError]);
 
+  // Validates as the user leaves a field, not just on submit -- an obvious
+  // "enter a valid email" shouldn't wait for a full form submission to
+  // surface. Never re-validates a field that's already showing an error
+  // while they're still typing a correction into it (see onChangeText
+  // below) -- only a fresh blur re-checks it.
+  function handleEmailBlur() {
+    setErrors((prev) => ({ ...prev, email: isValidEmail(email) ? undefined : 'Enter a valid email address' }));
+  }
+
+  function handlePasswordBlur() {
+    setErrors((prev) => ({ ...prev, password: isValidPassword(password) ? undefined : 'Use at least 8 characters' }));
+  }
+
   async function handleSubmit() {
-    const nextErrors: typeof errors = {};
-    if (!isValidEmail(email)) nextErrors.email = 'Enter a valid email';
-    if (!isValidPassword(password)) nextErrors.password = 'Use at least 8 characters';
+    const nextErrors: typeof errors = {
+      email: isValidEmail(email) ? undefined : 'Enter a valid email address',
+      password: isValidPassword(password) ? undefined : 'Use at least 8 characters',
+    };
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || isLoading) return;
+    if (nextErrors.email || nextErrors.password || isLoading) return;
 
     try {
       await signIn(email.trim(), password);
@@ -54,38 +69,58 @@ export default function LoginScreen() {
           contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>
-            Welcome back to Spero
+          <Text style={[typography.h1, { color: colors.textPrimary }]}>Welcome back</Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }]}>
+            Sign in to continue to Spero.
           </Text>
           {authError ? (
-            <Text style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}>
+            <Text
+              style={[typography.bodySmall, { color: colors.error, marginBottom: spacing.base }]}
+              accessibilityLiveRegion="polite"
+            >
               {authError}
             </Text>
           ) : null}
           <TextField
             label="Email"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            onBlur={handleEmailBlur}
             error={errors.email}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
             returnKeyType="next"
           />
-          <TextField
+          <PasswordField
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            }}
+            onBlur={handlePasswordBlur}
             error={errors.password}
-            secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
           />
-          <Pressable onPress={() => router.push('/(auth)/forgot-password')}>
+          <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8}>
             <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>Forgot password?</Text>
           </Pressable>
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
           <PrimaryButton label="Sign In" onPress={handleSubmit} loading={isLoading} />
+          <Pressable onPress={() => router.push('/(auth)/sign-up')} hitSlop={8} style={{ marginTop: spacing.md, alignSelf: 'center' }}>
+            <Text style={[typography.bodySmall, { color: colors.textSecondary }]}>
+              Don&apos;t have an account? <Text style={{ color: colors.textPrimary }}>Create Account</Text>
+            </Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
