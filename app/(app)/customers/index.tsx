@@ -330,7 +330,7 @@ export default function CustomersScreen() {
             value={name}
             onChangeText={setName}
             error={nameError}
-            placeholder="e.g. John Smith"
+            placeholder="Customer name"
             autoCapitalize="words"
             returnKeyType="next"
           />
@@ -341,14 +341,14 @@ export default function CustomersScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={emailError}
-            placeholder="john@company.com"
+            placeholder="name@example.com"
             returnKeyType="next"
           />
           <TextField
             label="Company (Optional)"
             value={company}
             onChangeText={setCompany}
-            placeholder="e.g. Acme Studio"
+            placeholder="Company name"
             returnKeyType="done"
             onSubmitEditing={handleAdd}
           />

@@ -15,6 +15,18 @@ export function resolveInitialRoute(state: AuthRoutingState): string {
   return '/(app)/home';
 }
 
+// A FAILED profile fetch and a genuinely-empty-because-new-user profile are
+// indistinguishable by data shape alone (profile is null either way), but
+// they must never be treated the same: routing a failed fetch through
+// resolveAuthGateRedirect would evaluate hasCompletedOnboarding as false
+// and send an already-onboarded user back through onboarding, discarding
+// nothing server-side but making their account look reset. Callers (see
+// AuthGate.tsx, app/index.tsx) must check this BEFORE computing a redirect
+// and render a retryable error instead when it's true.
+export function shouldShowProfileLoadError(isAuthenticated: boolean, profileStatus: string): boolean {
+  return isAuthenticated && profileStatus === 'error';
+}
+
 export function resolveAuthGateRedirect(mode: AuthGateMode, state: AuthRoutingState): string | null {
   // A recovery session is neither an ordinary logged-in session nor a guest:
   // it must never reach Home/Onboarding (require-auth redirects it to Reset

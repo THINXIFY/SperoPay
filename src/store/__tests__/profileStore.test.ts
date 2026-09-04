@@ -135,6 +135,126 @@ describe('loadForUser', () => {
   });
 });
 
+describe('loadForUser self-healing insert-fallback', () => {
+  it('re-selects instead of erroring when the insert fails with a duplicate-key violation (the row exists but the initial SELECT missed it)', async () => {
+    // Simulates the exact race this is guarding against: RLS evaluates
+    // auth.uid() against a session that hasn't fully propagated yet on the
+    // very first request after sign-in, so the SELECT sees zero rows for an
+    // already-onboarded user even though their real row exists -- the
+    // fallback INSERT then collides with that real row's primary key.
+    const profilesBuilder = makeQueryBuilder({ data: null, error: null });
+    const duplicateKeyError = Object.assign(new Error('duplicate key value violates unique constraint "profiles_pkey"'), {
+      code: '23505',
+    });
+    profilesBuilder.single.mockResolvedValueOnce({ data: null, error: duplicateKeyError });
+    const realRow = {
+      id: 'user-5',
+      display_name: 'Already Onboarded',
+      country: 'Pakistan',
+      usage_type: 'business',
+      avatar_url: null,
+      avatar_border_style: 'none',
+      onboarding_completed: true,
+    };
+    profilesBuilder.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }) // the initial SELECT that missed the row
+      .mockResolvedValueOnce({ data: realRow, error: null }); // the re-select after the insert collision
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockImplementation((table: string) =>
+      (table === 'profiles' ? profilesBuilder : businessBuilder) as never
+    );
+
+    await useProfileStore.getState().loadForUser('user-5');
+
+    const state = useProfileStore.getState();
+    expect(state.status).toBe('loaded');
+    expect(state.profile?.displayName).toBe('Already Onboarded');
+    expect(state.profile?.onboardingCompleted).toBe(true);
+    expect(state.profile?.country).toBe('Pakistan');
+  });
+
+  it('surfaces the original error (not "loaded") if the duplicate-key re-select also comes back empty', async () => {
+    const profilesBuilder = makeQueryBuilder({ data: null, error: null });
+    const duplicateKeyError = Object.assign(new Error('duplicate key value violates unique constraint "profiles_pkey"'), {
+      code: '23505',
+    });
+    profilesBuilder.single.mockResolvedValueOnce({ data: null, error: duplicateKeyError });
+    profilesBuilder.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null }); // re-select still finds nothing real
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockImplementation((table: string) =>
+      (table === 'profiles' ? profilesBuilder : businessBuilder) as never
+    );
+
+    await useProfileStore.getState().loadForUser('user-6');
+
+    expect(useProfileStore.getState().status).toBe('error');
+  });
+
+  it('does not swallow a genuine (non-duplicate-key) insert failure', async () => {
+    const profilesBuilder = makeQueryBuilder({ data: null, error: null });
+    profilesBuilder.single.mockResolvedValueOnce({ data: null, error: new Error('permission denied') });
+    const businessBuilder = makeQueryBuilder({ data: null, error: null });
+    mockedSupabase.from.mockImplementation((table: string) =>
+      (table === 'profiles' ? profilesBuilder : businessBuilder) as never
+    );
+
+    await useProfileStore.getState().loadForUser('user-7');
+
+    expect(useProfileStore.getState().status).toBe('error');
+  });
+});
+
+describe('setUsageType', () => {
+  it('persists usage_type to profiles and reflects it locally', async () => {
+    useProfileStore.setState({
+      profile: { usageType: null, displayName: 'Jane', country: '', avatarBorderStyle: 'none', onboardingCompleted: false },
+      status: 'loaded',
+      error: null,
+    });
+    const profilesBuilder = makeQueryBuilder({ data: {}, error: null });
+    mockedSupabase.from.mockReturnValue(profilesBuilder as never);
+
+    await useProfileStore.getState().setUsageType('user-1', 'freelancer');
+
+    expect(profilesBuilder.update).toHaveBeenCalledWith({ usage_type: 'freelancer' });
+    expect(useProfileStore.getState().profile?.usageType).toBe('freelancer');
+  });
+});
+
+describe('completeOnboarding', () => {
+  it('persists onboarding_completed: true to profiles and reflects it locally', async () => {
+    useProfileStore.setState({
+      profile: { usageType: 'business', displayName: 'Jane', country: 'UAE', avatarBorderStyle: 'none', onboardingCompleted: false },
+      status: 'loaded',
+      error: null,
+    });
+    const profilesBuilder = makeQueryBuilder({ data: {}, error: null });
+    mockedSupabase.from.mockReturnValue(profilesBuilder as never);
+
+    await useProfileStore.getState().completeOnboarding('user-1');
+
+    expect(profilesBuilder.update).toHaveBeenCalledWith({ onboarding_completed: true });
+    expect(useProfileStore.getState().profile?.onboardingCompleted).toBe(true);
+  });
+
+  it('sets a calm error and rethrows on failure, so a caller can keep the user on the current step rather than navigating to Home', async () => {
+    // .update(...).eq(...) is the terminal call here (no further .single()/
+    // .maybeSingle()) -- makeQueryBuilder's shared `eq` only supports mid-
+    // chain use (returning the builder so a later .maybeSingle() can still
+    // be called on it), so this test overrides it directly to resolve with
+    // the error, matching how the real (thenable) PostgrestFilterBuilder
+    // behaves when awaited straight off .eq().
+    const profilesBuilder = makeQueryBuilder({ data: null, error: null });
+    profilesBuilder.eq = jest.fn(() => Promise.resolve({ data: null, error: new Error('network request failed') }));
+    mockedSupabase.from.mockReturnValue(profilesBuilder as never);
+
+    await expect(useProfileStore.getState().completeOnboarding('user-1')).rejects.toThrow();
+    expect(useProfileStore.getState().error).not.toBeNull();
+  });
+});
+
 describe('reset', () => {
   it('clears profile back to idle', () => {
     useProfileStore.setState({

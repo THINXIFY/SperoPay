@@ -274,7 +274,7 @@ export default function DetailsScreen() {
                 value={newCustomerName}
                 onChangeText={setNewCustomerName}
                 error={newCustomerNameError}
-                placeholder="e.g. John Smith"
+                placeholder="Customer name"
                 autoCapitalize="words"
                 returnKeyType="next"
               />
@@ -285,7 +285,7 @@ export default function DetailsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={newCustomerEmailError}
-                placeholder="john@company.com"
+                placeholder="name@example.com"
                 returnKeyType="done"
                 onSubmitEditing={handleAddCustomer}
               />

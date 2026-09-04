@@ -226,7 +226,7 @@ export default function SignUpScreen() {
             }}
             onBlur={handleFullNameBlur}
             error={errors.fullName}
-            placeholder="e.g. Farhan Zafar"
+            placeholder="Enter your full name"
             autoCapitalize="words"
             autoComplete="name"
             textContentType="name"
@@ -241,7 +241,7 @@ export default function SignUpScreen() {
             }}
             onBlur={handleEmailBlur}
             error={errors.email}
-            placeholder="you@example.com"
+            placeholder="name@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"

@@ -146,7 +146,7 @@ export default function BusinessProfileScreen() {
             label="Business Name"
             value={businessName}
             onChangeText={setBusinessName}
-            placeholder="e.g. THINXIFY"
+            placeholder="Your business or company name"
             autoCapitalize="words"
             returnKeyType="next"
           />
@@ -154,7 +154,7 @@ export default function BusinessProfileScreen() {
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
-            placeholder="https://yourcompany.com"
+            placeholder="https://example.com"
             keyboardType="url"
             autoCapitalize="none"
             autoComplete="url"
@@ -165,7 +165,7 @@ export default function BusinessProfileScreen() {
             value={businessEmail}
             onChangeText={setBusinessEmail}
             error={error}
-            placeholder="billing@yourcompany.com"
+            placeholder="name@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             returnKeyType="next"

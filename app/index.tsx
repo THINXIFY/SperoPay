@@ -3,9 +3,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../src/theme/useTheme';
 import { Logo } from '../src/components/Logo';
+import { ProfileLoadError } from '../src/components/ProfileLoadError';
 import { useAuthStore } from '../src/store/authStore';
 import { useProfileStore } from '../src/store/profileStore';
-import { resolveInitialRoute } from '../src/utils/authRouting';
+import { resolveInitialRoute, shouldShowProfileLoadError } from '../src/utils/authRouting';
 
 const SPLASH_DURATION_MS = 1200;
 
@@ -16,6 +17,8 @@ export default function SplashScreen() {
   const profileStatus = useProfileStore((state) => state.status);
   const hasCompletedOnboarding = useProfileStore((state) => state.profile?.onboardingCompleted ?? false);
   const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
+  const userId = useAuthStore((state) => state.user?.id);
+  const userFullName = useAuthStore((state) => state.user?.fullName);
 
   // Two independent gates must both clear before we redirect:
   //  1. A minimum-duration timer, so the branded splash never flashes by too
@@ -40,12 +43,26 @@ export default function SplashScreen() {
   }, []);
 
   useEffect(() => {
-    if (!minDurationElapsed || !storesHydrated) {
+    // A failed profile fetch must never be navigated away from as if it
+    // were a successful "onboarding incomplete" read -- see AuthGate.tsx
+    // for the full rationale. Staying on this screen (rendering the error
+    // state below instead) is what keeps that distinction real.
+    if (!minDurationElapsed || !storesHydrated || shouldShowProfileLoadError(isAuthenticated, profileStatus)) {
       return;
     }
 
     router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding, isPasswordRecovery }));
-  }, [minDurationElapsed, storesHydrated, isAuthenticated, hasCompletedOnboarding, isPasswordRecovery]);
+  }, [minDurationElapsed, storesHydrated, profileStatus, isAuthenticated, hasCompletedOnboarding, isPasswordRecovery]);
+
+  if (minDurationElapsed && shouldShowProfileLoadError(isAuthenticated, profileStatus)) {
+    return (
+      <ProfileLoadError
+        onRetry={async () => {
+          if (userId) await useProfileStore.getState().loadForUser(userId, userFullName);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.heroSurface }]}>

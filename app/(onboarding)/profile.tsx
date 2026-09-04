@@ -170,7 +170,7 @@ export default function ProfileSetupScreen() {
             value={displayName}
             onChangeText={setDisplayName}
             error={error}
-            placeholder="e.g. Farhan Zafar"
+            placeholder="Enter your display name"
             autoCapitalize="words"
             autoComplete="name"
             textContentType="name"
@@ -180,7 +180,7 @@ export default function ProfileSetupScreen() {
             label="Business Name (Optional)"
             value={businessName}
             onChangeText={setBusinessName}
-            placeholder="e.g. THINXIFY"
+            placeholder="Your business or company name"
             autoCapitalize="words"
             returnKeyType="next"
           />
@@ -200,7 +200,7 @@ export default function ProfileSetupScreen() {
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
-            placeholder="e.g. https://yourcompany.com"
+            placeholder="https://example.com"
             keyboardType="url"
             autoCapitalize="none"
             autoComplete="url"

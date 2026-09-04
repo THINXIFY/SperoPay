@@ -229,13 +229,13 @@ export default function TemplatesScreen() {
           <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>
             {editingId ? 'Edit Template' : 'New Template'}
           </Text>
-          <TextField label="Name" value={name} onChangeText={setName} error={error} placeholder="e.g. Monthly Retainer" />
+          <TextField label="Name" value={name} onChangeText={setName} error={error} placeholder="Template name" />
           <TextField label="Amount (USDC)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="1000" />
           <TextField
             label="Description (Optional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="e.g. Website maintenance"
+            placeholder="What does this template cover?"
           />
           <Pressable
             onPress={openExpirySheet}

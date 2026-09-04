@@ -148,7 +148,7 @@ export default function LoginScreen() {
             }}
             onBlur={handleEmailBlur}
             error={errors.email}
-            placeholder="you@example.com"
+            placeholder="name@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"

@@ -167,7 +167,7 @@ export default function EditProfileScreen() {
             value={displayName}
             onChangeText={setDisplayName}
             error={error}
-            placeholder="e.g. Farhan Zafar"
+            placeholder="Enter your display name"
             autoCapitalize="words"
             autoComplete="name"
             textContentType="name"
@@ -189,7 +189,7 @@ export default function EditProfileScreen() {
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
-            placeholder="e.g. https://yourcompany.com"
+            placeholder="https://example.com"
             keyboardType="url"
             autoCapitalize="none"
             autoComplete="url"

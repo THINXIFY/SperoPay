@@ -90,8 +90,27 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
               .insert({ id: userId, display_name: fallbackFullName ?? '' })
               .select('*')
               .single();
-            if (insertError) throw insertError;
-            row = created;
+            if (insertError) {
+              // A unique-violation here means a row for this id already
+              // exists -- the SELECT above just didn't see it (e.g. a brief
+              // auth-token-propagation race right after sign-in, where RLS
+              // evaluates auth.uid() against a not-yet-fully-attached
+              // session on the very first request). That is NOT "this user
+              // needs onboarding" -- their real, already-onboarded row is
+              // sitting right there. Re-select once rather than surfacing a
+              // hard error that the UI would otherwise be unable to tell
+              // apart from a genuine failure (see AuthGate.tsx).
+              if (insertError.code === '23505' || insertError.message.toLowerCase().includes('duplicate key')) {
+                const retry = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+                if (retry.error) throw retry.error;
+                if (!retry.data) throw insertError; // still nothing real to show -- surface the original error.
+                row = retry.data;
+              } else {
+                throw insertError;
+              }
+            } else {
+              row = created;
+            }
           }
           return row;
         })(),

@@ -1,4 +1,4 @@
-import { resolveInitialRoute, resolveAuthGateRedirect } from '../authRouting';
+import { resolveInitialRoute, resolveAuthGateRedirect, shouldShowProfileLoadError } from '../authRouting';
 
 describe('resolveInitialRoute', () => {
   it('routes to Welcome when unauthenticated', () => {
@@ -72,5 +72,24 @@ describe('resolveAuthGateRedirect', () => {
         isPasswordRecovery: true,
       })
     ).toBe('/(auth)/reset-password');
+  });
+});
+
+describe('shouldShowProfileLoadError', () => {
+  it('is true for an authenticated user whose profile fetch failed', () => {
+    expect(shouldShowProfileLoadError(true, 'error')).toBe(true);
+  });
+
+  it('is false for an authenticated user with a settled, successful load -- must not treat this the same as a failure', () => {
+    expect(shouldShowProfileLoadError(true, 'loaded')).toBe(false);
+  });
+
+  it('is false while still loading -- that state is handled separately, before a redirect decision is even considered', () => {
+    expect(shouldShowProfileLoadError(true, 'loading')).toBe(false);
+    expect(shouldShowProfileLoadError(true, 'idle')).toBe(false);
+  });
+
+  it('is false for an unauthenticated visitor regardless of status -- there is no profile fetch to have failed', () => {
+    expect(shouldShowProfileLoadError(false, 'error')).toBe(false);
   });
 });

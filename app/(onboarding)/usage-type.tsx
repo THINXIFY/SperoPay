@@ -18,9 +18,13 @@ const OPTIONS: { value: UsageType; label: string; icon: 'briefcase-outline' | 'b
 
 export default function UsageTypeScreen() {
   const { colors, spacing, typography } = useTheme();
+  const profile = useProfileStore((state) => state.profile);
   const setUsageType = useProfileStore((state) => state.setUsageType);
   const userId = useAuthStore((state) => state.user?.id);
-  const [selected, setSelected] = useState<UsageType | null>(null);
+  // A user who stopped onboarding partway through and is resuming should
+  // see their prior choice already selected, not a blank grid forcing them
+  // to redo a decision they already made.
+  const [selected, setSelected] = useState<UsageType | null>(profile?.usageType ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleContinue() {

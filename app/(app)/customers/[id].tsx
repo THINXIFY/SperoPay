@@ -307,7 +307,7 @@ export default function CustomerDetailScreen() {
             value={editName}
             onChangeText={setEditName}
             error={editNameError}
-            placeholder="e.g. John Smith"
+            placeholder="Customer name"
             autoCapitalize="words"
             returnKeyType="next"
           />
@@ -318,14 +318,14 @@ export default function CustomerDetailScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={editEmailError}
-            placeholder="john@company.com"
+            placeholder="name@example.com"
             returnKeyType="next"
           />
           <TextField
             label="Company (Optional)"
             value={editCompany}
             onChangeText={setEditCompany}
-            placeholder="e.g. Acme Studio"
+            placeholder="Company name"
             returnKeyType="next"
           />
           <TextField
