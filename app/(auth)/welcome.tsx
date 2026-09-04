@@ -55,10 +55,7 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingHorizontal: spacing.xl }]}>
         {showSessionExpiredNotice ? (
           <View
-            style={[
-              styles.sessionExpiredCard,
-              { backgroundColor: colors.softRed, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
-            ]}
+            style={{ backgroundColor: colors.softRed, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}
           >
             <Text style={[typography.bodyMedium, { color: colors.softRedText }]}>Your session expired</Text>
             <Text style={[typography.caption, { color: colors.softRedText, marginTop: spacing.xs / 2 }]}>
@@ -86,7 +83,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   content: { flex: 1, justifyContent: 'center' },
-  sessionExpiredCard: {},
   visualWrap: { height: 220, justifyContent: 'center' },
   visualCardBack: { position: 'absolute', width: '80%', height: 140, top: 20, left: '4%', opacity: 0.9 },
   visualCardFront: { position: 'absolute', width: '70%', height: 130, top: 60, left: '16%' },

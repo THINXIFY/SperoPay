@@ -28,7 +28,6 @@ export default function AuthCallbackScreen() {
   const exchangeAuthCode = useAuthStore((state) => state.exchangeAuthCode);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isPasswordRecovery = useAuthStore((state) => state.isPasswordRecovery);
-  const hasCompletedOnboarding = useProfileStore((state) => state.profile?.onboardingCompleted ?? false);
   const [failed, setFailed] = useState(false);
   const [showVerified, setShowVerified] = useState(false);
   // Keyed on the code itself, not a bare boolean: a second, genuinely
@@ -36,11 +35,7 @@ export default function AuthCallbackScreen() {
   // user requested two reset emails) must still be processed, while a
   // duplicate delivery of the exact same code must not be re-submitted.
   const attemptedCode = useRef<string | null>(null);
-  // Guards the transition-start effect below against re-firing: its own
-  // deps include hasCompletedOnboarding, which can genuinely change after
-  // the transition has already started (the profile fetch is a separate,
-  // independent network call -- see app/_layout.tsx) and must not restart
-  // the timer or navigate a second time with a now-different destination.
+  // Guards the transition-start effect below against re-firing.
   const hasStartedTransition = useRef(false);
 
   useEffect(() => {
@@ -62,6 +57,25 @@ export default function AuthCallbackScreen() {
     if (failed || !isAuthenticated || hasStartedTransition.current) return;
     hasStartedTransition.current = true;
 
+    // Reads the profile store directly at navigation time, rather than
+    // subscribing to hasCompletedOnboarding as a dependency -- it's a
+    // separate, independent network fetch (see app/_layout.tsx) that can
+    // change value *while this effect's own timer is still pending*, and
+    // this effect must never re-run once the transition has started (see
+    // hasStartedTransition above). An earlier version depended on it
+    // directly: React reran this effect (cancelling the pending timer via
+    // its cleanup) the moment the value changed mid-transition, and the
+    // hasStartedTransition guard then skipped scheduling a replacement --
+    // leaving the "Email verified" screen showing with no navigation ever
+    // firing again. Reading the store directly (fresh at the moment it's
+    // actually used, in both branches below) avoids that class of bug
+    // entirely -- and even a value that's technically stale by the time
+    // the timer fires is harmless, since the destination route is itself
+    // wrapped in AuthGate, which re-checks onboarding status fresh on its
+    // own render and self-corrects (same reasoning as login.tsx/
+    // sign-up.tsx not navigating explicitly after a successful sign-in).
+    const currentHasCompletedOnboarding = useProfileStore.getState().profile?.onboardingCompleted ?? false;
+
     // A password-recovery exchange must land on Reset Password immediately
     // -- no "verified" moment applies to it, and resolveInitialRoute
     // already routes it there via isPasswordRecovery regardless of
@@ -69,16 +83,19 @@ export default function AuthCallbackScreen() {
     // (the only other deep link this screen handles -- see
     // src/utils/authDeepLink.ts) gets the brief success screen.
     if (isPasswordRecovery) {
-      router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding, isPasswordRecovery }));
+      router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding: currentHasCompletedOnboarding, isPasswordRecovery }));
       return;
     }
 
     setShowVerified(true);
     const timer = setTimeout(() => {
-      router.replace(resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding, isPasswordRecovery }));
+      const hasCompletedOnboardingAtNavigation = useProfileStore.getState().profile?.onboardingCompleted ?? false;
+      router.replace(
+        resolveInitialRoute({ isAuthenticated, hasCompletedOnboarding: hasCompletedOnboardingAtNavigation, isPasswordRecovery })
+      );
     }, VERIFIED_DISPLAY_MS);
     return () => clearTimeout(timer);
-  }, [failed, isAuthenticated, hasCompletedOnboarding, isPasswordRecovery]);
+  }, [failed, isAuthenticated, isPasswordRecovery]);
 
   if (failed) {
     return (
