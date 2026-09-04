@@ -51,4 +51,13 @@ begin
 end;
 $$;
 
+-- The drop above wipes every grant the function had, not just the ones
+-- being changed here (grants don't survive a DROP) -- both of 0006's
+-- original grants must be re-established, not just the anon one this
+-- change is actually about. Missing the `authenticated` grant would break
+-- the public checkout page for any signed-in user who opens a /p/<token>
+-- link (e.g. a merchant previewing their own link, or a customer who also
+-- has an account) -- an overly-restrictive regression, not a security
+-- hole, but a real one.
 grant execute on function public.get_public_payment_request(uuid) to anon;
+grant execute on function public.get_public_payment_request(uuid) to authenticated;
