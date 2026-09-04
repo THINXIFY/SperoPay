@@ -7,12 +7,23 @@ interface SelectFieldProps {
   icon?: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  // True when `label` is standing in for a placeholder (nothing chosen
+  // yet, e.g. "Select your country") rather than a real selected value --
+  // renders muted instead of primary text, matching TextField's own
+  // placeholder treatment. Defaults to false, so every existing call site
+  // (which always has a real value, e.g. "USDC") renders unchanged.
+  isPlaceholder?: boolean;
+  // Overrides the row's accessibility label -- defaults to `label`, which
+  // is wrong when `label` is itself a placeholder string doubling as
+  // display text (e.g. "Select your country" reading oddly as the a11y
+  // label instead of a plain "Select country" action name).
+  accessibilityLabel?: string;
 }
 
 // A compact bordered selector row — leading icon-chip (optional), label,
 // trailing chevron. Used where a field represents a single current choice
 // that opens a picker (bottom sheet, etc.) rather than a generic text input.
-export function SelectField({ icon, label, onPress }: SelectFieldProps) {
+export function SelectField({ icon, label, onPress, isPlaceholder, accessibilityLabel }: SelectFieldProps) {
   const { colors, spacing, radius, typography } = useTheme();
 
   return (
@@ -30,7 +41,7 @@ export function SelectField({ icon, label, onPress }: SelectFieldProps) {
         },
       ]}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
     >
       {icon ? (
         <View
@@ -42,7 +53,9 @@ export function SelectField({ icon, label, onPress }: SelectFieldProps) {
           <Ionicons name={icon} size={14} color={colors.softMintText} />
         </View>
       ) : null}
-      <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>
+      <Text style={[typography.bodyMedium, { color: isPlaceholder ? colors.textMuted : colors.textPrimary, flex: 1 }]}>
+        {label}
+      </Text>
       <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
     </Pressable>
   );

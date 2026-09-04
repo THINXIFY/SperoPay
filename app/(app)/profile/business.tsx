@@ -142,13 +142,22 @@ export default function BusinessProfileScreen() {
             This appears on your invoices, receipts, and customer-facing payment pages.
           </Text>
 
-          <TextField label="Business Name" value={businessName} onChangeText={setBusinessName} returnKeyType="next" />
+          <TextField
+            label="Business Name"
+            value={businessName}
+            onChangeText={setBusinessName}
+            placeholder="e.g. THINXIFY"
+            autoCapitalize="words"
+            returnKeyType="next"
+          />
           <TextField
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
+            placeholder="https://yourcompany.com"
             keyboardType="url"
             autoCapitalize="none"
+            autoComplete="url"
             returnKeyType="next"
           />
           <TextField
@@ -156,11 +165,18 @@ export default function BusinessProfileScreen() {
             value={businessEmail}
             onChangeText={setBusinessEmail}
             error={error}
+            placeholder="billing@yourcompany.com"
             keyboardType="email-address"
             autoCapitalize="none"
             returnKeyType="next"
           />
-          <TextField label="Short Description (Optional)" value={description} onChangeText={setDescription} multiline />
+          <TextField
+            label="Short Description (Optional)"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="What does your business do?"
+            multiline
+          />
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />

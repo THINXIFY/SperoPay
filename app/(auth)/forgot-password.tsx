@@ -101,6 +101,7 @@ export default function ForgotPasswordScreen() {
             }}
             onBlur={handleEmailBlur}
             error={error}
+            placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"

@@ -307,6 +307,8 @@ export default function CustomerDetailScreen() {
             value={editName}
             onChangeText={setEditName}
             error={editNameError}
+            placeholder="e.g. John Smith"
+            autoCapitalize="words"
             returnKeyType="next"
           />
           <TextField
@@ -316,10 +318,23 @@ export default function CustomerDetailScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={editEmailError}
+            placeholder="john@company.com"
             returnKeyType="next"
           />
-          <TextField label="Company (Optional)" value={editCompany} onChangeText={setEditCompany} returnKeyType="next" />
-          <TextField label="Notes (Optional)" value={editNotes} onChangeText={setEditNotes} multiline />
+          <TextField
+            label="Company (Optional)"
+            value={editCompany}
+            onChangeText={setEditCompany}
+            placeholder="e.g. Acme Studio"
+            returnKeyType="next"
+          />
+          <TextField
+            label="Notes (Optional)"
+            value={editNotes}
+            onChangeText={setEditNotes}
+            placeholder="Add a note about this customer"
+            multiline
+          />
           <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
         </AppBottomSheet>
       ) : null}

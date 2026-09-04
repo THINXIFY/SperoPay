@@ -184,7 +184,7 @@ export default function DetailsScreen() {
             label="Description (Optional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="Website design service — May 2026"
+            placeholder="What is this payment for?"
             returnKeyType="done"
           />
 
@@ -239,7 +239,7 @@ export default function DetailsScreen() {
             label="Note to Customer (Optional)"
             value={note}
             onChangeText={setNote}
-            placeholder="Thank you for your business!"
+            placeholder="Add an optional note"
             multiline
           />
         </ScrollView>
@@ -274,6 +274,8 @@ export default function DetailsScreen() {
                 value={newCustomerName}
                 onChangeText={setNewCustomerName}
                 error={newCustomerNameError}
+                placeholder="e.g. John Smith"
+                autoCapitalize="words"
                 returnKeyType="next"
               />
               <TextField
@@ -283,6 +285,7 @@ export default function DetailsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={newCustomerEmailError}
+                placeholder="john@company.com"
                 returnKeyType="done"
                 onSubmitEditing={handleAddCustomer}
               />

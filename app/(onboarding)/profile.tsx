@@ -1,14 +1,22 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
+import { SelectField } from '../../src/components/SelectField';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+import { UserAvatar } from '../../src/components/UserAvatar';
+import { CountrySelectSheet } from '../../src/components/CountrySelectSheet';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { uploadUserAvatar, deleteAvatarByUrl } from '../../src/services/storage/avatarUpload';
+import { presentImagePickerActions } from '../../src/utils/presentImagePickerActions';
+import { avatarDebugLog } from '../../src/utils/avatarDebugLog';
+import { findCountryByName } from '../../src/utils/countries';
 
 export default function ProfileSetupScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -17,13 +25,59 @@ export default function ProfileSetupScreen() {
   const authFullName = useAuthStore((state) => state.user?.fullName);
   const userId = useAuthStore((state) => state.user?.id);
 
-  const [hasMockAvatar, setHasMockAvatar] = useState(false);
+  // Choose -> Crop (native, via the picker) -> Preview -> Continue: the same
+  // staged-until-save discipline as Edit Profile (src/store see
+  // app/(app)/profile/edit.tsx) -- nothing uploads until the user actually
+  // taps Continue, so a cancelled onboarding session never uploads an
+  // orphaned image, and a failed upload leaves the local pick staged for
+  // retry rather than losing it.
+  const [localImageUri, setLocalImageUri] = useState<string | undefined>(undefined);
+  // Onboarding is normally a single pass, but a user can be routed back into
+  // this screen with an avatar already saved from an earlier, interrupted
+  // attempt (e.g. the app closed partway through a later onboarding step) --
+  // falls back to that existing photo exactly like Edit Profile does, so it
+  // isn't visually "lost" (still there in the DB either way, but showing
+  // initials instead would read as if it had been).
+  const [removeExistingAvatar, setRemoveExistingAvatar] = useState(false);
+  const displayedAvatarUri = localImageUri ?? (removeExistingAvatar ? undefined : profile?.avatarUri);
   const [displayName, setDisplayName] = useState(profile?.displayName || authFullName || '');
   const [businessName, setBusinessName] = useState(profile?.businessName ?? '');
   const [country, setCountry] = useState(profile?.country ?? '');
   const [website, setWebsite] = useState(profile?.website ?? '');
   const [error, setError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const countrySheetRef = useRef<BottomSheet>(null);
+  const [isCountrySheetMounted, setIsCountrySheetMounted] = useState(false);
+
+  function openCountrySheet() {
+    if (isCountrySheetMounted) {
+      countrySheetRef.current?.expand();
+    } else {
+      setIsCountrySheetMounted(true);
+    }
+  }
+
+  // Defense in depth for a backgrounded instance of this screen being
+  // reused with a sheet left open from an earlier visit -- matches the
+  // established convention (see app/request/amount.tsx).
+  useFocusEffect(
+    useCallback(() => {
+      countrySheetRef.current?.forceClose();
+    }, [])
+  );
+
+  async function handleAvatarPress() {
+    const action = await presentImagePickerActions(Boolean(displayedAvatarUri));
+    avatarDebugLog('onboarding profile: picker action', { type: action.type });
+    if (action.type === 'picked') {
+      setLocalImageUri(action.image.uri);
+      setRemoveExistingAvatar(false);
+    } else if (action.type === 'removed') {
+      setLocalImageUri(undefined);
+      setRemoveExistingAvatar(true);
+    }
+  }
 
   async function handleContinue() {
     if (isSubmitting) return;
@@ -33,15 +87,43 @@ export default function ProfileSetupScreen() {
     }
     if (!userId) return;
     setIsSubmitting(true);
+    // Tracks a just-uploaded object the profile write hasn't successfully
+    // referenced yet -- cleaned up below if the write then fails, so a
+    // retry doesn't accumulate orphaned Storage objects.
+    let uploadedButUnsavedUri: string | undefined;
+    avatarDebugLog('onboarding profile: continue start', {
+      userId,
+      hasLocalImage: Boolean(localImageUri),
+      removeExistingAvatar,
+    });
     try {
+      let avatarUri = profile?.avatarUri;
+      if (localImageUri) {
+        avatarUri = await uploadUserAvatar(userId, localImageUri);
+        uploadedButUnsavedUri = avatarUri;
+      } else if (removeExistingAvatar) {
+        avatarUri = undefined;
+      }
+
       await updateProfile(userId, {
         displayName: displayName.trim(),
         businessName: businessName.trim() || undefined,
         country: country.trim(),
         website: website.trim() || undefined,
+        avatarUri,
       });
+      uploadedButUnsavedUri = undefined;
+      avatarDebugLog('onboarding profile: continue succeeded', { avatarUri });
       router.push('/(onboarding)/wallet-setup');
-    } catch {
+    } catch (submitError) {
+      avatarDebugLog('onboarding profile: continue FAILED', {
+        message: submitError instanceof Error ? submitError.message : String(submitError),
+      });
+      // Best-effort only -- never lets a cleanup failure mask the real
+      // error the user needs to see and retry from.
+      if (uploadedButUnsavedUri) {
+        deleteAvatarByUrl(uploadedButUnsavedUri);
+      }
       Alert.alert('Something went wrong', "We couldn't save that. Check your connection and try again.");
     } finally {
       setIsSubmitting(false);
@@ -57,40 +139,71 @@ export default function ProfileSetupScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
-            onPress={() => setHasMockAvatar((prev) => !prev)}
-            style={[
-              styles.avatar,
-              { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.full, marginBottom: spacing.xl },
-            ]}
+            onPress={handleAvatarPress}
+            style={{ alignSelf: 'center', marginBottom: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel={displayedAvatarUri ? 'Change profile photo' : 'Add profile photo'}
           >
-            {hasMockAvatar ? (
-              <Text style={[typography.h2, { color: colors.textPrimary }]}>
-                {displayName.trim().slice(0, 1).toUpperCase() || 'F'}
-              </Text>
-            ) : (
-              <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
-            )}
+            <UserAvatar name={displayName.trim() || 'F'} avatarUri={displayedAvatarUri} size={96} />
+            <View
+              style={[
+                styles.cameraBadge,
+                { backgroundColor: colors.primaryAction, borderRadius: radius.full, borderColor: colors.background },
+              ]}
+            >
+              <Ionicons name="camera" size={14} color={colors.primaryActionText} />
+            </View>
           </Pressable>
+          <Text
+            style={[typography.bodyMedium, { color: colors.textPrimary, textAlign: 'center', marginTop: spacing.sm }]}
+          >
+            {displayedAvatarUri ? 'Change photo' : 'Add profile photo'}
+          </Text>
+          <Text
+            style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs / 2, marginBottom: spacing.xl }]}
+          >
+            You can change this anytime.
+          </Text>
+
           <TextField
             label="Display Name"
             value={displayName}
             onChangeText={setDisplayName}
             error={error}
+            placeholder="e.g. Farhan Zafar"
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
             returnKeyType="next"
           />
           <TextField
             label="Business Name (Optional)"
             value={businessName}
             onChangeText={setBusinessName}
+            placeholder="e.g. THINXIFY"
+            autoCapitalize="words"
             returnKeyType="next"
           />
-          <TextField label="Country" value={country} onChangeText={setCountry} returnKeyType="next" />
+          <View style={{ marginBottom: spacing.base }}>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+              Country
+            </Text>
+            <SelectField
+              icon="earth-outline"
+              label={country || 'Select your country'}
+              isPlaceholder={!country}
+              accessibilityLabel="Select country"
+              onPress={openCountrySheet}
+            />
+          </View>
           <TextField
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
+            placeholder="e.g. https://yourcompany.com"
             keyboardType="url"
             autoCapitalize="none"
+            autoComplete="url"
             returnKeyType="done"
             onSubmitEditing={handleContinue}
           />
@@ -99,10 +212,31 @@ export default function ProfileSetupScreen() {
           <PrimaryButton label="Continue" onPress={handleContinue} loading={isSubmitting} />
         </View>
       </KeyboardAvoidingView>
+
+      {isCountrySheetMounted ? (
+        <CountrySelectSheet
+          ref={countrySheetRef}
+          initialIndex={0}
+          selectedCode={findCountryByName(country)?.code}
+          onSelect={(selected) => {
+            setCountry(selected.name);
+            countrySheetRef.current?.close();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: { width: 88, height: 88, alignItems: 'center', justifyContent: 'center', borderWidth: 1, alignSelf: 'center' },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: 4,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
 });

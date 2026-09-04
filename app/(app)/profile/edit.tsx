@@ -1,19 +1,23 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { TextField } from '../../../src/components/TextField';
+import { SelectField } from '../../../src/components/SelectField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { UserAvatar } from '../../../src/components/UserAvatar';
 import { AvatarBorderPicker } from '../../../src/components/AvatarBorderPicker';
+import { CountrySelectSheet } from '../../../src/components/CountrySelectSheet';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { uploadUserAvatar, deleteAvatarByUrl } from '../../../src/services/storage/avatarUpload';
 import { presentImagePickerActions } from '../../../src/utils/presentImagePickerActions';
 import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
+import { findCountryByName } from '../../../src/utils/countries';
 import type { AvatarBorderStyle } from '../../../src/types';
 
 export default function EditProfileScreen() {
@@ -38,6 +42,23 @@ export default function EditProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const displayedAvatarUri = localImageUri ?? (removeExistingAvatar ? undefined : profile?.avatarUri);
+
+  const countrySheetRef = useRef<BottomSheet>(null);
+  const [isCountrySheetMounted, setIsCountrySheetMounted] = useState(false);
+
+  function openCountrySheet() {
+    if (isCountrySheetMounted) {
+      countrySheetRef.current?.expand();
+    } else {
+      setIsCountrySheetMounted(true);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      countrySheetRef.current?.forceClose();
+    }, [])
+  );
 
   async function handleAvatarPress() {
     const action = await presentImagePickerActions(Boolean(displayedAvatarUri));
@@ -146,15 +167,32 @@ export default function EditProfileScreen() {
             value={displayName}
             onChangeText={setDisplayName}
             error={error}
+            placeholder="e.g. Farhan Zafar"
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
             returnKeyType="next"
           />
-          <TextField label="Country" value={country} onChangeText={setCountry} returnKeyType="next" />
+          <View style={{ marginBottom: spacing.base }}>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+              Country
+            </Text>
+            <SelectField
+              icon="earth-outline"
+              label={country || 'Select your country'}
+              isPlaceholder={!country}
+              accessibilityLabel="Select country"
+              onPress={openCountrySheet}
+            />
+          </View>
           <TextField
             label="Website (Optional)"
             value={website}
             onChangeText={setWebsite}
+            placeholder="e.g. https://yourcompany.com"
             keyboardType="url"
             autoCapitalize="none"
+            autoComplete="url"
             returnKeyType="done"
           />
 
@@ -166,6 +204,18 @@ export default function EditProfileScreen() {
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
         </View>
       </KeyboardAvoidingView>
+
+      {isCountrySheetMounted ? (
+        <CountrySelectSheet
+          ref={countrySheetRef}
+          initialIndex={0}
+          selectedCode={findCountryByName(country)?.code}
+          onSelect={(selected) => {
+            setCountry(selected.name);
+            countrySheetRef.current?.close();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -78,6 +78,7 @@ export default function WalletSettingsScreen() {
                 value={address}
                 onChangeText={setAddress}
                 error={error}
+                placeholder="Enter your Solana wallet address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="done"

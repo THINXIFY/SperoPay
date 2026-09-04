@@ -325,7 +325,15 @@ export default function CustomersScreen() {
             onImageTypeChange={newCustomerImage.setImageType}
             onPress={newCustomerImage.handlePress}
           />
-          <TextField label="Name" value={name} onChangeText={setName} error={nameError} returnKeyType="next" />
+          <TextField
+            label="Name"
+            value={name}
+            onChangeText={setName}
+            error={nameError}
+            placeholder="e.g. John Smith"
+            autoCapitalize="words"
+            returnKeyType="next"
+          />
           <TextField
             label="Email"
             value={email}
@@ -333,12 +341,14 @@ export default function CustomersScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             error={emailError}
+            placeholder="john@company.com"
             returnKeyType="next"
           />
           <TextField
             label="Company (Optional)"
             value={company}
             onChangeText={setCompany}
+            placeholder="e.g. Acme Studio"
             returnKeyType="done"
             onSubmitEditing={handleAdd}
           />

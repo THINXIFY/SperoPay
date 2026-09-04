@@ -73,8 +73,15 @@ export default function SecurityScreen() {
             onChangeText={setNewPassword}
             secureTextEntry
             error={fieldError}
+            placeholder="Enter a new password"
           />
-          <TextField label="Confirm New Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+          <TextField
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            placeholder="Re-enter new password"
+          />
           <PrimaryButton label="Update Password" onPress={handleUpdatePassword} loading={isSaving} />
 
           <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.lg }]}>APP SECURITY</Text>

@@ -148,6 +148,7 @@ export default function LoginScreen() {
             }}
             onBlur={handleEmailBlur}
             error={errors.email}
+            placeholder="you@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -163,6 +164,7 @@ export default function LoginScreen() {
             }}
             onBlur={handlePasswordBlur}
             error={errors.password}
+            placeholder="Enter your password"
             autoComplete="current-password"
             textContentType="password"
             returnKeyType="done"

@@ -138,6 +138,7 @@ export default function ResetPasswordScreen() {
             }}
             onBlur={handlePasswordBlur}
             error={errors.password}
+            placeholder="Enter a new password"
             showStrength
             autoComplete="new-password"
             textContentType="newPassword"
@@ -152,6 +153,7 @@ export default function ResetPasswordScreen() {
             }}
             onBlur={handleConfirmBlur}
             error={errors.confirmPassword}
+            placeholder="Re-enter new password"
             autoComplete="new-password"
             textContentType="newPassword"
             returnKeyType="done"
