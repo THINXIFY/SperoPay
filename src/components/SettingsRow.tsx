@@ -11,22 +11,40 @@ interface SettingsRowProps {
   destructive?: boolean;
 }
 
-const ICON_COLUMN_WIDTH = 24;
+const ICON_COLUMN_WIDTH = 32;
 
 export function SettingsRow({ icon, label, value, onPress, destructive }: SettingsRowProps) {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
   const iconColor = destructive ? colors.error : colors.textSecondary;
   const labelColor = destructive ? colors.error : colors.textPrimary;
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, { minHeight: 48, opacity: pressed ? 0.6 : 1 }]}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          minHeight: 56,
+          backgroundColor: pressed ? colors.background : 'transparent',
+          opacity: pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.99 : 1 }],
+        },
+      ]}
       accessibilityRole="button"
       accessibilityLabel={value ? `${label}, ${value}` : label}
     >
-      <View style={[styles.iconColumn, { width: ICON_COLUMN_WIDTH }]}>
-        <Ionicons name={icon} size={18} color={iconColor} />
+      <View
+        style={[
+          styles.iconColumn,
+          {
+            width: ICON_COLUMN_WIDTH,
+            height: ICON_COLUMN_WIDTH,
+            borderRadius: radius.full,
+            backgroundColor: destructive ? colors.softRed : colors.background,
+          },
+        ]}
+      >
+        <Ionicons name={icon} size={16} color={iconColor} />
       </View>
       <Text
         style={[typography.body, { color: labelColor, flex: 1, marginLeft: spacing.md }]}
@@ -37,7 +55,7 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
       </Text>
       {value ? (
         <Text
-          style={[typography.bodySmall, { color: colors.textMuted, marginRight: spacing.xs }]}
+          style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.sm, marginRight: spacing.xs }]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.3}
         >

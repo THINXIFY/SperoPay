@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { router, useFocusEffect } from 'expo-router';
@@ -12,6 +12,7 @@ import { SectionLabel } from '../../../src/components/SectionLabel';
 import { SettingsGroup } from '../../../src/components/SettingsGroup';
 import { SettingsRow } from '../../../src/components/SettingsRow';
 import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { useProfileStore } from '../../../src/store/profileStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useThemeStore } from '../../../src/store/themeStore';
@@ -32,7 +33,8 @@ function truncateAddress(address: string): string {
 }
 
 export default function ProfileScreen() {
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const profile = useProfileStore((state) => state.profile);
   // Narrowed to the two primitive fields actually used below -- see
   // home.tsx for why: the whole `user` object is rebuilt on every auth
@@ -106,29 +108,38 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ padding: spacing.xl }}
+        showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshProfileData} />}
       >
         <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>Profile</Text>
 
         <Pressable
           onPress={() => router.push('/(app)/profile/edit')}
-          style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] }]}
           accessibilityRole="button"
-          accessibilityLabel="Edit profile"
+          accessibilityLabel={`${displayName}, ${userEmail}. View and edit profile`}
         >
-          <ThemeAwareCard>
+          <ThemeAwareCard style={{ padding: spacing.lg }}>
             <View style={styles.row}>
-              <UserAvatar name={displayName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={48} />
+              <UserAvatar name={displayName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={56} />
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
                 <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
                   {displayName}
                 </Text>
-                <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
                   {userEmail}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              <View
+                style={[
+                  styles.chevronCircle,
+                  { width: 28, height: 28, borderRadius: radius.full, backgroundColor: colors.background },
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
             </View>
           </ThemeAwareCard>
         </Pressable>
@@ -195,6 +206,16 @@ export default function ProfileScreen() {
         <SettingsGroup>
           <SettingsRow icon="log-out-outline" label="Sign Out" onPress={handleSignOut} destructive />
         </SettingsGroup>
+
+        {/* A real, rendered spacer -- not just contentContainerStyle
+            paddingBottom -- as the actual last child, so the space below
+            Sign Out is guaranteed regardless of how the container's own
+            padding resolves (see analytics.tsx for why padding alone isn't
+            reliable here). Profile is a genuine tab screen (unlike
+            Analytics), so its clearance needs TAB_BAR_CONTENT_HEIGHT in
+            addition to the real device inset, matching home.tsx's own
+            formula for the same reason. */}
+        <View style={{ height: 20 + insets.bottom + TAB_BAR_CONTENT_HEIGHT }} />
       </ScrollView>
 
       {isAppearanceSheetMounted ? (
@@ -237,4 +258,5 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
+  chevronCircle: { alignItems: 'center', justifyContent: 'center' },
 });

@@ -5,7 +5,12 @@ import { useTheme } from '../theme/useTheme';
 export function SectionLabel({ children }: { children: string }) {
   const { colors, spacing, typography } = useTheme();
   return (
-    <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.lg, marginBottom: spacing.xs }]}>
+    <Text
+      style={[
+        typography.caption,
+        { color: colors.textMuted, letterSpacing: 0.6, marginTop: spacing.xl, marginBottom: spacing.sm },
+      ]}
+    >
       {children}
     </Text>
   );
