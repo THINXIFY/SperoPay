@@ -72,7 +72,7 @@ export default function WelcomeScreen() {
       {/* Text block -- left-aligned, anchored near the top with breathing
           room, natural height (not flex) so it never competes with the
           hero card for vertical space. */}
-      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl }}>
+      <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl + 30 }}>
         {showSessionExpiredNotice ? (
           <View
             style={{
