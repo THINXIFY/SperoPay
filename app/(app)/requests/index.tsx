@@ -41,6 +41,15 @@ interface RequestRowProps {
 // shared RequestCard (also used by Customer Detail's history) or
 // StatusBadge, so this redesign stays scoped to the Requests screen and
 // never ripples into an unrelated one.
+//
+// React.memo still pays off here even though renderRequestRow recomputes
+// `customer` and `dateLabel` on every call: `customer` comes from a Map
+// keyed off the memoized customerById (same object reference as long as
+// `customers` itself hasn't changed), and `dateLabel` is a primitive --
+// two separately computed calls that produce the same string still
+// compare equal under shallow prop comparison. Only `request` itself
+// (unchanged unless that row's data changed) and the stable
+// `handleRequestPress` need to hold for the skip to actually happen.
 const RequestRow = React.memo(function RequestRow({ customer, request, dateLabel, onPress }: RequestRowProps) {
   const { colors, spacing, radius, typography } = useTheme();
   const secondaryLine = request.description || request.paymentCode;
