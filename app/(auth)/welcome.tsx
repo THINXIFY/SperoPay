@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, Animated, Easing, StyleSheet } from 'react-native';
+import { View, Text, Image, Animated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -7,17 +7,30 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { useAuthStore } from '../../src/store/authStore';
 
-// The asset's own pixel size (1462x900) -- keeps the card crisp at any
-// screen width instead of guessing a fixed aspect ratio.
+// The asset's own pixel size (1462x900) -- used to derive a correct height
+// from whatever width we pick, instead of letting the image size itself.
 const CARD_ASPECT_RATIO = 1462 / 900;
+const CARD_WIDTH_RATIO = 0.85; // ~85% of screen width
+const CARD_MAX_WIDTH = 400;
 
 export default function WelcomeScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const sessionExpiredNotice = useAuthStore((state) => state.sessionExpiredNotice);
   const clearSessionExpiredNotice = useAuthStore((state) => state.clearSessionExpiredNotice);
   // Captured once so the banner doesn't disappear mid-render the instant the
   // effect below clears the store flag for next time.
   const [showSessionExpiredNotice] = useState(sessionExpiredNotice);
+
+  // Explicit pixel dimensions, not a percentage width -- the card's direct
+  // parent (the Animated.View below) has no defined width of its own since
+  // visualWrap centers rather than stretches its children, so a percentage
+  // width here would have nothing definite to resolve against. That's what
+  // previously let the Image fall back to its native 1462x900 intrinsic
+  // size on-device: full-screen, cropped by the viewport, overlapping the
+  // copy and buttons below it.
+  const cardWidth = Math.min(windowWidth * CARD_WIDTH_RATIO, CARD_MAX_WIDTH);
+  const cardHeight = cardWidth / CARD_ASPECT_RATIO;
 
   // One-time entrance choreography: the card leads, then the headline copy,
   // then the actions -- each value is seeded at its hidden state
@@ -71,11 +84,21 @@ export default function WelcomeScreen() {
         ) : null}
         <View style={styles.visualWrap}>
           <View
-            style={[styles.glow, { backgroundColor: colors.primaryActionSoft, borderRadius: radius.full }]}
+            style={[
+              styles.glow,
+              {
+                width: cardWidth * 0.85,
+                height: cardWidth * 0.85,
+                backgroundColor: colors.primaryActionSoft,
+                borderRadius: radius.full,
+              },
+            ]}
             pointerEvents="none"
           />
           <Animated.View
             style={{
+              width: cardWidth,
+              height: cardHeight,
               opacity: cardAnim,
               transform: [
                 { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }) },
@@ -85,7 +108,7 @@ export default function WelcomeScreen() {
           >
             <Image
               source={require('../../assets/images/welcome-card.webp')}
-              style={[styles.cardImage, { aspectRatio: CARD_ASPECT_RATIO }]}
+              style={{ width: cardWidth, height: cardHeight }}
               resizeMode="contain"
               accessibilityIgnoresInvertColors
             />
@@ -127,6 +150,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
   content: { flex: 1, justifyContent: 'center' },
   visualWrap: { alignItems: 'center', justifyContent: 'center' },
-  glow: { position: 'absolute', width: '78%', aspectRatio: 1, opacity: 0.7 },
-  cardImage: { width: '100%' },
+  glow: { position: 'absolute', opacity: 0.7 },
 });
