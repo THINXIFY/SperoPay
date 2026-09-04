@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, Animated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Animated, Easing, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../src/theme/useTheme';
@@ -10,8 +10,8 @@ import { useAuthStore } from '../../src/store/authStore';
 // The asset's own pixel size (1462x900) -- used to derive a correct height
 // from whatever width we pick, instead of letting the image size itself.
 const CARD_ASPECT_RATIO = 1462 / 900;
-const CARD_WIDTH_RATIO = 0.85; // ~85% of screen width
-const CARD_MAX_WIDTH = 400;
+const CARD_WIDTH_RATIO = 0.78; // ~78% of screen width -- prominent but not dominant, now that it sits below the copy rather than leading the screen
+const CARD_MAX_WIDTH = 360;
 
 export default function WelcomeScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -24,21 +24,19 @@ export default function WelcomeScreen() {
 
   // Explicit pixel dimensions, not a percentage width -- the card's direct
   // parent (the Animated.View below) has no defined width of its own since
-  // visualWrap centers rather than stretches its children, so a percentage
-  // width here would have nothing definite to resolve against. That's what
-  // previously let the Image fall back to its native 1462x900 intrinsic
-  // size on-device: full-screen, cropped by the viewport, overlapping the
-  // copy and buttons below it.
+  // cardSection centers rather than stretches its children, so a percentage
+  // width here would have nothing definite to resolve against (this is what
+  // previously let the image render at its native intrinsic size).
   const cardWidth = Math.min(windowWidth * CARD_WIDTH_RATIO, CARD_MAX_WIDTH);
   const cardHeight = cardWidth / CARD_ASPECT_RATIO;
 
-  // One-time entrance choreography: the card leads, then the headline copy,
-  // then the actions -- each value is seeded at its hidden state
-  // unconditionally (never gated on an async condition) so this can't
-  // freeze mid-visible the way a conditionally-seeded Animated.Value did
-  // for the Analytics Paid-state animation elsewhere in this app.
-  const cardAnim = useRef(new Animated.Value(0)).current;
+  // One-time entrance choreography, sequenced to match the on-screen reading
+  // order (copy, then card, then actions) -- each value is seeded at its
+  // hidden state unconditionally (never gated on an async condition) so this
+  // can't freeze mid-visible the way a conditionally-seeded Animated.Value
+  // did for the Analytics Paid-state animation elsewhere in this app.
   const copyAnim = useRef(new Animated.Value(0)).current;
+  const cardAnim = useRef(new Animated.Value(0)).current;
   const actionsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -46,15 +44,15 @@ export default function WelcomeScreen() {
       clearSessionExpiredNotice();
     }
     Animated.stagger(110, [
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: 560,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
       Animated.timing(copyAnim, {
         toValue: 1,
         duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 560,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -74,7 +72,13 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingHorizontal: spacing.xl }]}>
         {showSessionExpiredNotice ? (
           <View
-            style={{ backgroundColor: colors.softRed, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}
+            style={{
+              backgroundColor: colors.softRed,
+              borderRadius: radius.md,
+              padding: spacing.md,
+              marginBottom: spacing.lg,
+              alignSelf: 'stretch',
+            }}
           >
             <Text style={[typography.bodyMedium, { color: colors.softRedText }]}>Your session expired</Text>
             <Text style={[typography.caption, { color: colors.softRedText, marginTop: spacing.xs / 2 }]}>
@@ -82,13 +86,37 @@ export default function WelcomeScreen() {
             </Text>
           </View>
         ) : null}
-        <View style={styles.visualWrap}>
+
+        <Animated.View
+          style={{
+            alignItems: 'center',
+            opacity: copyAnim,
+            transform: [{ translateY: copyAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+          }}
+        >
+          <Text style={[typography.display, { color: colors.textPrimary, textAlign: 'center' }]}>Spero</Text>
+          <Text
+            style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs, textAlign: 'center' }]}
+          >
+            Request. Share. Get Paid.
+          </Text>
+          <Text
+            style={[
+              typography.body,
+              { color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center', maxWidth: 300 },
+            ]}
+          >
+            Simple crypto payments for modern businesses.
+          </Text>
+        </Animated.View>
+
+        <View style={[styles.cardSection, { marginTop: spacing.xxl }]}>
           <View
             style={[
               styles.glow,
               {
-                width: cardWidth * 0.85,
-                height: cardWidth * 0.85,
+                width: cardWidth * 0.9,
+                height: cardWidth * 0.9,
                 backgroundColor: colors.primaryActionSoft,
                 borderRadius: radius.full,
               },
@@ -96,15 +124,18 @@ export default function WelcomeScreen() {
             pointerEvents="none"
           />
           <Animated.View
-            style={{
-              width: cardWidth,
-              height: cardHeight,
-              opacity: cardAnim,
-              transform: [
-                { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }) },
-                { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
-              ],
-            }}
+            style={[
+              styles.cardShadow,
+              {
+                width: cardWidth,
+                height: cardHeight,
+                opacity: cardAnim,
+                transform: [
+                  { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) },
+                  { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+                ],
+              },
+            ]}
           >
             <Image
               source={require('../../assets/images/welcome-card.webp')}
@@ -114,27 +145,14 @@ export default function WelcomeScreen() {
             />
           </Animated.View>
         </View>
-        <Animated.View
-          style={{
-            opacity: copyAnim,
-            transform: [{ translateY: copyAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
-            marginTop: spacing.xxl,
-          }}
-        >
-          <Text style={[typography.display, { color: colors.textPrimary }]}>Spero</Text>
-          <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs }]}>
-            Request. Share. Get Paid.
-          </Text>
-          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm }]}>
-            Simple crypto payments for modern businesses.
-          </Text>
-        </Animated.View>
       </View>
+
       <Animated.View
         style={{
           opacity: actionsAnim,
-          transform: [{ translateY: actionsAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+          transform: [{ translateY: actionsAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
           paddingHorizontal: spacing.xl,
+          paddingTop: spacing.xl,
           gap: spacing.sm,
           paddingBottom: spacing.lg,
         }}
@@ -148,7 +166,19 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'space-between' },
-  content: { flex: 1, justifyContent: 'center' },
-  visualWrap: { alignItems: 'center', justifyContent: 'center' },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cardSection: { alignItems: 'center', justifyContent: 'center' },
   glow: { position: 'absolute', opacity: 0.7 },
+  cardShadow: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.16,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+      },
+      android: { elevation: 10 },
+      default: {},
+    }),
+  },
 });
