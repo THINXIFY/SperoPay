@@ -90,12 +90,7 @@ export default function AnalyticsScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          // A clear, literal 20px of visual breathing room below the last
-          // card, then the device's own real bottom safe-area inset -- not
-          // a guessed flat constant standing in for both. This screen has
-          // no bottom tab bar under it (see the routing note below), so
-          // insets.bottom is the only additional clearance actually needed.
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: 20 + insets.bottom }}
+          contentContainerStyle={{ padding: spacing.xl }}
           showsVerticalScrollIndicator={false}
           refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         >
@@ -240,6 +235,16 @@ export default function AnalyticsScreen() {
               </ThemeAwareCard>
             </View>
           ) : null}
+
+          {/* A real, rendered spacer -- not just contentContainerStyle
+              paddingBottom -- as the actual last child. Belt-and-braces:
+              some Android configurations (padding interacting with a
+              RefreshControl-wrapped ScrollView in particular) have been
+              seen to under-apply a content container's own paddingBottom,
+              so the space below the last card needs to be a genuine
+              element in the content's flow, not only a style property, to
+              be guaranteed visible regardless of that. */}
+          <View style={{ height: 20 + insets.bottom }} />
         </ScrollView>
       )}
     </SafeAreaView>
