@@ -118,33 +118,51 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshProfileData} />}
       >
-        <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.lg }]}>Profile</Text>
+        <Text style={[typography.h1, { color: colors.textPrimary, marginBottom: spacing.md }]}>Profile</Text>
 
         <Pressable
           onPress={() => router.push('/(app)/profile/edit')}
-          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] }]}
+          style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
           accessibilityRole="button"
           accessibilityLabel={`${displayName}, ${userEmail}. View and edit profile`}
         >
-          <ThemeAwareCard style={{ padding: spacing.lg }}>
-            <View style={styles.row}>
-              <UserAvatar name={displayName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={56} />
-              <View style={{ marginLeft: spacing.md, flex: 1 }}>
-                <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {displayName}
-                </Text>
-                <Text style={[typography.bodySmall, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
-                  {userEmail}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.chevronCircle,
-                  { width: 28, height: 28, borderRadius: radius.full, backgroundColor: colors.background },
-                ]}
-              >
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
+          <ThemeAwareCard variant="hero" style={{ padding: spacing.xl, alignItems: 'center' }}>
+            <UserAvatar name={displayName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={72} />
+            <Text
+              style={[typography.h2, { color: colors.heroSurfaceText, marginTop: spacing.md, textAlign: 'center' }]}
+              numberOfLines={1}
+            >
+              {displayName}
+            </Text>
+            <Text
+              style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginTop: spacing.xs / 2 }]}
+              numberOfLines={1}
+            >
+              {userEmail}
+            </Text>
+            <View
+              style={[
+                styles.accountPill,
+                { backgroundColor: colors.primaryActionSoft, borderRadius: radius.full, paddingHorizontal: spacing.md, marginTop: spacing.md },
+              ]}
+            >
+              <Ionicons name="shield-checkmark" size={12} color={colors.primaryAction} />
+              <Text style={[typography.caption, { color: colors.primaryAction, marginLeft: spacing.xs }]}>Personal Account</Text>
+            </View>
+            <View
+              style={[
+                styles.editPill,
+                {
+                  backgroundColor: colors.heroSurfaceBorder,
+                  borderRadius: radius.full,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.xs,
+                  marginTop: spacing.lg,
+                },
+              ]}
+            >
+              <Ionicons name="create-outline" size={14} color={colors.heroSurfaceText} />
+              <Text style={[typography.caption, { color: colors.heroSurfaceText, marginLeft: spacing.xs }]}>Edit Profile</Text>
             </View>
           </ThemeAwareCard>
         </Pressable>
@@ -263,5 +281,6 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  chevronCircle: { alignItems: 'center', justifyContent: 'center' },
+  accountPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  editPill: { flexDirection: 'row', alignItems: 'center' },
 });

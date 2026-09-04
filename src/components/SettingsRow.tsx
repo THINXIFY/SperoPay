@@ -11,11 +11,16 @@ interface SettingsRowProps {
   destructive?: boolean;
 }
 
-const ICON_COLUMN_WIDTH = 32;
+const ICON_COLUMN_WIDTH = 36;
 
 export function SettingsRow({ icon, label, value, onPress, destructive }: SettingsRowProps) {
   const { colors, spacing, radius, typography } = useTheme();
-  const iconColor = destructive ? colors.error : colors.textSecondary;
+  // The lime tint carries the "branded" signal entirely via the chip's
+  // background -- lime is a bright, light-luminance color, so lime-on-
+  // lime-tint (the same trick StatusBadge uses for darker semantic colors)
+  // would be genuinely poor contrast here. The glyph itself stays a plain
+  // dark/neutral tone for real legibility.
+  const iconColor = destructive ? colors.error : colors.textPrimary;
   const labelColor = destructive ? colors.error : colors.textPrimary;
 
   return (
@@ -24,10 +29,10 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
       style={({ pressed }) => [
         styles.row,
         {
-          minHeight: 56,
+          minHeight: 60,
           backgroundColor: pressed ? colors.background : 'transparent',
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.99 : 1 }],
+          opacity: pressed ? 0.8 : 1,
+          transform: [{ scale: pressed ? 0.97 : 1 }],
         },
       ]}
       accessibilityRole="button"
@@ -39,22 +44,17 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
           {
             width: ICON_COLUMN_WIDTH,
             height: ICON_COLUMN_WIDTH,
-            borderRadius: radius.full,
-            backgroundColor: destructive ? colors.softRed : colors.background,
-            // colors.background and the card's own colors.surface differ by
-            // only a hair in both themes (by design -- background is
-            // meant to read as "barely off the card"), so the neutral
-            // chip needs a hairline border to stay visible as a distinct
-            // shape -- same fix home.tsx's emptyIconWrap already uses for
-            // the identical background-on-surface situation. Not needed
-            // for the destructive variant, whose softRed tint has its own
-            // real contrast, but applied uniformly for one consistent look.
-            borderWidth: 1,
-            borderColor: colors.border,
+            borderRadius: radius.md,
+            // A single restrained lime tint for every non-destructive row
+            // (not one color per category -- Spero's one signature accent,
+            // used the same way StatusBadge already tints colored text on
+            // a same-color soft background) makes the icon column read as
+            // a deliberate, branded chip at a glance, not a bare glyph.
+            backgroundColor: destructive ? colors.softRed : colors.primaryActionSoft,
           },
         ]}
       >
-        <Ionicons name={icon} size={16} color={iconColor} />
+        <Ionicons name={icon} size={17} color={iconColor} />
       </View>
       <Text
         style={[typography.body, { color: labelColor, flex: 1, marginLeft: spacing.md }]}
