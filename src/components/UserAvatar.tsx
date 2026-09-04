@@ -46,6 +46,16 @@ export function UserAvatar({ name, avatarUri, borderStyle = 'none', size = 44 }:
             height: innerSize,
             borderRadius: innerSize / 2,
             backgroundColor: colors.softLavender,
+            // A hairline border regardless of what this sits on -- in dark
+            // mode, softLavender's own dark variant (#211D3A) sits at
+            // roughly the same luminance as heroSurface (#191919, used by
+            // e.g. Profile's identity card), so without a defined edge the
+            // fallback circle nearly disappears into a dark hero card, not
+            // just theoretically but measured (~1.09:1 contrast). Harmless
+            // on a light/surface background -- colors.border is a subtle
+            // token everywhere else in the app too.
+            borderWidth: 1,
+            borderColor: colors.border,
           },
         ]}
       >

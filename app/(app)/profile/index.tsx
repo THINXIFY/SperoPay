@@ -153,7 +153,15 @@ export default function ProfileScreen() {
               style={[
                 styles.editPill,
                 {
-                  backgroundColor: colors.heroSurfaceBorder,
+                  // heroSurfaceBorder (translucent white) measured only
+                  // ~1.3-1.4:1 luminance away from heroSurface itself --
+                  // the pill's own text/icon were legible, but the pill
+                  // SHAPE was nearly invisible against the card, the same
+                  // "too subtle" problem this whole redesign exists to fix.
+                  // The lime tint already proven high-contrast for the
+                  // "Personal Account" pill above reads as a real, visible
+                  // chip instead.
+                  backgroundColor: colors.primaryActionSoft,
                   borderRadius: radius.full,
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.xs,
@@ -161,8 +169,8 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              <Ionicons name="create-outline" size={14} color={colors.heroSurfaceText} />
-              <Text style={[typography.caption, { color: colors.heroSurfaceText, marginLeft: spacing.xs }]}>Edit Profile</Text>
+              <Ionicons name="create-outline" size={14} color={colors.primaryAction} />
+              <Text style={[typography.caption, { color: colors.primaryAction, marginLeft: spacing.xs }]}>Edit Profile</Text>
             </View>
           </ThemeAwareCard>
         </Pressable>
