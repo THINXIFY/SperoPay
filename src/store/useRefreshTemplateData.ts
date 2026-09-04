@@ -7,8 +7,10 @@ interface UseRefreshTemplateDataResult {
   isRefreshing: boolean;
 }
 
-// Same shape/guarding as useRefreshCustomerData -- templates don't depend on
-// any other store's data for display, so this only reloads themselves.
+// Same shape/guarding as useRefreshCustomerData. Templates can reference a
+// default customer for display, but customers are already loaded globally
+// at sign-in (app/_layout.tsx), not fetched per-screen -- so this only
+// needs to reload templates themselves.
 export function useRefreshTemplateData(): UseRefreshTemplateDataResult {
   const userId = useAuthStore((state) => state.user?.id);
   const [isRefreshing, setIsRefreshing] = useState(false);

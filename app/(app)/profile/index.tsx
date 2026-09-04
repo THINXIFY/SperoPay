@@ -199,7 +199,11 @@ export default function ProfileScreen() {
             label="Payment Defaults"
             onPress={() => router.push('/(app)/profile/payment-defaults')}
           />
-          <SettingsRow icon="copy-outline" label="Templates" onPress={() => router.push('/(app)/profile/templates')} />
+          <SettingsRow
+            icon="copy-outline"
+            label="Payment Templates"
+            onPress={() => router.push('/(app)/profile/templates')}
+          />
         </SettingsGroup>
 
         <SectionLabel>PREFERENCES</SectionLabel>

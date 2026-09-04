@@ -9,13 +9,25 @@ interface RequestDraftState {
   expiryOption: ExpiryOption;
   note: string;
   lastCreatedRequestId: string | null;
+  // Set only by prefillFrom when a draft originates from "Use Template" --
+  // lets a successful Create Request record a usage count against the
+  // right template (see app/request/details.tsx) without templates and
+  // requests needing to know about each other beyond this one field.
+  sourceTemplateId: string | undefined;
   setAmount: (amount: string) => void;
   setDescription: (description: string) => void;
   setCustomerId: (customerId: string | undefined) => void;
   setExpiryOption: (option: ExpiryOption) => void;
   setNote: (note: string) => void;
   setLastCreatedRequestId: (id: string | null) => void;
-  prefillFrom: (values: { amount?: string; description?: string; customerId?: string; expiryOption?: ExpiryOption; note?: string }) => void;
+  prefillFrom: (values: {
+    amount?: string;
+    description?: string;
+    customerId?: string;
+    expiryOption?: ExpiryOption;
+    note?: string;
+    sourceTemplateId?: string;
+  }) => void;
   reset: () => void;
   startFresh: (defaultExpiryOption: ExpiryOption) => void;
 }
@@ -27,6 +39,7 @@ const initialState = {
   expiryOption: '7d' as ExpiryOption,
   note: '',
   lastCreatedRequestId: null as string | null,
+  sourceTemplateId: undefined as string | undefined,
 };
 
 export const useRequestDraftStore = create<RequestDraftState>()((set) => ({

@@ -13,6 +13,7 @@ import { CustomerAvatar } from '../../src/components/CustomerAvatar';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
+import { useTemplateStore } from '../../src/store/templateStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidEmail } from '../../src/utils/validators';
 import type { ExpiryOption } from '../../src/types';
@@ -37,6 +38,7 @@ export default function DetailsScreen() {
   const note = useRequestDraftStore((state) => state.note);
   const setNote = useRequestDraftStore((state) => state.setNote);
   const setLastCreatedRequestId = useRequestDraftStore((state) => state.setLastCreatedRequestId);
+  const sourceTemplateId = useRequestDraftStore((state) => state.sourceTemplateId);
 
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
@@ -141,6 +143,12 @@ export default function DetailsScreen() {
         note: note.trim() || undefined,
       });
       setLastCreatedRequestId(request.id);
+      if (sourceTemplateId) {
+        // Fire-and-forget: only counts a "use" once a request is actually
+        // created (never on a bare "Use Template" tap), but a failure here
+        // must never block or affect navigation to the just-created request.
+        useTemplateStore.getState().recordUsage(userId, sourceTemplateId);
+      }
       router.replace(`/request/created?id=${request.id}`);
     } catch {
       Alert.alert('Something went wrong', "We couldn't create this request. Check your connection and try again.");

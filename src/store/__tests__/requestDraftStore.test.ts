@@ -53,4 +53,24 @@ describe('requestDraftStore', () => {
 
     expect(useRequestDraftStore.getState().expiryOption).toBe('7d');
   });
+
+  it('prefillFrom carries sourceTemplateId when a draft originates from Use Template', () => {
+    useRequestDraftStore.getState().prefillFrom({ amount: '100', sourceTemplateId: 'template-1' });
+
+    expect(useRequestDraftStore.getState().sourceTemplateId).toBe('template-1');
+  });
+
+  it('sourceTemplateId is absent for a draft not started from a template', () => {
+    useRequestDraftStore.getState().prefillFrom({ amount: '100' });
+
+    expect(useRequestDraftStore.getState().sourceTemplateId).toBeUndefined();
+  });
+
+  it('reset clears sourceTemplateId', () => {
+    useRequestDraftStore.getState().prefillFrom({ amount: '100', sourceTemplateId: 'template-1' });
+
+    useRequestDraftStore.getState().reset();
+
+    expect(useRequestDraftStore.getState().sourceTemplateId).toBeUndefined();
+  });
 });
