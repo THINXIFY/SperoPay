@@ -7,6 +7,7 @@ import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../../src/theme/useTheme';
 import { AppHeader } from '../../../../src/components/AppHeader';
 import { AppBottomSheet } from '../../../../src/components/AppBottomSheet';
+import { AppActionSheet, type ActionSheetItem } from '../../../../src/components/AppActionSheet';
 import { TextField } from '../../../../src/components/TextField';
 import { SelectField } from '../../../../src/components/SelectField';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
@@ -73,6 +74,8 @@ export default function PaymentTemplatesScreen() {
   const formSheetRef = useRef<BottomSheet>(null);
   const expirySheetRef = useRef<BottomSheet>(null);
   const customerSheetRef = useRef<BottomSheet>(null);
+  const actionsSheetRef = useRef<BottomSheet>(null);
+  const [actionsTarget, setActionsTarget] = useState<Template | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -95,6 +98,7 @@ export default function PaymentTemplatesScreen() {
   const [isFormSheetMounted, setIsFormSheetMounted] = useState(false);
   const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
   const [isCustomerSheetMounted, setIsCustomerSheetMounted] = useState(false);
+  const [isActionsSheetMounted, setIsActionsSheetMounted] = useState(false);
 
   function openFormSheet() {
     if (isFormSheetMounted) formSheetRef.current?.expand();
@@ -117,6 +121,7 @@ export default function PaymentTemplatesScreen() {
       formSheetRef.current?.forceClose();
       expirySheetRef.current?.forceClose();
       customerSheetRef.current?.forceClose();
+      actionsSheetRef.current?.forceClose();
     }, [])
   );
 
@@ -255,14 +260,40 @@ export default function PaymentTemplatesScreen() {
     // has one of those mutations in flight -- avoids e.g. opening an Edit
     // sheet on a template mid-archive.
     if (busyId === template.id) return;
-    Alert.alert(template.name, undefined, [
-      { text: 'Edit', onPress: () => openEditForm(template) },
-      { text: 'Duplicate', onPress: () => handleDuplicate(template) },
-      { text: 'Archive', onPress: () => handleToggleArchive(template) },
-      { text: 'Delete', style: 'destructive', onPress: () => setDeleteTarget(template) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setActionsTarget(template);
+    if (isActionsSheetMounted) actionsSheetRef.current?.expand();
+    else setIsActionsSheetMounted(true);
   }
+
+  function runTemplateAction(action: () => void) {
+    actionsSheetRef.current?.close();
+    action();
+  }
+
+  const templateActions: ActionSheetItem[] = actionsTarget
+    ? [
+        { key: 'edit', label: 'Edit', icon: 'create-outline', onPress: () => runTemplateAction(() => openEditForm(actionsTarget)) },
+        {
+          key: 'duplicate',
+          label: 'Duplicate',
+          icon: 'copy-outline',
+          onPress: () => runTemplateAction(() => handleDuplicate(actionsTarget)),
+        },
+        {
+          key: 'archive',
+          label: 'Archive',
+          icon: 'archive-outline',
+          onPress: () => runTemplateAction(() => handleToggleArchive(actionsTarget)),
+        },
+        {
+          key: 'delete',
+          label: 'Delete',
+          icon: 'trash-outline',
+          destructive: true,
+          onPress: () => runTemplateAction(() => setDeleteTarget(actionsTarget)),
+        },
+      ]
+    : [];
 
   const activeTemplates = useMemo(() => sortTemplates(templates.filter((t) => !t.isArchived)), [templates]);
   const archivedCount = useMemo(() => templates.filter((t) => t.isArchived).length, [templates]);
@@ -519,6 +550,10 @@ export default function PaymentTemplatesScreen() {
             })
           )}
         </AppBottomSheet>
+      ) : null}
+
+      {isActionsSheetMounted ? (
+        <AppActionSheet ref={actionsSheetRef} initialIndex={0} title={actionsTarget?.name} actions={templateActions} />
       ) : null}
 
       <ConfirmationModal

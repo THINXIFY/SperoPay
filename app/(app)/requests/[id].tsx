@@ -355,6 +355,7 @@ export default function RequestDetailScreen() {
         onConfirm={handleConfirmCancel}
         onCancel={() => setCancelModalVisible(false)}
         loading={isCancelling}
+        icon="close-circle-outline"
       />
 
       <ConfirmationModal

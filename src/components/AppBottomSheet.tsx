@@ -56,7 +56,7 @@ export const AppBottomSheet = forwardRef<BottomSheet, AppBottomSheetProps>(
         enableDynamicSizing={false}
         enablePanDownToClose
         backgroundStyle={{ backgroundColor: colors.surface, borderRadius: radius.xl }}
-        handleIndicatorStyle={{ backgroundColor: colors.border }}
+        handleIndicatorStyle={{ backgroundColor: colors.border, width: 40, height: 4 }}
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}

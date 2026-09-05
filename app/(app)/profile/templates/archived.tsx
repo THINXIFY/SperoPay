@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../../src/theme/useTheme';
 import { AppHeader } from '../../../../src/components/AppHeader';
 import { EmptyState } from '../../../../src/components/EmptyState';
 import { ConfirmationModal } from '../../../../src/components/ConfirmationModal';
 import { PaymentTemplateCard } from '../../../../src/components/PaymentTemplateCard';
+import { AppActionSheet, type ActionSheetItem } from '../../../../src/components/AppActionSheet';
 import { useTemplateStore } from '../../../../src/store/templateStore';
 import { useCustomerStore } from '../../../../src/store/customerStore';
 import { useAuthStore } from '../../../../src/store/authStore';
@@ -28,6 +30,16 @@ export default function ArchivedTemplatesScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const actionsSheetRef = useRef<BottomSheet>(null);
+  const [isActionsSheetMounted, setIsActionsSheetMounted] = useState(false);
+  const [actionsTarget, setActionsTarget] = useState<Template | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      actionsSheetRef.current?.forceClose();
+    }, [])
+  );
 
   const archivedTemplates = useMemo(() => templates.filter((t) => t.isArchived), [templates]);
 
@@ -57,12 +69,34 @@ export default function ArchivedTemplatesScreen() {
   }
 
   function openActions(template: Template) {
-    Alert.alert(template.name, undefined, [
-      { text: 'Restore', onPress: () => handleRestore(template) },
-      { text: 'Delete', style: 'destructive', onPress: () => setDeleteTarget(template) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    if (busyId === template.id) return;
+    setActionsTarget(template);
+    if (isActionsSheetMounted) actionsSheetRef.current?.expand();
+    else setIsActionsSheetMounted(true);
   }
+
+  function runTemplateAction(action: () => void) {
+    actionsSheetRef.current?.close();
+    action();
+  }
+
+  const templateActions: ActionSheetItem[] = actionsTarget
+    ? [
+        {
+          key: 'restore',
+          label: 'Restore',
+          icon: 'arrow-undo-outline',
+          onPress: () => runTemplateAction(() => handleRestore(actionsTarget)),
+        },
+        {
+          key: 'delete',
+          label: 'Delete',
+          icon: 'trash-outline',
+          destructive: true,
+          onPress: () => runTemplateAction(() => setDeleteTarget(actionsTarget)),
+        },
+      ]
+    : [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
@@ -91,6 +125,10 @@ export default function ArchivedTemplatesScreen() {
           </View>
         )}
       />
+
+      {isActionsSheetMounted ? (
+        <AppActionSheet ref={actionsSheetRef} initialIndex={0} title={actionsTarget?.name} actions={templateActions} />
+      ) : null}
 
       <ConfirmationModal
         visible={deleteTarget !== null}

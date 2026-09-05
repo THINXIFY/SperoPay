@@ -53,10 +53,14 @@ export function SelectField({ icon, label, onPress, isPlaceholder, accessibility
           <Ionicons name={icon} size={14} color={colors.softMintText} />
         </View>
       ) : null}
-      <Text style={[typography.bodyMedium, { color: isPlaceholder ? colors.textMuted : colors.textPrimary, flex: 1 }]}>
+      <Text
+        style={[typography.bodyMedium, { color: isPlaceholder ? colors.textMuted : colors.textPrimary, flex: 1 }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
         {label}
       </Text>
-      <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+      <Ionicons name="chevron-down" size={18} color={colors.textMuted} style={{ marginLeft: spacing.xs }} />
     </Pressable>
   );
 }
