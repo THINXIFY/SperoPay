@@ -9,6 +9,14 @@ describe('isWebPubliclyAllowedPath', () => {
     expect(isWebPubliclyAllowedPath('/c/abc-123')).toBe(true);
   });
 
+  it('allows a public invoice link with a token', () => {
+    expect(isWebPubliclyAllowedPath('/invoice/abc-123')).toBe(true);
+  });
+
+  it('allows a public receipt link with a token', () => {
+    expect(isWebPubliclyAllowedPath('/receipt/abc-123')).toBe(true);
+  });
+
   it('allows the auth callback screen (native auth flow defense in depth)', () => {
     expect(isWebPubliclyAllowedPath('/auth/callback')).toBe(true);
   });
@@ -46,5 +54,7 @@ describe('isWebPubliclyAllowedPath', () => {
   it('does not treat an unrelated path merely starting with the same letter as allowed', () => {
     expect(isWebPubliclyAllowedPath('/profile')).toBe(false); // starts with "p" but is not "/p/"
     expect(isWebPubliclyAllowedPath('/customers')).toBe(false); // starts with "c" but is not "/c/"
+    expect(isWebPubliclyAllowedPath('/invoicing')).toBe(false); // starts with "invoice" but is not "/invoice/"
+    expect(isWebPubliclyAllowedPath('/receipts')).toBe(false); // starts with "receipt" but is not "/receipt/"
   });
 });

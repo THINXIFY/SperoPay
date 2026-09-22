@@ -13,6 +13,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { generatePaymentCode } from '../../../src/utils/ids.ts';
 import { generateSolanaReference } from '../../../src/services/blockchain/solana/reference.ts';
+import { getCheckoutBaseUrl } from '../../../src/utils/checkoutBaseUrl.ts';
 import { addCalendarDays, computeNextRunAt } from '../../../src/utils/recurringSchedule.ts';
 import { zonedTimeToUtc, getZonedDateParts, computeReminderOccurrences, rulesForPreset } from '../../../src/utils/reminderSchedule.ts';
 import { isAuthorizedCronRequest } from '../../../src/utils/cronAuth.ts';
@@ -148,7 +149,13 @@ Deno.serve(async (req: Request) => {
 
       const occurrenceNumber = plan.occurrences_generated + 1;
       const paymentCode = generatePaymentCode();
-      const paymentLink = `https://pay.speropay.app/r/${paymentCode}`;
+      // Legacy/cosmetic field (see buildPaymentRequest.ts's identical
+      // comment) -- payment_requests.payment_link is NOT NULL and written
+      // at insert time, before the row's real public_token exists, so it
+      // can never be a working link. Never rendered anywhere. Routed
+      // through the same centralized getCheckoutBaseUrl() as every real
+      // link so this doesn't hardcode a second copy of the domain.
+      const paymentLink = `${getCheckoutBaseUrl()}/r/${paymentCode}`;
       const solanaReference = generateSolanaReference();
 
       const { data: requestRow, error: generateError } = await supabase.rpc('generate_recurring_request', {

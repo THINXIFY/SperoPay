@@ -16,6 +16,7 @@ import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { DetailRow } from '../../src/components/DetailRow';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
+import { CustomerFacingStatusPill } from '../../src/components/CustomerFacingStatusPill';
 import { useCustomerPortal } from '../../src/services/customerPortal/useCustomerPortal';
 import type { CustomerPortalData, CustomerPortalRequest } from '../../src/services/customerPortal/types';
 import { deriveCustomerFacingStatus } from '../../src/utils/customerFacingStatus';
@@ -188,32 +189,6 @@ function ProgressBar({ ratio }: { ratio: number }) {
   );
 }
 
-function statusPillColors(tone: ReturnType<typeof deriveCustomerFacingStatus>['tone'], colors: ReturnType<typeof useTheme>['colors']) {
-  switch (tone) {
-    case 'success':
-      return { bg: colors.softMint, text: colors.softMintText };
-    case 'danger':
-      return { bg: colors.softRed, text: colors.softRedText };
-    case 'warning':
-      return { bg: colors.softLavender, text: colors.softLavenderText };
-    case 'info':
-      return { bg: colors.softBlue, text: colors.softBlueText };
-    default:
-      return { bg: colors.background, text: colors.textMuted };
-  }
-}
-
-function StatusPill({ status, dueAt, verifiedPaidAmount, remainingAmount }: { status: CustomerPortalRequest['status']; dueAt: string | null; verifiedPaidAmount: number; remainingAmount: number }) {
-  const { colors, spacing, radius, typography } = useTheme();
-  const derived = deriveCustomerFacingStatus({ status, dueAt, verifiedPaidAmount, remainingAmount });
-  const tone = statusPillColors(derived.tone, colors);
-  return (
-    <View style={[styles.pill, { backgroundColor: tone.bg, borderRadius: radius.full, paddingHorizontal: spacing.sm }]}>
-      <Text style={[typography.caption, { color: tone.text }]}>{derived.label}</Text>
-    </View>
-  );
-}
-
 interface PortalContentProps {
   data: CustomerPortalData;
 }
@@ -356,7 +331,7 @@ function PortalContent({ data }: PortalContentProps) {
                         <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
                           {request.description || 'Payment request'}
                         </Text>
-                        <StatusPill
+                        <CustomerFacingStatusPill
                           status={request.status}
                           dueAt={request.dueAt}
                           verifiedPaidAmount={request.verifiedPaidAmount}
@@ -532,7 +507,7 @@ function RequestDetailContent({ request, merchantName, customerName, payments, o
       <Text style={[typography.h3, { color: colors.textPrimary }]}>{request.description || 'Payment request'}</Text>
       <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>{request.paymentCode}</Text>
       <View style={{ marginTop: spacing.sm }}>
-        <StatusPill
+        <CustomerFacingStatusPill
           status={request.status}
           dueAt={request.dueAt}
           verifiedPaidAmount={request.verifiedPaidAmount}

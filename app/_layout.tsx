@@ -75,6 +75,8 @@ function RootNavigator() {
         <Stack.Screen name="reports" />
         <Stack.Screen name="p" />
         <Stack.Screen name="c" />
+        <Stack.Screen name="invoice" />
+        <Stack.Screen name="receipt" />
       </Stack>
     </>
   );

@@ -54,7 +54,7 @@ export default function ReceiptScreen() {
     );
   }
 
-  const receiptId = getReceiptId(request);
+  const receiptId = getReceiptId(request.paymentCode);
   const businessName = profile?.businessName?.trim() || profile?.displayName || 'Your business';
 
   async function handleShare() {

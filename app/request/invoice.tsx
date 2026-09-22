@@ -24,6 +24,7 @@ import { formatDocumentDate } from '../../src/utils/formatDocumentDate';
 import { getInvoiceId } from '../../src/utils/documentIds';
 import { buildInvoiceShareMessage } from '../../src/utils/buildInvoiceShareMessage';
 import { getPublicPaymentUrl } from '../../src/utils/publicPaymentLink';
+import { getPublicInvoiceUrl } from '../../src/utils/publicInvoiceLink';
 
 export default function InvoiceScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -33,8 +34,11 @@ export default function InvoiceScreen() {
   const profile = useProfileStore((state) => state.profile);
   const [copiedLink, setCopiedLink] = useState(false);
   const copiedLinkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedInvoiceLink, setCopiedInvoiceLink] = useState(false);
+  const copiedInvoiceLinkTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (copiedLinkTimeout.current) clearTimeout(copiedLinkTimeout.current);
+    if (copiedInvoiceLinkTimeout.current) clearTimeout(copiedInvoiceLinkTimeout.current);
   }, []);
   const { refresh: refreshPaymentData, isRefreshing } = useRefreshMerchantPaymentData();
 
@@ -53,7 +57,7 @@ export default function InvoiceScreen() {
     );
   }
 
-  const invoiceId = getInvoiceId(request);
+  const invoiceId = getInvoiceId(request.paymentCode);
   const businessName = profile?.businessName?.trim() || profile?.displayName || 'Your business';
 
   async function handleShare() {
@@ -67,6 +71,14 @@ export default function InvoiceScreen() {
     setCopiedLink(true);
     if (copiedLinkTimeout.current) clearTimeout(copiedLinkTimeout.current);
     copiedLinkTimeout.current = setTimeout(() => setCopiedLink(false), 2000);
+  }
+
+  async function handleCopyInvoiceLink() {
+    if (!request) return;
+    await Clipboard.setStringAsync(getPublicInvoiceUrl(request.publicToken));
+    setCopiedInvoiceLink(true);
+    if (copiedInvoiceLinkTimeout.current) clearTimeout(copiedInvoiceLinkTimeout.current);
+    copiedInvoiceLinkTimeout.current = setTimeout(() => setCopiedInvoiceLink(false), 2000);
   }
 
   return (
@@ -170,6 +182,11 @@ export default function InvoiceScreen() {
             label={copiedLink ? 'Link Copied' : 'Copy Payment Link'}
             icon={copiedLink ? 'checkmark' : 'link-outline'}
             onPress={handleCopyLink}
+          />
+          <SecondaryButton
+            label={copiedInvoiceLink ? 'Link Copied' : 'Copy Invoice Link'}
+            icon={copiedInvoiceLink ? 'checkmark' : 'document-text-outline'}
+            onPress={handleCopyInvoiceLink}
           />
           {/* Opens the REAL public checkout (Solana Pay + server-verified
               status) -- never the legacy /pay/[id] mock-payment simulator,
