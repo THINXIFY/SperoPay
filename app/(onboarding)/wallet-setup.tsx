@@ -12,6 +12,7 @@ import { useWalletStore } from '../../src/store/walletStore';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { isValidWalletAddress } from '../../src/utils/validators';
+import { SUPPORTED_ASSETS } from '../../src/config/assets';
 
 export default function WalletSetupScreen() {
   const { colors, spacing, radius, typography } = useTheme();
@@ -60,8 +61,10 @@ export default function WalletSetupScreen() {
 
           <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl, marginBottom: spacing.base }}>
             <ThemeAwareCard style={{ flex: 1 }}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>Stablecoin</Text>
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>USDC</Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>Accepted Assets</Text>
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>
+                {SUPPORTED_ASSETS.join(' · ')}
+              </Text>
             </ThemeAwareCard>
             <ThemeAwareCard style={{ flex: 1 }}>
               <Text style={[typography.caption, { color: colors.textMuted }]}>Network</Text>

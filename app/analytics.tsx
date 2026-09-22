@@ -12,6 +12,7 @@ import { SectionHeader } from '../src/components/SectionHeader';
 import { CustomerAvatar } from '../src/components/CustomerAvatar';
 import { RevenueTrendChart } from '../src/components/RevenueTrendChart';
 import { EmptyState } from '../src/components/EmptyState';
+import { CurrencyFilterChips } from '../src/components/CurrencyFilterChips';
 import { useRequestStore } from '../src/store/requestStore';
 import { useCustomerStore } from '../src/store/customerStore';
 import { useTransactionStore } from '../src/store/transactionStore';
@@ -19,6 +20,8 @@ import { useRequestDraftStore } from '../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../src/store/paymentDefaultsStore';
 import { useRefreshCustomerData } from '../src/store/useRefreshCustomerData';
 import { formatCurrency } from '../src/utils/formatCurrency';
+import { getCurrenciesInUse } from '../src/utils/currencyGrouping';
+import type { AssetSymbol } from '../src/config/assets';
 import {
   getRevenueSummary,
   getOutstandingSummary,
@@ -34,21 +37,32 @@ const PERIODS: RevenueTrendPeriod[] = ['7D', '30D', '3M', '6M', '1Y'];
 export default function AnalyticsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const insets = useSafeAreaInsets();
-  const requests = useRequestStore((state) => state.requests);
+  const allRequests = useRequestStore((state) => state.requests);
   const customers = useCustomerStore((state) => state.customers);
-  const transactions = useTransactionStore((state) => state.transactions);
+  const allTransactions = useTransactionStore((state) => state.transactions);
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
+  const defaultCurrency = usePaymentDefaultsStore((state) => state.defaultCurrency);
   const { refresh, isRefreshing } = useRefreshCustomerData();
   const [period, setPeriod] = useState<RevenueTrendPeriod>('30D');
+  const [rawCurrency, setRawCurrency] = useState<AssetSymbol | null>(null);
 
   // A single `now`, computed once per mount rather than inside every
   // calculation below -- every summary below reads it, and only this one
   // needs to change if this screen ever wants a live-ticking clock.
   const now = useMemo(() => new Date(), []);
 
+  // Never a single combined number across assets (spec section 14) -- every
+  // calculation below runs against exactly one currency's data, the same
+  // "filter first, reuse the existing calculation unchanged" approach
+  // Reports uses (see useReportsData.ts).
+  const currencies = useMemo(() => getCurrenciesInUse(allRequests, allTransactions), [allRequests, allTransactions]);
+  const currency = rawCurrency && currencies.includes(rawCurrency) ? rawCurrency : currencies[0] ?? 'USDC';
+  const requests = useMemo(() => allRequests.filter((r) => r.currency === currency), [allRequests, currency]);
+  const transactions = useMemo(() => allTransactions.filter((t) => t.currency === currency), [allTransactions, currency]);
+
   const revenue = useMemo(() => getRevenueSummary(transactions, now), [transactions, now]);
-  const outstanding = useMemo(() => getOutstandingSummary(requests), [requests]);
+  const outstanding = useMemo(() => getOutstandingSummary(requests, transactions), [requests, transactions]);
   const avgPaymentTime = useMemo(() => getAvgPaymentTimeSummary(requests, transactions, now), [requests, transactions, now]);
   const overview = useMemo(() => getPaymentOverview(requests, now), [requests, now]);
   const topCustomers = useMemo(() => getTopCustomers(transactions, 5), [transactions]);
@@ -61,7 +75,7 @@ export default function AnalyticsScreen() {
   }, [customers]);
 
   function handleCreateRequest() {
-    startFresh(defaultExpiryOption);
+    startFresh(defaultExpiryOption, defaultCurrency);
     router.push('/request/amount');
   }
 
@@ -71,7 +85,7 @@ export default function AnalyticsScreen() {
   // unpaid requests, 1 overdue"). Gating on transactions alone hid that
   // behind a "receive your first payment" message that was simply wrong
   // for their actual situation -- only gate on having neither.
-  const hasAnyData = transactions.length > 0 || requests.length > 0;
+  const hasAnyData = allTransactions.length > 0 || allRequests.length > 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -98,11 +112,15 @@ export default function AnalyticsScreen() {
             Your business at a glance
           </Text>
 
+          <View style={{ marginBottom: spacing.lg }}>
+            <CurrencyFilterChips currencies={currencies} selected={currency} onSelect={setRawCurrency} />
+          </View>
+
           {/* Revenue hero -- the single dominant element on this screen. */}
           <ThemeAwareCard variant="hero" style={{ padding: spacing.xl }}>
             <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted }]}>Revenue this month</Text>
             <Text style={[typography.display, { color: colors.heroSurfaceText, marginTop: spacing.xs }]} numberOfLines={1}>
-              {formatCurrency(revenue.thisMonth)}
+              {formatCurrency(revenue.thisMonth)} {currency}
             </Text>
             {revenue.changePercent !== null ? (
               <View style={[styles.trendRow, { marginTop: spacing.sm }]}>
@@ -126,7 +144,7 @@ export default function AnalyticsScreen() {
           {/* Two supporting metrics only -- never squeezed into a 3rd column. */}
           <View style={[styles.metricsRow, { marginTop: spacing.xl, gap: spacing.sm }]}>
             <View style={{ flex: 1 }}>
-              <StatTile label="Outstanding" value={formatCurrency(outstanding.amount)} />
+              <StatTile label="Outstanding" value={`${formatCurrency(outstanding.amount)} ${currency}`} />
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs, marginLeft: spacing.xs }]}>
                 {outstanding.count} unpaid {outstanding.count === 1 ? 'request' : 'requests'}
               </Text>

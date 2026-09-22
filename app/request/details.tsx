@@ -1,5 +1,17 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  Pressable,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Switch,
+  LayoutAnimation,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -7,15 +19,24 @@ import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../src/theme/useTheme';
 import { AppHeader } from '../../src/components/AppHeader';
 import { TextField } from '../../src/components/TextField';
+import { SelectField } from '../../src/components/SelectField';
+import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
+import { TextButton } from '../../src/components/TextButton';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
+import { ReminderPresetSheet } from '../../src/components/ReminderPresetSheet';
 import { CustomerAvatar } from '../../src/components/CustomerAvatar';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useTemplateStore } from '../../src/store/templateStore';
+import { useReminderStore } from '../../src/store/reminderStore';
+import { useRequestEventStore } from '../../src/store/requestEventStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { supabase } from '../../src/lib/supabase';
 import { isValidEmail } from '../../src/utils/validators';
+import { reminderScheduleSummary, rulesForPreset } from '../../src/utils/reminderSchedule';
+import { requestDebugLog } from '../../src/utils/requestDebugLog';
 import type { ExpiryOption } from '../../src/types';
 
 const EXPIRY_OPTIONS: { value: ExpiryOption; label: string }[] = [
@@ -25,10 +46,41 @@ const EXPIRY_OPTIONS: { value: ExpiryOption; label: string }[] = [
   { value: 'never', label: 'Never' },
 ];
 
+// A due date is what makes reminders schedulable at all -- kept as a short
+// list of relative offsets (matching the existing Expiry picker's own
+// pattern) rather than a full calendar widget, since no date-picker
+// dependency exists in this app yet and the spec explicitly asks this
+// screen to stay compact.
+const DUE_DATE_OPTIONS: { days: number | null; label: string }[] = [
+  { days: null, label: 'No due date' },
+  { days: 3, label: 'In 3 days' },
+  { days: 7, label: 'In 7 days' },
+  { days: 14, label: 'In 14 days' },
+  { days: 30, label: 'In 30 days' },
+];
+
+const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Purely presentational: animates the deposit-requirement area sliding in/
+// out when "Allow partial payments" or the deposit type is toggled, rather
+// than the fields just appearing/disappearing abruptly. Never wraps a state
+// change that affects request-creation logic itself.
+function animateLayoutChange() {
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+}
+
+function computeDueAt(days: number): string {
+  const target = new Date();
+  target.setDate(target.getDate() + days);
+  target.setHours(23, 59, 0, 0);
+  return target.toISOString();
+}
+
 export default function DetailsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
 
   const amount = useRequestDraftStore((state) => state.amount);
+  const currency = useRequestDraftStore((state) => state.currency);
   const description = useRequestDraftStore((state) => state.description);
   const setDescription = useRequestDraftStore((state) => state.setDescription);
   const customerId = useRequestDraftStore((state) => state.customerId);
@@ -38,16 +90,33 @@ export default function DetailsScreen() {
   const note = useRequestDraftStore((state) => state.note);
   const setNote = useRequestDraftStore((state) => state.setNote);
   const setLastCreatedRequestId = useRequestDraftStore((state) => state.setLastCreatedRequestId);
+  const resetDraft = useRequestDraftStore((state) => state.reset);
   const sourceTemplateId = useRequestDraftStore((state) => state.sourceTemplateId);
+  const dueAt = useRequestDraftStore((state) => state.dueAt);
+  const setDueAt = useRequestDraftStore((state) => state.setDueAt);
+  const remindersEnabled = useRequestDraftStore((state) => state.remindersEnabled);
+  const setRemindersEnabled = useRequestDraftStore((state) => state.setRemindersEnabled);
+  const reminderPreset = useRequestDraftStore((state) => state.reminderPreset);
+  const setReminderPreset = useRequestDraftStore((state) => state.setReminderPreset);
+  const reminderCustomRules = useRequestDraftStore((state) => state.reminderCustomRules);
+  const allowPartialPayments = useRequestDraftStore((state) => state.allowPartialPayments);
+  const setAllowPartialPayments = useRequestDraftStore((state) => state.setAllowPartialPayments);
+  const depositType = useRequestDraftStore((state) => state.depositType);
+  const setDepositType = useRequestDraftStore((state) => state.setDepositType);
+  const depositValue = useRequestDraftStore((state) => state.depositValue);
+  const setDepositValue = useRequestDraftStore((state) => state.setDepositValue);
 
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
   const createRequest = useRequestStore((state) => state.createRequest);
   const isCreating = useRequestStore((state) => state.isCreating);
+  const saveReminderSchedule = useReminderStore((state) => state.saveSchedule);
   const userId = useAuthStore((state) => state.user?.id);
 
   const customerSheetRef = useRef<BottomSheet>(null);
   const expirySheetRef = useRef<BottomSheet>(null);
+  const dueDateSheetRef = useRef<BottomSheet>(null);
+  const reminderPresetSheetRef = useRef<BottomSheet>(null);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
@@ -55,6 +124,10 @@ export default function DetailsScreen() {
   const [newCustomerEmailError, setNewCustomerEmailError] = useState<string | undefined>();
   const [isSavingNewCustomer, setIsSavingNewCustomer] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  // Mirrors the picked preset from DUE_DATE_OPTIONS purely for display --
+  // dueAt itself (the ISO instant, in the draft store) is what's actually
+  // submitted, this is never reverse-derived from it.
+  const [dueDateDays, setDueDateDays] = useState<number | null>(null);
 
   // Neither sheet is rendered at all until first opened -- see
   // request/amount.tsx for why this is the correct fix: gorhom's imperative
@@ -64,6 +137,8 @@ export default function DetailsScreen() {
   // alternative used on first mount below.
   const [isCustomerSheetMounted, setIsCustomerSheetMounted] = useState(false);
   const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
+  const [isDueDateSheetMounted, setIsDueDateSheetMounted] = useState(false);
+  const [isReminderPresetSheetMounted, setIsReminderPresetSheetMounted] = useState(false);
 
   function openCustomerSheet() {
     setCustomerSearch('');
@@ -83,17 +158,47 @@ export default function DetailsScreen() {
     }
   }
 
+  function openDueDateSheet() {
+    if (isDueDateSheetMounted) {
+      dueDateSheetRef.current?.expand();
+    } else {
+      setIsDueDateSheetMounted(true);
+    }
+  }
+
+  function openReminderPresetSheet() {
+    if (isReminderPresetSheetMounted) {
+      reminderPresetSheetRef.current?.expand();
+    } else {
+      setIsReminderPresetSheetMounted(true);
+    }
+  }
+
+  function handleSelectDueDate(days: number | null) {
+    setDueDateDays(days);
+    if (days === null) {
+      setDueAt(undefined);
+      setRemindersEnabled(false);
+    } else {
+      setDueAt(computeDueAt(days));
+    }
+    dueDateSheetRef.current?.close();
+  }
+
   // Defense in depth for a reused/backgrounded screen instance whose sheet
   // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       customerSheetRef.current?.forceClose();
       expirySheetRef.current?.forceClose();
+      dueDateSheetRef.current?.forceClose();
+      reminderPresetSheetRef.current?.forceClose();
     }, [])
   );
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const expiryLabel = EXPIRY_OPTIONS.find((opt) => opt.value === expiryOption)?.label ?? '7 days';
+  const dueDateLabel = DUE_DATE_OPTIONS.find((opt) => opt.days === dueDateDays)?.label ?? 'No due date';
 
   const filteredCustomers = useMemo(() => {
     const trimmed = customerSearch.trim().toLowerCase();
@@ -134,24 +239,95 @@ export default function DetailsScreen() {
 
   async function handleCreateRequest() {
     if (isCreating || !userId) return;
+    requestDebugLog('handleCreateRequest: submitting', {
+      userId,
+      amount,
+      hasCustomer: !!customerId,
+      expiryOption,
+      hasDueAt: !!dueAt,
+      allowPartialPayments,
+    });
     try {
       const request = await createRequest(userId, {
         amount: Number(amount),
+        currency,
         description: description.trim() || undefined,
         customerId,
         expiryOption,
         note: note.trim() || undefined,
+        dueAt,
+        allowPartialPayments,
+        depositType: allowPartialPayments ? depositType : undefined,
+        depositValue: allowPartialPayments ? depositValue : undefined,
       });
       setLastCreatedRequestId(request.id);
+      // Reset immediately on success, not only when the user later taps the
+      // X on the "created" screen (previously the only reset point) --
+      // that left the draft carrying the just-created request's amount,
+      // customer, due date, reminder settings, and partial-payment/deposit
+      // config into a NEW draft whenever the merchant instead used the
+      // hardware/gesture back button to start another request, which is a
+      // completely ordinary way to navigate. `request` itself (the row just
+      // returned from Supabase, with its own fresh id/public_token/solana
+      // reference) and every local const captured above (dueAt,
+      // remindersEnabled, reminderPreset, reminderCustomRules,
+      // sourceTemplateId) already hold this render's snapshotted values, so
+      // resetting the store here does not affect the reminder-scheduling or
+      // template-usage calls immediately below.
+      resetDraft();
       if (sourceTemplateId) {
         // Fire-and-forget: only counts a "use" once a request is actually
         // created (never on a bare "Use Template" tap), but a failure here
         // must never block or affect navigation to the just-created request.
         useTemplateStore.getState().recordUsage(userId, sourceTemplateId);
       }
+      if (dueAt && remindersEnabled) {
+        // Fire-and-forget for the same reason as recordUsage above: the
+        // request itself was already created successfully, so a reminder-
+        // scheduling failure must never block navigation to it. The merchant
+        // can always turn reminders on from Request Detail if this silently
+        // didn't take.
+        saveReminderSchedule(userId, request.id, {
+          enabled: true,
+          preset: reminderPreset,
+          customRules: reminderPreset === 'custom' ? reminderCustomRules : undefined,
+          sendHour: 10,
+          sendMinute: 0,
+          timezone: DEVICE_TIMEZONE,
+          dueAt,
+        })
+          .then(async () => {
+            const { data, error } = await supabase
+              .from('request_events')
+              .insert({ user_id: userId, payment_request_id: request.id, event_type: 'reminder_scheduled' })
+              .select('*')
+              .single();
+            if (!error && data) {
+              useRequestEventStore
+                .getState()
+                .addLocal({ id: data.id, requestId: data.payment_request_id, type: data.event_type, occurredAt: data.occurred_at });
+            }
+          })
+          .catch(() => {
+            // Swallowed deliberately -- see the fire-and-forget comment above.
+          });
+      }
       router.replace(`/request/created?id=${request.id}`);
-    } catch {
-      Alert.alert('Something went wrong', "We couldn't create this request. Check your connection and try again.");
+    } catch (error) {
+      requestDebugLog('handleCreateRequest: create failed, showing alert', {
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as { code?: string })?.code,
+      });
+      // __DEV__ only: shows the actual Postgres/PostgREST error text right
+      // in the alert, not just the console -- a temporary diagnostic so a
+      // live-device failure can be read directly off the screen without
+      // needing Metro/terminal access. Production keeps the calm, generic
+      // message.
+      const devDetail =
+        __DEV__ && error && typeof error === 'object'
+          ? `\n\n[dev] ${(error as { code?: string }).code ?? 'no code'}: ${(error as { message?: string }).message ?? String(error)}`
+          : '';
+      Alert.alert('Something went wrong', `We couldn't create this request. Check your connection and try again.${devDetail}`);
     }
   }
 
@@ -160,32 +336,26 @@ export default function DetailsScreen() {
       <AppHeader title="Request Details" onBackPress={() => router.back()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
+          contentContainerStyle={{ padding: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.xl }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Amount</Text>
-            <View
-              style={[
-                styles.readonlyRow,
-                { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginTop: spacing.xs },
-              ]}
-            >
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{Number(amount).toFixed(2)}</Text>
-              <Text style={[typography.bodySmall, { color: colors.textMuted }]}>USDC</Text>
-            </View>
-          </View>
-
-          <View>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>On</Text>
-            <View
-              style={[
-                styles.readonlyRow,
-                { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginTop: spacing.xs },
-              ]}
-            >
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Solana</Text>
-            </View>
+            <Text style={[typography.caption, styles.eyebrow, { color: colors.textMuted, marginBottom: spacing.sm }]}>PAYMENT</Text>
+            <ThemeAwareCard>
+              <View style={styles.summaryRow}>
+                <View>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Amount</Text>
+                  <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>
+                    {Number(amount).toFixed(2)} <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{currency}</Text>
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Network</Text>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs / 2 }]}>Solana</Text>
+                </View>
+              </View>
+            </ThemeAwareCard>
           </View>
 
           <TextField
@@ -197,13 +367,24 @@ export default function DetailsScreen() {
           />
 
           <View>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Customer</Text>
+            <Text style={[typography.caption, styles.eyebrow, { color: colors.textMuted, marginBottom: spacing.sm }]}>CUSTOMER</Text>
             <Pressable
               onPress={openCustomerSheet}
-              style={[
-                styles.customerRow,
-                { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base },
+              style={({ pressed }) => [
+                styles.pickerRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.base,
+                  paddingVertical: spacing.md,
+                  minHeight: 52,
+                  opacity: pressed ? 0.85 : 1,
+                },
+                styles.cardShadow,
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={selectedCustomer ? `Customer: ${selectedCustomer.name}` : 'Select a customer'}
             >
               {selectedCustomer ? (
                 <>
@@ -215,8 +396,12 @@ export default function DetailsScreen() {
                     size={36}
                   />
                   <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                    <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{selectedCustomer.name}</Text>
-                    <Text style={[typography.caption, { color: colors.textMuted }]}>{selectedCustomer.email}</Text>
+                    <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {selectedCustomer.name}
+                    </Text>
+                    <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                      {selectedCustomer.email}
+                    </Text>
                   </View>
                 </>
               ) : (
@@ -227,20 +412,168 @@ export default function DetailsScreen() {
           </View>
 
           <View>
-            <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Expires In</Text>
-            <Pressable
-              onPress={openExpirySheet}
-              style={[
-                styles.customerRow,
-                { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base },
-              ]}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
-              <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1, marginLeft: spacing.sm }]}>
-                {expiryLabel}
+            <Text style={[typography.caption, styles.eyebrow, { color: colors.textMuted, marginBottom: spacing.sm }]}>SCHEDULE</Text>
+            <View style={{ gap: spacing.sm }}>
+              <View>
+                <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Expires In</Text>
+                <SelectField icon="time-outline" label={expiryLabel} onPress={openExpirySheet} accessibilityLabel={`Expires in: ${expiryLabel}`} />
+              </View>
+              <View>
+                <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.xs }]}>Due Date (Optional)</Text>
+                <SelectField
+                  icon="calendar-outline"
+                  label={dueDateLabel}
+                  onPress={openDueDateSheet}
+                  isPlaceholder={dueDateDays === null}
+                  accessibilityLabel={`Due date: ${dueDateLabel}`}
+                />
+              </View>
+            </View>
+          </View>
+
+          {dueAt ? (
+            <View>
+              <Text style={[typography.caption, styles.eyebrow, { color: colors.textMuted, marginBottom: spacing.sm }]}>REMINDERS</Text>
+              <ThemeAwareCard>
+                <View style={styles.toggleHeaderRow}>
+                  <View style={[styles.iconChip, { backgroundColor: colors.primaryActionSoft, borderRadius: radius.md }]}>
+                    <Ionicons name="notifications-outline" size={17} color={colors.textPrimary} />
+                  </View>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1, marginLeft: spacing.md }]}>
+                    Payment reminders
+                  </Text>
+                  <Switch
+                    value={remindersEnabled}
+                    onValueChange={setRemindersEnabled}
+                    trackColor={{ true: colors.primaryAction, false: colors.border }}
+                    thumbColor={colors.surface}
+                    accessibilityLabel="Payment reminders"
+                  />
+                </View>
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
+                  Automatically remind this customer if payment is still pending.
+                </Text>
+
+                {remindersEnabled ? (
+                  <View
+                    style={[
+                      styles.expandedSection,
+                      { marginTop: spacing.base, paddingTop: spacing.base, borderTopColor: colors.border },
+                    ]}
+                  >
+                    <View style={styles.reminderSummaryRow}>
+                      <Text style={[typography.bodySmall, { color: colors.textSecondary, flex: 1 }]} numberOfLines={2}>
+                        {reminderScheduleSummary(rulesForPreset(reminderPreset, reminderCustomRules))}
+                      </Text>
+                      <TextButton label="Customize" onPress={openReminderPresetSheet} />
+                    </View>
+                  </View>
+                ) : null}
+              </ThemeAwareCard>
+            </View>
+          ) : null}
+
+          <View>
+            <Text style={[typography.caption, styles.eyebrow, { color: colors.textMuted, marginBottom: spacing.sm }]}>PAYMENT OPTIONS</Text>
+            <ThemeAwareCard>
+              <View style={styles.toggleHeaderRow}>
+                <View style={[styles.iconChip, { backgroundColor: colors.primaryActionSoft, borderRadius: radius.md }]}>
+                  <Ionicons name="layers-outline" size={17} color={colors.textPrimary} />
+                </View>
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1, marginLeft: spacing.md }]}>
+                  Allow partial payments
+                </Text>
+                <Switch
+                  value={allowPartialPayments}
+                  onValueChange={(value) => {
+                    animateLayoutChange();
+                    setAllowPartialPayments(value);
+                    if (!value) {
+                      setDepositType(undefined);
+                      setDepositValue(undefined);
+                    }
+                  }}
+                  trackColor={{ true: colors.primaryAction, false: colors.border }}
+                  thumbColor={colors.surface}
+                  accessibilityLabel="Allow partial payments"
+                />
+              </View>
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm }]}>
+                Let this customer pay in more than one transaction, instead of requiring the full amount at once.
               </Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+
+              {allowPartialPayments ? (
+                <View
+                  style={[
+                    styles.expandedSection,
+                    { marginTop: spacing.base, paddingTop: spacing.base, borderTopColor: colors.border },
+                  ]}
+                >
+                  <Text style={[typography.caption, styles.eyebrowSecondary, { color: colors.textSecondary, marginBottom: spacing.sm }]}>
+                    DEPOSIT REQUIREMENT
+                  </Text>
+                  <View style={[styles.chipRow, { gap: spacing.sm }]}>
+                    {(['none', 'fixed', 'percentage'] as const).map((option) => {
+                      const selected = option === 'none' ? !depositType : depositType === option;
+                      const optionLabel = option === 'none' ? 'No deposit' : option === 'fixed' ? 'Fixed amount' : 'Percentage';
+                      return (
+                        <Pressable
+                          key={option}
+                          onPress={() => {
+                            animateLayoutChange();
+                            if (option === 'none') {
+                              setDepositType(undefined);
+                              setDepositValue(undefined);
+                            } else {
+                              setDepositType(option);
+                            }
+                          }}
+                          style={[
+                            styles.depositChip,
+                            {
+                              borderColor: selected ? colors.primaryAction : colors.border,
+                              borderWidth: selected ? 1.5 : 1,
+                              backgroundColor: selected ? colors.softMint : colors.background,
+                              borderRadius: radius.full,
+                              paddingHorizontal: spacing.md,
+                              paddingVertical: spacing.sm,
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={optionLabel}
+                          accessibilityState={{ selected }}
+                        >
+                          {selected ? (
+                            <Ionicons name="checkmark-circle" size={14} color={colors.softMintText} style={{ marginRight: spacing.xs / 2 }} />
+                          ) : null}
+                          <Text
+                            style={[typography.bodySmall, { color: selected ? colors.softMintText : colors.textSecondary }]}
+                            numberOfLines={1}
+                          >
+                            {optionLabel}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {depositType ? (
+                    <View style={{ marginTop: spacing.base }}>
+                      <TextField
+                        label={depositType === 'fixed' ? `Deposit amount (${currency})` : 'Deposit percentage'}
+                        value={depositValue != null ? String(depositValue) : ''}
+                        onChangeText={(text) => {
+                          const parsed = Number(text);
+                          setDepositValue(text.trim().length > 0 && !Number.isNaN(parsed) ? parsed : undefined);
+                        }}
+                        keyboardType="decimal-pad"
+                        placeholder={depositType === 'fixed' ? 'e.g. 300' : 'e.g. 30'}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </ThemeAwareCard>
           </View>
 
           <TextField
@@ -251,7 +584,12 @@ export default function DetailsScreen() {
             multiline
           />
         </ScrollView>
-        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+        <View
+          style={[
+            styles.footer,
+            { paddingHorizontal: spacing.xl, paddingTop: spacing.base, paddingBottom: spacing.lg, borderTopColor: colors.border, backgroundColor: colors.background },
+          ]}
+        >
           <PrimaryButton label="Create Request" onPress={handleCreateRequest} loading={isCreating} />
         </View>
       </KeyboardAvoidingView>
@@ -408,16 +746,71 @@ export default function DetailsScreen() {
           ))}
         </AppBottomSheet>
       ) : null}
+
+      {isDueDateSheetMounted ? (
+        <AppBottomSheet ref={dueDateSheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Due Date</Text>
+          {DUE_DATE_OPTIONS.map((option) => (
+            <Pressable
+              key={option.label}
+              onPress={() => handleSelectDueDate(option.days)}
+              style={[styles.customerRow, { paddingVertical: spacing.md }]}
+            >
+              <Text style={[typography.body, { color: colors.textPrimary, flex: 1 }]}>{option.label}</Text>
+              {dueDateDays === option.days ? <Ionicons name="checkmark" size={20} color={colors.primaryAction} /> : null}
+            </Pressable>
+          ))}
+        </AppBottomSheet>
+      ) : null}
+
+      {isReminderPresetSheetMounted ? (
+        <ReminderPresetSheet
+          ref={reminderPresetSheetRef}
+          initialIndex={0}
+          value={reminderPreset}
+          onSelect={(preset) => {
+            setReminderPreset(preset);
+            reminderPresetSheetRef.current?.close();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
+const ICON_CHIP_SIZE = 36;
+
 const styles = StyleSheet.create({
-  readonlyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1 },
   customerRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
   overlay: { alignItems: 'center', justifyContent: 'center' },
   sheetHeaderRow: { flexDirection: 'row', alignItems: 'center' },
   sheetSearchRow: { flexDirection: 'row', alignItems: 'center', height: 40, borderWidth: 1 },
   sheetDivider: { height: 1 },
   addIconCircle: { alignItems: 'center', justifyContent: 'center' },
+  // Section eyebrow labels ("PAYMENT", "SCHEDULE", etc.) -- a touch of
+  // letter-spacing is what makes a small uppercase caption read as a
+  // deliberate section label rather than body text that happens to be
+  // capitalized.
+  eyebrow: { letterSpacing: 0.6 },
+  eyebrowSecondary: { letterSpacing: 0.4 },
+  summaryRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  pickerRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  // Mirrors ThemeAwareCard's own shadow exactly, for the one row on this
+  // screen (the customer picker) that needs the card treatment but can't
+  // use ThemeAwareCard directly (it's a Pressable with its own pressed-
+  // state opacity, not a plain View).
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  iconChip: { width: ICON_CHIP_SIZE, height: ICON_CHIP_SIZE, alignItems: 'center', justifyContent: 'center' },
+  toggleHeaderRow: { flexDirection: 'row', alignItems: 'center' },
+  expandedSection: { borderTopWidth: 1 },
+  reminderSummaryRow: { flexDirection: 'row', alignItems: 'center' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  depositChip: { flexDirection: 'row', alignItems: 'center' },
+  footer: { borderTopWidth: 1 },
 });

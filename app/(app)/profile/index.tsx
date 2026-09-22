@@ -7,6 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
+import { ConfirmationModal } from '../../../src/components/ConfirmationModal';
 import { UserAvatar } from '../../../src/components/UserAvatar';
 import { SectionLabel } from '../../../src/components/SectionLabel';
 import { SettingsGroup } from '../../../src/components/SettingsGroup';
@@ -57,6 +58,8 @@ export default function ProfileScreen() {
   // alternative used on first mount below.
   const [isAppearanceSheetMounted, setIsAppearanceSheetMounted] = useState(false);
   const [isCurrencySheetMounted, setIsCurrencySheetMounted] = useState(false);
+  const [signOutModalVisible, setSignOutModalVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   function openAppearanceSheet() {
     if (isAppearanceSheetMounted) {
@@ -84,22 +87,18 @@ export default function ProfileScreen() {
     }, [])
   );
 
-  function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOut();
-            router.replace('/(auth)/welcome');
-          } catch {
-            Alert.alert('Sign Out Failed', 'Something went wrong. Please try again.');
-          }
-        },
-      },
-    ]);
+  async function handleConfirmSignOut() {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      router.replace('/(auth)/welcome');
+    } catch {
+      setSignOutModalVisible(false);
+      Alert.alert('Sign Out Failed', 'Something went wrong. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   const themeLabel = THEME_OPTIONS.find((opt) => opt.value === (preference ?? 'light'))?.label ?? 'Light';
@@ -204,6 +203,7 @@ export default function ProfileScreen() {
             label="Payment Templates"
             onPress={() => router.push('/(app)/profile/templates')}
           />
+          <SettingsRow icon="bar-chart-outline" label="Reports" onPress={() => router.push('/reports')} />
         </SettingsGroup>
 
         <SectionLabel>PREFERENCES</SectionLabel>
@@ -239,7 +239,7 @@ export default function ProfileScreen() {
 
         <SectionLabel>SESSION</SectionLabel>
         <SettingsGroup>
-          <SettingsRow icon="log-out-outline" label="Sign Out" onPress={handleSignOut} destructive />
+          <SettingsRow icon="log-out-outline" label="Sign Out" onPress={() => setSignOutModalVisible(true)} destructive />
         </SettingsGroup>
 
         {/* A real, rendered spacer -- not just contentContainerStyle
@@ -287,6 +287,18 @@ export default function ProfileScreen() {
           </Text>
         </AppBottomSheet>
       ) : null}
+
+      <ConfirmationModal
+        visible={signOutModalVisible}
+        title="Sign out?"
+        description="You'll need to sign in again to access your account."
+        confirmLabel="Sign Out"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmSignOut}
+        onCancel={() => setSignOutModalVisible(false)}
+        loading={isSigningOut}
+        icon="log-out-outline"
+      />
     </SafeAreaView>
   );
 }

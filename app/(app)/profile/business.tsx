@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { TextField } from '../../../src/components/TextField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
@@ -178,7 +179,7 @@ export default function BusinessProfileScreen() {
             multiline
           />
         </ScrollView>
-        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.sm }}>
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
         </View>
       </KeyboardAvoidingView>

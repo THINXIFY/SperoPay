@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { Logo } from '../../../src/components/Logo';
 
 const APP_VERSION = '1.0.0';
@@ -13,7 +14,7 @@ export default function AboutScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="About SperoPay" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, alignItems: 'center' }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl, alignItems: 'center' }}>
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.lg }}>
           <Logo size={64} />
         </View>

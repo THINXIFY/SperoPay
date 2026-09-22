@@ -2,7 +2,7 @@ import type { SolanaRpcProvider } from './client.ts';
 import { parsePaymentTransaction } from './transactionParser.ts';
 import { verifyPayment } from './paymentVerifier.ts';
 import { REQUIRED_CONFIRMATION_LEVEL } from './config.ts';
-import { getUsdcConfig } from './usdc.ts';
+import { isKnownAssetMint } from '../../../config/assets.ts';
 import type { ConfirmationLevel, ExpectedPayment, PaymentVerificationResult } from './types.ts';
 
 const RPC_TIMEOUT_MS = 15_000;
@@ -88,15 +88,18 @@ export async function matchPayment(
   expected: ExpectedPayment,
   deps: PaymentMatcherDeps
 ): Promise<PaymentVerificationResult> {
-  // Catches a caller-construction bug (mismatched network/mint) immediately
-  // and loudly, rather than letting mismatched config quietly depend on
-  // "wrong_mint" happening to be the eventual verifier outcome. Deliberately
-  // not part of PaymentVerificationResult's fail-closed reasons — this is a
-  // programming error in the caller, not a property of the transaction.
-  const expectedMintForNetwork = getUsdcConfig(expected.network).mint;
-  if (expected.usdcMint !== expectedMintForNetwork) {
+  // Catches a caller-construction bug (an unsupported/mistyped mint, or one
+  // that doesn't belong to this network) immediately and loudly, rather
+  // than letting mismatched config quietly depend on "wrong_mint" happening
+  // to be the eventual verifier outcome. Also the Phase 7 allowlist gate
+  // (spec section 18): the only mints ever accepted are exactly the ones in
+  // src/config/assets.ts's registry for this network -- an arbitrary or
+  // injected mint can never reach the verifier. Deliberately not part of
+  // PaymentVerificationResult's fail-closed reasons — this is a programming
+  // error in the caller, not a property of the transaction.
+  if (!isKnownAssetMint(expected.mint, expected.network)) {
     throw new Error(
-      `matchPayment: expected.usdcMint ("${expected.usdcMint}") does not match the USDC mint configured for "${expected.network}" ("${expectedMintForNetwork}")`
+      `matchPayment: expected.mint ("${expected.mint}") is not a supported asset mint for network "${expected.network}"`
     );
   }
 
@@ -113,7 +116,7 @@ export async function matchPayment(
     return { valid: false, reason: 'rpc_unavailable' };
   }
 
-  const tx = rawTx ? parsePaymentTransaction(signature, rawTx, expected.usdcMint) : null;
+  const tx = rawTx ? parsePaymentTransaction(signature, rawTx, expected.mint) : null;
   const confirmationLevel = toConfirmationLevel(status?.confirmationStatus);
 
   return verifyPayment({

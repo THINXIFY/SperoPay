@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
+import Head from 'expo-router/head';
 import { useTheme } from '../../src/theme/useTheme';
 import { Logo } from '../../src/components/Logo';
 import { BusinessLogo } from '../../src/components/BusinessLogo';
@@ -12,15 +13,21 @@ import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { EmptyState } from '../../src/components/EmptyState';
 import { SkeletonLoader } from '../../src/components/SkeletonLoader';
 import { QRCodeCard } from '../../src/components/QRCodeCard';
+import { FullScreenQRModal } from '../../src/components/FullScreenQRModal';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { DetailRow } from '../../src/components/DetailRow';
 import { usePublicCheckoutPolling } from '../../src/services/publicCheckout/usePublicCheckoutPolling';
 import { usePayWithWallet } from '../../src/services/publicCheckout/usePayWithWallet';
 import { useRefreshOnForeground } from '../../src/services/publicCheckout/useRefreshOnForeground';
 import { canPayRequest } from '../../src/services/publicCheckout/canPayRequest';
+import { recordRequestViewed } from '../../src/services/publicCheckout/publicCheckoutService';
 import type { PublicCheckoutData } from '../../src/services/publicCheckout/types';
 import { buildSolanaPayUrl } from '../../src/services/blockchain/solana/solanaPayUri';
 import { getSolanaEnvironment } from '../../src/services/blockchain/solana/config';
+import { getAssetDecimals } from '../../src/config/assets';
+import { toBaseUnits } from '../../src/services/blockchain/solana/amount';
+import { computeDepositAmount } from '../../src/utils/paymentAccounting';
+import { formatCurrency } from '../../src/utils/formatCurrency';
 
 const MAX_CONTENT_WIDTH = 480;
 
@@ -43,6 +50,13 @@ export default function PublicCheckoutScreen() {
 
   useRefreshOnForeground(refresh);
 
+  // Phase 6C: recorded once per token, independent of usePublicCheckoutPolling's
+  // own repeating poll -- see recordRequestViewed's own comment for why.
+  useEffect(() => {
+    if (!token) return;
+    recordRequestViewed(token);
+  }, [token]);
+
   async function handleCopyWallet(address: string) {
     await Clipboard.setStringAsync(address);
     setCopiedField('wallet');
@@ -51,6 +65,19 @@ export default function PublicCheckoutScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
+      {/* Phase 5B: a public, unauthenticated, shareable link must never be
+          indexed or surface real payment details in link-preview/social
+          metadata (spec sections 16) -- generic copy only, never the
+          amount, customer name, or wallet address. expo-router/head only
+          actually applies while this screen is focused (react-helmet-async
+          under the hood), so it can never leak into some other route's
+          <head>. */}
+      <Head>
+        <title>Spero — Secure Payment Request</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <meta property="og:title" content="Spero" />
+        <meta property="og:description" content="Secure payment request" />
+      </Head>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
@@ -79,8 +106,12 @@ export default function PublicCheckoutScreen() {
           ) : !result.ok ? (
             <View style={{ marginTop: spacing.xxl }}>
               <EmptyState
-                icon="alert-circle-outline"
-                title="Payment link unavailable"
+                icon={result.code === 'network_error' ? 'cloud-offline-outline' : 'alert-circle-outline'}
+                title={
+                  result.code === 'network_error'
+                    ? "We couldn't load this payment request."
+                    : 'This payment link is not available.'
+                }
                 description={result.message}
               />
               {result.code === 'network_error' ? (
@@ -89,7 +120,7 @@ export default function PublicCheckoutScreen() {
                   disabled={isRefreshing}
                   style={({ pressed }) => [styles.retryButton, { marginTop: spacing.lg, opacity: isRefreshing || pressed ? 0.6 : 1 }]}
                   accessibilityRole="button"
-                  accessibilityLabel="Try again"
+                  accessibilityLabel="Try Again"
                   accessibilityState={{ disabled: isRefreshing, busy: isRefreshing }}
                 >
                   {isRefreshing ? (
@@ -98,7 +129,7 @@ export default function PublicCheckoutScreen() {
                     <Ionicons name="refresh" size={16} color={colors.primaryAction} />
                   )}
                   <Text style={[typography.bodySmall, { color: colors.primaryAction, marginLeft: spacing.xs }]}>
-                    {isRefreshing ? 'Trying again…' : 'Try again'}
+                    {isRefreshing ? 'Trying again…' : 'Try Again'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -145,13 +176,53 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
 
   const { pay, isProcessing, hasInitiated, error: payError } = usePayWithWallet();
 
+  // Partial-payment amount selection -- "remaining" (the default, pre-
+  // selected) or a merchant-permitted custom amount within
+  // [required deposit or any amount, remaining]. Irrelevant, and never
+  // rendered, for a full-payment-only request, which keeps paying its
+  // exact fixed amount exactly as it always has.
+  const isPartial = data.allowPartialPayments;
+  const [paymentChoice, setPaymentChoice] = useState<'remaining' | 'custom'>('remaining');
+  const [customAmountText, setCustomAmountText] = useState('');
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+
+  const requiredMinimum = useMemo(() => {
+    if (!isPartial) return data.amount;
+    if (data.verifiedPaidAmount > 0) return 0; // any positive amount is fine once a first payment already exists
+    return computeDepositAmount(data.amount, data.depositType ?? undefined, data.depositValue ?? undefined) ?? 0;
+  }, [isPartial, data.amount, data.verifiedPaidAmount, data.depositType, data.depositValue]);
+
+  const customAmount = Number(customAmountText);
+  const decimals = getAssetDecimals(data.currency);
+  // Exact base-unit comparison, never a float `>`/`<` on the decimal values
+  // themselves -- the same reasoning as every other money comparison in
+  // this app (see amount.ts).
+  const customAmountError = (() => {
+    if (paymentChoice !== 'custom') return undefined;
+    if (customAmountText.trim().length === 0 || Number.isNaN(customAmount) || customAmount <= 0) {
+      return 'Enter an amount';
+    }
+    const enteredBaseUnits = toBaseUnits(customAmountText.trim(), decimals);
+    if (enteredBaseUnits > toBaseUnits(data.remainingAmount, decimals)) {
+      return `Amount can't exceed ${formatCurrency(data.remainingAmount)}`;
+    }
+    if (requiredMinimum > 0 && enteredBaseUnits < toBaseUnits(requiredMinimum, decimals)) {
+      return `A minimum of ${formatCurrency(requiredMinimum)} is required`;
+    }
+    return undefined;
+  })();
+
+  const amountToPay = !isPartial ? data.amount : paymentChoice === 'remaining' ? data.remainingAmount : customAmount;
+  const amountIsValid = !isPartial || (paymentChoice === 'remaining' ? data.remainingAmount > 0 : !customAmountError && customAmount > 0);
+
   const solanaPayUri = useMemo(() => {
-    if (!data.destinationWallet || !data.solanaReference) return null;
+    if (!data.destinationWallet || !data.solanaReference || !amountIsValid) return null;
     try {
       return buildSolanaPayUrl({
         recipient: data.destinationWallet,
         reference: data.solanaReference,
-        amount: data.amount,
+        amount: amountToPay,
+        asset: data.currency,
         label: merchantName,
         message: data.description ? `Payment for ${data.description}` : `Payment request ${data.paymentCode}`,
       });
@@ -160,7 +231,7 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
       // a Pay With Wallet flow, rather than crashing or opening a broken URI.
       return null;
     }
-  }, [data.destinationWallet, data.solanaReference, data.amount, data.description, data.paymentCode, merchantName]);
+  }, [data.destinationWallet, data.solanaReference, amountToPay, amountIsValid, data.currency, data.description, data.paymentCode, merchantName]);
 
   const canPay = canPayRequest(data.status) && !hasInitiated;
 
@@ -224,6 +295,23 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
         ) : null}
       </View>
 
+      {isPartial ? (
+        <ThemeAwareCard style={{ marginTop: spacing.lg }}>
+          <View style={styles.summaryRow}>
+            <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Amount due</Text>
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{formatCurrency(data.amount)}</Text>
+          </View>
+          <View style={[styles.summaryRow, { marginTop: spacing.sm }]}>
+            <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Paid</Text>
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{formatCurrency(data.verifiedPaidAmount)}</Text>
+          </View>
+          <View style={[styles.summaryRow, { marginTop: spacing.sm }]}>
+            <Text style={[typography.bodySmall, { color: colors.textMuted }]}>Remaining</Text>
+            <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{formatCurrency(data.remainingAmount)}</Text>
+          </View>
+        </ThemeAwareCard>
+      ) : null}
+
       {/* Status-specific area */}
       {isConfirming ? (
         <View style={[styles.statusArea, { backgroundColor: colors.softBlue, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.xl }]}>
@@ -261,7 +349,7 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
         <View style={{ marginTop: spacing.xl }}>
           <EmptyState
             icon="time-outline"
-            title="This payment request has expired"
+            title="This payment request has expired."
             description="Ask the merchant to send a new payment link."
           />
         </View>
@@ -269,7 +357,7 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
         <View style={{ marginTop: spacing.xl }}>
           <EmptyState
             icon="close-circle-outline"
-            title="This payment request was cancelled"
+            title="This payment request has been cancelled."
             description="This link is no longer active."
           />
         </View>
@@ -297,6 +385,89 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
       {/* Pay controls -- only while the request is genuinely still payable */}
       {canPay ? (
         <View style={{ marginTop: spacing.xl }}>
+          {isPartial && data.remainingAmount > 0 ? (
+            <View style={{ marginBottom: spacing.lg }}>
+              <Pressable
+                onPress={() => setPaymentChoice('remaining')}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: paymentChoice === 'remaining' }}
+                style={[
+                  styles.amountChoiceRow,
+                  {
+                    borderColor: paymentChoice === 'remaining' ? colors.primaryAction : colors.border,
+                    backgroundColor: paymentChoice === 'remaining' ? colors.softMint : colors.surface,
+                    borderRadius: radius.md,
+                    padding: spacing.base,
+                    marginBottom: spacing.sm,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={paymentChoice === 'remaining' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={paymentChoice === 'remaining' ? colors.softMintText : colors.textMuted}
+                />
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm, flex: 1 }]}>
+                  Pay remaining balance
+                </Text>
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>{formatCurrency(data.remainingAmount)}</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setPaymentChoice('custom')}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: paymentChoice === 'custom' }}
+                style={[
+                  styles.amountChoiceRow,
+                  {
+                    borderColor: paymentChoice === 'custom' ? colors.primaryAction : colors.border,
+                    backgroundColor: paymentChoice === 'custom' ? colors.softMint : colors.surface,
+                    borderRadius: radius.md,
+                    padding: spacing.base,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={paymentChoice === 'custom' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={paymentChoice === 'custom' ? colors.softMintText : colors.textMuted}
+                />
+                <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+                  Enter another amount
+                </Text>
+              </Pressable>
+
+              {paymentChoice === 'custom' ? (
+                <View style={{ marginTop: spacing.sm }}>
+                  <View
+                    style={[
+                      styles.customAmountRow,
+                      {
+                        borderColor: customAmountError ? colors.error : colors.border,
+                        borderRadius: radius.md,
+                        paddingHorizontal: spacing.base,
+                      },
+                    ]}
+                  >
+                    <TextInput
+                      value={customAmountText}
+                      onChangeText={setCustomAmountText}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textMuted}
+                      style={[typography.bodyMedium, { color: colors.textPrimary, flex: 1, paddingVertical: spacing.md }]}
+                      accessibilityLabel="Custom payment amount"
+                    />
+                    <Text style={[typography.bodySmall, { color: colors.textMuted }]}>{data.currency}</Text>
+                  </View>
+                  {customAmountError ? (
+                    <Text style={[typography.caption, { color: colors.error, marginTop: spacing.xs }]}>{customAmountError}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
           <PrimaryButton
             label="Pay with Wallet"
             onPress={() => pay(solanaPayUri)}
@@ -314,15 +485,22 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
               <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm }]}>
                 Or scan to pay
               </Text>
-              <QRCodeCard value={solanaPayUri} size={180} />
+              <Pressable
+                onPress={() => setQrModalVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Show full-screen payment QR"
+                style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+              >
+                <QRCodeCard value={solanaPayUri} size={180} />
+              </Pressable>
               <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.sm, textAlign: 'center' }]}>
-                Scan with a Solana wallet
+                Tap to view full screen
               </Text>
             </View>
           ) : null}
 
           <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl }]}>
-            Send USDC on Solana only.
+            Send {data.currency} on Solana only.
           </Text>
           <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xs / 2 }]}>
             Funds go directly to the merchant's wallet. Spero never holds your funds.
@@ -335,7 +513,7 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
               </Text>
               <DetailRow label="Stablecoin" value={data.currency} />
               <DetailRow label="Network" value={data.network} />
-              <DetailRow label="Amount" value={`${data.amount.toFixed(2)} ${data.currency}`} />
+              <DetailRow label="Amount" value={`${amountToPay.toFixed(2)} ${data.currency}`} />
               <View style={[styles.walletRow, { marginTop: spacing.sm }]}>
                 <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
                   {truncateWallet(data.destinationWallet)}
@@ -376,6 +554,16 @@ function CheckoutContent({ data, copiedField, onCopyWallet }: CheckoutContentPro
         {data.description ? <DetailRow label="Description" value={data.description} /> : null}
         {data.expiresAt ? <DetailRow label="Expires" value={formatExpiry(data.expiresAt)} last /> : null}
       </ThemeAwareCard>
+
+      <FullScreenQRModal
+        visible={qrModalVisible}
+        onClose={() => setQrModalVisible(false)}
+        solanaPayUri={solanaPayUri}
+        amount={amountToPay}
+        currency={data.currency}
+        merchantName={data.merchantName ?? undefined}
+        walletAddress={data.destinationWallet ?? undefined}
+      />
     </View>
   );
 }
@@ -392,4 +580,7 @@ const styles = StyleSheet.create({
   copyButton: { flexDirection: 'row', alignItems: 'center' },
   retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   offlineBanner: { flexDirection: 'row', alignItems: 'center' },
+  amountChoiceRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  customAmountRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

@@ -1,0 +1,40 @@
+# Supabase CLI project config. This file was not previously checked in --
+# every migration/function so far was applied by pasting into the Dashboard
+# rather than via `supabase db push`/`supabase functions deploy`. Created
+# now specifically to disable gateway-level JWT verification for
+# verify-payment (Phase 5A audit: safe because the function performs its
+# own authorization internally for every request mode -- see that
+# function's own header comment and this repo's audit report).
+#
+# Running `supabase link --project-ref <ref>` will add a `project_id` line
+# to this file (or prompt you to run `supabase init` first if the CLI wants
+# a fuller scaffold) -- either is fine and will not conflict with the
+# section below.
+
+[functions.verify-payment]
+# Cron/pg_net calls (the sweep-mode path) have no interactive user session,
+# so they can never carry a real Supabase JWT -- Supabase's own recommended
+# pattern for service-to-service/cron invocation is to disable gateway JWT
+# verification and have the function authenticate the call itself, which
+# verify-payment already does for both of its modes:
+#   - sweep mode:        requires x-cron-secret === VERIFY_PAYMENT_CRON_SECRET
+#   - public_token mode: requires a valid public_token; every subsequent
+#                         query is derived from that one matched row, never
+#                         from caller-supplied ids
+# Do not add this setting for any function that relies on the gateway's JWT
+# check for its own authorization -- verify-payment does not.
+verify_jwt = false
+
+# Both of these are cron-only -- no client ever calls either one (see each
+# function's own header comment) -- so unlike verify-payment they have only
+# one invocation mode, and it always has the same "no interactive session"
+# problem: pg_cron/pg_net can never carry a real Supabase JWT. Each already
+# authenticates the call itself via its own x-cron-secret header check
+# (REMINDER_CRON_SECRET / RECURRING_CRON_SECRET respectively), so disabling
+# the gateway's JWT check here is safe for the identical reason it was for
+# verify-payment.
+[functions.process-reminders]
+verify_jwt = false
+
+[functions.process-recurring-plans]
+verify_jwt = false

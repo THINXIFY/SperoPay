@@ -2,13 +2,28 @@ import type { ExpiryOption } from '../types';
 import { generatePaymentCode } from './ids';
 import { calculateExpiresAt } from './expiry';
 import { generateSolanaReference } from '../services/blockchain/solana/reference';
+import { getCheckoutBaseUrl } from './checkoutBaseUrl';
+import { DEFAULT_ASSET, type AssetSymbol } from '../config/assets';
 
 export interface CreateRequestInput {
   amount: number;
+  // Defaults to DEFAULT_ASSET (USDC) when omitted -- every pre-Phase-7
+  // caller keeps behaving identically.
+  currency?: AssetSymbol;
   description?: string;
   customerId?: string;
   expiryOption: ExpiryOption;
   note?: string;
+  // ISO string -- when the merchant expects to be paid by. Separate from
+  // expiryOption/expiresAt (the checkout link's own accept-payment window).
+  // Reminders can't be scheduled without this being set.
+  dueAt?: string;
+  // Phase 4C: when false/undefined (the default), a request behaves exactly
+  // as it always has. depositType/depositValue are only meaningful when
+  // allowPartialPayments is true.
+  allowPartialPayments?: boolean;
+  depositType?: 'fixed' | 'percentage';
+  depositValue?: number;
 }
 
 // The insert payload for create_payment_request — everything the RPC needs
@@ -23,11 +38,16 @@ export interface PaymentRequestPayload {
   paymentLink: string;
   solanaReference: string;
   amount: number;
+  currency: AssetSymbol;
   description?: string;
   customerId?: string;
   expiryOption: ExpiryOption;
   expiresAt: string | null;
   note?: string;
+  dueAt?: string;
+  allowPartialPayments?: boolean;
+  depositType?: 'fixed' | 'percentage';
+  depositValue?: number;
 }
 
 export function buildPaymentRequestPayload(input: CreateRequestInput, now: Date = new Date()): PaymentRequestPayload {
@@ -35,13 +55,18 @@ export function buildPaymentRequestPayload(input: CreateRequestInput, now: Date 
 
   return {
     paymentCode,
-    paymentLink: `https://pay.speropay.app/r/${paymentCode}`,
+    paymentLink: `${getCheckoutBaseUrl()}/r/${paymentCode}`,
     solanaReference: generateSolanaReference(),
     amount: input.amount,
+    currency: input.currency ?? DEFAULT_ASSET,
     description: input.description,
     customerId: input.customerId,
     expiryOption: input.expiryOption,
     expiresAt: calculateExpiresAt(input.expiryOption, now),
     note: input.note,
+    dueAt: input.dueAt,
+    allowPartialPayments: input.allowPartialPayments,
+    depositType: input.depositType,
+    depositValue: input.depositValue,
   };
 }

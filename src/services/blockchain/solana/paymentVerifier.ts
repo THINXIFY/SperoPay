@@ -40,7 +40,7 @@ export function verifyPayment(params: VerifyPaymentParams): PaymentVerificationR
     }
   }
 
-  const mintMatches = tx.transfers.filter((transfer) => transfer.mint === expected.usdcMint);
+  const mintMatches = tx.transfers.filter((transfer) => transfer.mint === expected.mint);
   if (mintMatches.length === 0) return { valid: false, reason: 'wrong_mint' };
 
   const destinationMatches = mintMatches.filter(
@@ -48,8 +48,16 @@ export function verifyPayment(params: VerifyPaymentParams): PaymentVerificationR
   );
   if (destinationMatches.length === 0) return { valid: false, reason: 'wrong_destination' };
 
-  const amountMatch = destinationMatches.find(
-    (transfer) => transfer.amountBaseUnits === expected.amountBaseUnits
+  // Partial-payment-enabled requests accept any amount within a range
+  // (see ExpectedPayment's own docs) instead of requiring an exact match --
+  // every other request (the range fields absent, as for every request
+  // that existed before Phase 4C) keeps the original exact-match behavior
+  // byte-for-byte.
+  const hasAmountRange = expected.minAmountBaseUnits != null && expected.maxAmountBaseUnits != null;
+  const amountMatch = destinationMatches.find((transfer) =>
+    hasAmountRange
+      ? transfer.amountBaseUnits >= expected.minAmountBaseUnits! && transfer.amountBaseUnits <= expected.maxAmountBaseUnits!
+      : transfer.amountBaseUnits === expected.amountBaseUnits
   );
   if (!amountMatch) return { valid: false, reason: 'wrong_amount' };
 

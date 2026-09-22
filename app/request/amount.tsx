@@ -10,6 +10,7 @@ import { AmountInput } from '../../src/components/AmountInput';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { AppBottomSheet } from '../../src/components/AppBottomSheet';
 import { SelectField } from '../../src/components/SelectField';
+import { CurrencySelectSheet } from '../../src/components/CurrencySelectSheet';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { isValidAmount } from '../../src/utils/validators';
 
@@ -24,6 +25,8 @@ export default function AmountScreen() {
   const { colors, spacing, typography } = useTheme();
   const amount = useRequestDraftStore((state) => state.amount);
   const setAmount = useRequestDraftStore((state) => state.setAmount);
+  const currency = useRequestDraftStore((state) => state.currency);
+  const setCurrency = useRequestDraftStore((state) => state.setCurrency);
   const reset = useRequestDraftStore((state) => state.reset);
 
   const stablecoinSheetRef = useRef<BottomSheet>(null);
@@ -117,7 +120,7 @@ export default function AmountScreen() {
         <AmountInput value={amount} onChange={setAmount} />
 
         <View style={{ marginTop: spacing.lg }}>
-          <SelectField icon="ellipse" label="USDC" onPress={openStablecoinSheet} />
+          <SelectField icon="ellipse" label={currency} onPress={openStablecoinSheet} />
         </View>
 
         <Pressable
@@ -140,10 +143,15 @@ export default function AmountScreen() {
       </View>
 
       {isStablecoinSheetMounted ? (
-        <AppBottomSheet ref={stablecoinSheetRef} initialIndex={0} snapPoints={SHEET_SNAP_POINTS} scrollable>
-          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>Stablecoin</Text>
-          <SheetOption label="USDC" selected />
-        </AppBottomSheet>
+        <CurrencySelectSheet
+          ref={stablecoinSheetRef}
+          initialIndex={0}
+          value={currency}
+          onSelect={(asset) => {
+            setCurrency(asset);
+            stablecoinSheetRef.current?.close();
+          }}
+        />
       ) : null}
 
       {isNetworkSheetMounted ? (

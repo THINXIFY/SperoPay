@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, Share, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
 import { CustomerImagePicker } from '../../../src/components/CustomerImagePicker';
 import { StatTile } from '../../../src/components/StatTile';
@@ -13,7 +15,10 @@ import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { RequestCard } from '../../../src/components/RequestCard';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
+import { SecondaryButton } from '../../../src/components/SecondaryButton';
+import { TextButton } from '../../../src/components/TextButton';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
+import { ConfirmationModal } from '../../../src/components/ConfirmationModal';
 import { TextField } from '../../../src/components/TextField';
 import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useCustomerStore } from '../../../src/store/customerStore';
@@ -28,8 +33,10 @@ import { uploadCustomerAvatar, deleteAvatarByUrl } from '../../../src/services/s
 import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import { getCustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
+import { SUPPORTED_ASSETS } from '../../../src/config/assets';
 import { getDateLabel } from '../../../src/utils/getDateLabel';
 import { isValidEmail } from '../../../src/utils/validators';
+import { getCustomerPortalUrl } from '../../../src/utils/customerPortalLink';
 import type { PaymentRequest } from '../../../src/types';
 
 export default function CustomerDetailScreen() {
@@ -40,6 +47,8 @@ export default function CustomerDetailScreen() {
   const transactions = useTransactionStore((state) => state.transactions);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
+  const ensurePortalToken = useCustomerStore((state) => state.ensurePortalToken);
+  const regeneratePortalToken = useCustomerStore((state) => state.regeneratePortalToken);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
   const userId = useAuthStore((state) => state.user?.id);
   const { refresh: refreshCustomerData, isRefreshing } = useRefreshCustomerData();
@@ -58,7 +67,10 @@ export default function CustomerDetailScreen() {
     return map;
   }, [transactions]);
 
-  const stats = useMemo(() => getCustomerStats(id ?? '', requests), [id, requests]);
+  const stats = useMemo(() => getCustomerStats(id ?? '', requests, transactions), [id, requests, transactions]);
+  // Never a single combined number across assets (spec section 14) -- see
+  // getCustomerStats's own comment.
+  const statsCurrencies = useMemo(() => SUPPORTED_ASSETS.filter((asset) => stats.byCurrency[asset]), [stats]);
 
   const handleHistoryRowPress = useCallback((requestId: string) => {
     router.push(`/(app)/requests/${requestId}`);
@@ -96,11 +108,18 @@ export default function CustomerDetailScreen() {
   // prop is the layout-aware, declarative alternative used on first mount.
   const [isEditSheetMounted, setIsEditSheetMounted] = useState(false);
 
+  const portalSheetRef = useRef<BottomSheet>(null);
+  const [isPortalSheetMounted, setIsPortalSheetMounted] = useState(false);
+  const [isLoadingPortalToken, setIsLoadingPortalToken] = useState(false);
+  const [isRegeneratingPortalToken, setIsRegeneratingPortalToken] = useState(false);
+  const [regenerateModalVisible, setRegenerateModalVisible] = useState(false);
+
   // Defense in depth for a reused/backgrounded screen instance whose sheet
   // was left open from an earlier visit.
   useFocusEffect(
     useCallback(() => {
       editSheetRef.current?.forceClose();
+      portalSheetRef.current?.forceClose();
     }, [])
   );
 
@@ -124,6 +143,54 @@ export default function CustomerDetailScreen() {
   function handleRequestPayment() {
     prefillDraft({ customerId, expiryOption: defaultExpiryOption });
     router.push('/request/amount');
+  }
+
+  async function openPortalSheet() {
+    if (!customer || !userId) return;
+    if (isPortalSheetMounted) portalSheetRef.current?.expand();
+    else setIsPortalSheetMounted(true);
+
+    if (!customer.portalToken) {
+      setIsLoadingPortalToken(true);
+      try {
+        await ensurePortalToken(userId, customer.id);
+      } catch {
+        Alert.alert("Couldn't Set Up Portal", "We couldn't set up the client portal. Check your connection and try again.");
+      } finally {
+        setIsLoadingPortalToken(false);
+      }
+    }
+  }
+
+  async function handleCopyPortalLink() {
+    if (!customer?.portalToken) return;
+    await Clipboard.setStringAsync(getCustomerPortalUrl(customer.portalToken));
+    Alert.alert('Copied', 'Portal link copied to clipboard.');
+  }
+
+  async function handleSharePortalLink() {
+    if (!customer?.portalToken) return;
+    const link = getCustomerPortalUrl(customer.portalToken);
+    await Share.share({ message: link, url: link });
+  }
+
+  function handleOpenPortal() {
+    if (!customer?.portalToken) return;
+    portalSheetRef.current?.close();
+    router.push(`/c/${customer.portalToken}`);
+  }
+
+  async function handleConfirmRegenerate() {
+    if (!userId || !customer || isRegeneratingPortalToken) return;
+    setIsRegeneratingPortalToken(true);
+    try {
+      await regeneratePortalToken(userId, customer.id);
+      setRegenerateModalVisible(false);
+    } catch {
+      Alert.alert("Couldn't Regenerate Link", "We couldn't regenerate the portal link. Check your connection and try again.");
+    } finally {
+      setIsRegeneratingPortalToken(false);
+    }
   }
 
   function openEditSheet() {
@@ -212,7 +279,7 @@ export default function CustomerDetailScreen() {
       <FlatList
         data={history}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}
+        contentContainerStyle={{ padding: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl, gap: spacing.md }}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshCustomerData} />}
         ListHeaderComponent={
           <View style={{ marginBottom: spacing.xl }}>
@@ -253,18 +320,39 @@ export default function CustomerDetailScreen() {
 
             <ThemeAwareCard variant="hero" style={{ marginTop: spacing.lg }}>
               <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted }]}>Total Received</Text>
-              <Text style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.xs }]} numberOfLines={1}>
-                {formatCurrency(stats.totalReceived)}
-              </Text>
+              {statsCurrencies.length === 0 ? (
+                <Text style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.xs }]} numberOfLines={1}>
+                  {formatCurrency(0)} USDC
+                </Text>
+              ) : (
+                statsCurrencies.map((asset) => (
+                  <Text
+                    key={asset}
+                    style={[typography.h1, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}
+                    numberOfLines={1}
+                  >
+                    {formatCurrency(stats.byCurrency[asset]!.totalReceived)} {asset}
+                  </Text>
+                ))
+              )}
             </ThemeAwareCard>
 
             <View style={[styles.statsRow, { marginTop: spacing.sm, gap: spacing.sm }]}>
               <StatTile label="Payments" value={String(stats.totalRequests)} style={{ flex: 1 }} />
-              <StatTile label="Outstanding" value={formatCurrency(stats.outstanding)} style={{ flex: 1 }} />
+              <StatTile
+                label="Outstanding"
+                value={
+                  statsCurrencies.length === 0
+                    ? `${formatCurrency(0)} USDC`
+                    : statsCurrencies.map((asset) => `${formatCurrency(stats.byCurrency[asset]!.outstanding)} ${asset}`).join(' · ')
+                }
+                style={{ flex: 1 }}
+              />
             </View>
 
-            <View style={{ marginTop: spacing.xl }}>
+            <View style={{ marginTop: spacing.xl, gap: spacing.sm }}>
               <PrimaryButton label="Request Payment" onPress={handleRequestPayment} icon="arrow-forward" />
+              <SecondaryButton label="Client Portal" icon="globe-outline" onPress={openPortalSheet} />
             </View>
 
             <View style={[styles.historyHeaderRow, { marginTop: spacing.xl, marginBottom: spacing.sm }]}>
@@ -338,6 +426,62 @@ export default function CustomerDetailScreen() {
           <PrimaryButton label="Save Changes" onPress={handleSaveEdit} loading={isSavingEdit} />
         </AppBottomSheet>
       ) : null}
+
+      {isPortalSheetMounted ? (
+        <AppBottomSheet ref={portalSheetRef} initialIndex={0}>
+          <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.xs }]}>Client Portal</Text>
+          <Text style={[typography.bodySmall, { color: colors.textSecondary, marginBottom: spacing.lg }]}>
+            A secure link where {customer.name.split(' ')[0]} can see their payment activity with you and pay outstanding
+            requests.
+          </Text>
+
+          {isLoadingPortalToken ? (
+            <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.lg }]}>Setting up…</Text>
+          ) : customer.portalToken ? (
+            <View
+              style={[
+                styles.portalLinkRow,
+                { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginBottom: spacing.lg },
+              ]}
+            >
+              <Text style={[typography.bodySmall, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
+                {getCustomerPortalUrl(customer.portalToken)}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={{ gap: spacing.sm }}>
+            <PrimaryButton label="Open Portal" onPress={handleOpenPortal} disabled={!customer.portalToken} />
+            <SecondaryButton label="Copy Link" icon="copy-outline" onPress={handleCopyPortalLink} disabled={!customer.portalToken} />
+            <SecondaryButton label="Share" icon="share-outline" onPress={handleSharePortalLink} disabled={!customer.portalToken} />
+          </View>
+
+          {customer.portalToken ? (
+            <View style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+              <TextButton
+                label="Regenerate Link"
+                tone="danger"
+                onPress={() => {
+                  portalSheetRef.current?.close();
+                  setRegenerateModalVisible(true);
+                }}
+              />
+            </View>
+          ) : null}
+        </AppBottomSheet>
+      ) : null}
+
+      <ConfirmationModal
+        visible={regenerateModalVisible}
+        title="Regenerate portal link?"
+        description="The current link will stop working immediately. Anyone with the old link will no longer be able to open this customer's portal."
+        confirmLabel="Regenerate"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmRegenerate}
+        onCancel={() => setRegenerateModalVisible(false)}
+        loading={isRegeneratingPortalToken}
+        icon="refresh-outline"
+      />
     </SafeAreaView>
   );
 }
@@ -347,4 +491,5 @@ const styles = StyleSheet.create({
   companyPill: { flexDirection: 'row', alignItems: 'center' },
   statsRow: { flexDirection: 'row' },
   historyHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  portalLinkRow: { borderWidth: 1 },
 });

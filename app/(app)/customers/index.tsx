@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { CustomerAvatar } from '../../../src/components/CustomerAvatar';
 import { CustomerImagePicker } from '../../../src/components/CustomerImagePicker';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
@@ -15,6 +16,7 @@ import { SkeletonLoader } from '../../../src/components/SkeletonLoader';
 import { AppRefreshControl } from '../../../src/components/AppRefreshControl';
 import { useCustomerStore } from '../../../src/store/customerStore';
 import { useRequestStore } from '../../../src/store/requestStore';
+import { useTransactionStore } from '../../../src/store/transactionStore';
 import { useAuthStore } from '../../../src/store/authStore';
 import { useRefreshCustomerData } from '../../../src/store/useRefreshCustomerData';
 import { useCustomerImageEditor } from '../../../src/hooks/useCustomerImageEditor';
@@ -23,9 +25,10 @@ import { avatarDebugLog } from '../../../src/utils/avatarDebugLog';
 import { getCustomerStats, type CustomerStats } from '../../../src/utils/getCustomerStats';
 import { formatCurrency } from '../../../src/utils/formatCurrency';
 import { isValidEmail } from '../../../src/utils/validators';
+import { SUPPORTED_ASSETS } from '../../../src/config/assets';
 import type { Customer } from '../../../src/types';
 
-const EMPTY_STATS: CustomerStats = { totalRequests: 0, totalReceived: 0, outstanding: 0 };
+const EMPTY_STATS: CustomerStats = { totalRequests: 0, byCurrency: {} };
 
 interface CustomerRowProps {
   customer: Customer;
@@ -35,6 +38,15 @@ interface CustomerRowProps {
 
 const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }: CustomerRowProps) {
   const { colors, spacing, radius, typography } = useTheme();
+  // Never a single combined number across assets (spec section 14's rule
+  // applies here too) -- a customer paid in both USDC and EURC shows both
+  // totals, stacked, instead of one number that silently added them.
+  const currencies = SUPPORTED_ASSETS.filter((asset) => stats.byCurrency[asset]);
+  const primaryReceivedLabel =
+    currencies.length === 0
+      ? `${formatCurrency(0)} USDC`
+      : `${formatCurrency(stats.byCurrency[currencies[0]]!.totalReceived)} ${currencies[0]}`;
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -48,7 +60,7 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
       ]}
       onPress={() => onPress(customer.id)}
       accessibilityRole="button"
-      accessibilityLabel={`${customer.name}, ${formatCurrency(stats.totalReceived)} received`}
+      accessibilityLabel={`${customer.name}, ${primaryReceivedLabel} received`}
     >
       <CustomerAvatar
         name={customer.name}
@@ -66,9 +78,17 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end', marginLeft: spacing.sm }}>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
-          {formatCurrency(stats.totalReceived)}
-        </Text>
+        {currencies.length <= 1 ? (
+          <Text style={[typography.bodyMedium, { color: colors.textPrimary }]} numberOfLines={1}>
+            {primaryReceivedLabel}
+          </Text>
+        ) : (
+          currencies.map((asset) => (
+            <Text key={asset} style={[typography.bodySmall, { color: colors.textPrimary }]} numberOfLines={1}>
+              {formatCurrency(stats.byCurrency[asset]!.totalReceived)} {asset}
+            </Text>
+          ))
+        )}
         <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
           {stats.totalRequests} {stats.totalRequests === 1 ? 'payment' : 'payments'}
         </Text>
@@ -80,12 +100,14 @@ const CustomerRow = React.memo(function CustomerRow({ customer, stats, onPress }
 
 export default function CustomersScreen() {
   const { colors, spacing, radius, typography } = useTheme();
+  const insets = useSafeAreaInsets();
   const customers = useCustomerStore((state) => state.customers);
   const addCustomer = useCustomerStore((state) => state.addCustomer);
   const updateCustomer = useCustomerStore((state) => state.updateCustomer);
   const status = useCustomerStore((state) => state.status);
   const error = useCustomerStore((state) => state.error);
   const requests = useRequestStore((state) => state.requests);
+  const transactions = useTransactionStore((state) => state.transactions);
   const userId = useAuthStore((state) => state.user?.id);
   const { refresh: refreshCustomerData, isRefreshing } = useRefreshCustomerData();
 
@@ -139,10 +161,10 @@ export default function CustomersScreen() {
   const statsById = useMemo(() => {
     const map = new Map<string, CustomerStats>();
     for (const customer of customers) {
-      map.set(customer.id, getCustomerStats(customer.id, requests));
+      map.set(customer.id, getCustomerStats(customer.id, requests, transactions));
     }
     return map;
-  }, [customers, requests]);
+  }, [customers, requests, transactions]);
 
   const handleRowPress = useCallback((id: string) => {
     router.push(`/(app)/customers/${id}`);
@@ -270,7 +292,12 @@ export default function CustomersScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.base, gap: spacing.sm }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.base,
+          paddingBottom: insets.bottom + TAB_BAR_CONTENT_HEIGHT + spacing.md,
+          gap: spacing.sm,
+        }}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refreshCustomerData} />}
         ListEmptyComponent={
           status === 'loading' ? (

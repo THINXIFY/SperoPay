@@ -1,5 +1,5 @@
 jest.mock('../../lib/supabase', () => ({
-  supabase: { from: jest.fn() },
+  supabase: { from: jest.fn(), rpc: jest.fn() },
 }));
 
 import { supabase } from '../../lib/supabase';
@@ -98,6 +98,30 @@ describe('addCustomer', () => {
     expect(result.id).toBe('c2');
     expect(useCustomerStore.getState().customers).toHaveLength(2);
   });
+
+  it('logs a customer_added notification for the new customer, best-effort (does not block on it)', async () => {
+    useCustomerStore.setState({ customers: [], status: 'loaded', error: null });
+    const builder = makeQueryBuilder({
+      data: { id: 'c9', name: 'Jamie Lee', email: 'jamie@x.com', avatar_color: 'mint', company: null, notes: null },
+      error: null,
+    });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useCustomerStore.getState().addCustomer('user-1', { name: 'Jamie Lee', email: 'jamie@x.com' });
+    // Flush the fire-and-forget notification insert (not awaited by addCustomer itself).
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockedSupabase.from).toHaveBeenCalledWith('notifications');
+    expect(builder.insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        user_id: 'user-1',
+        type: 'customer_added',
+        entity_type: 'customer',
+        entity_id: 'c9',
+      })
+    );
+  });
 });
 
 describe('updateCustomer', () => {
@@ -138,6 +162,41 @@ describe('updateCustomer', () => {
 
     expect(builder.update).toHaveBeenCalledWith(expect.objectContaining({ avatar_url: null, image_type: null }));
     expect(useCustomerStore.getState().customers[0].avatarUrl).toBeUndefined();
+  });
+});
+
+describe('ensurePortalToken', () => {
+  it('calls the RPC and stores the returned token on the matching customer', async () => {
+    useCustomerStore.setState({
+      customers: [{ id: 'c1', name: 'Jane', email: 'jane@x.com', avatarColor: 'blue' }],
+      status: 'loaded',
+      error: null,
+    });
+    mockedSupabase.rpc.mockResolvedValue({ data: 'new-token-1', error: null } as never);
+
+    const token = await useCustomerStore.getState().ensurePortalToken('user-1', 'c1');
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith('ensure_customer_portal_token', { p_customer_id: 'c1' });
+    expect(token).toBe('new-token-1');
+    expect(useCustomerStore.getState().customers[0].portalToken).toBe('new-token-1');
+  });
+});
+
+describe('regeneratePortalToken', () => {
+  it('replaces the stored token with a fresh one from the RPC', async () => {
+    useCustomerStore.setState({
+      customers: [{ id: 'c1', name: 'Jane', email: 'jane@x.com', avatarColor: 'blue', portalToken: 'old-token' }],
+      status: 'loaded',
+      error: null,
+    });
+    mockedSupabase.rpc.mockResolvedValue({ data: 'rotated-token', error: null } as never);
+
+    const token = await useCustomerStore.getState().regeneratePortalToken('user-1', 'c1');
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith('regenerate_customer_portal_token', { p_customer_id: 'c1' });
+    expect(token).toBe('rotated-token');
+    expect(useCustomerStore.getState().customers[0].portalToken).toBe('rotated-token');
+    expect(useCustomerStore.getState().customers[0].portalToken).not.toBe('old-token');
   });
 });
 

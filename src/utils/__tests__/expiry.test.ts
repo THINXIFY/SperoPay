@@ -1,4 +1,4 @@
-import { calculateExpiresAt, isRequestExpired } from '../expiry';
+import { calculateExpiresAt, isRequestExpired, findNewlyExpiredPendingRequestIds } from '../expiry';
 
 describe('calculateExpiresAt', () => {
   const now = new Date('2026-08-18T12:00:00.000Z');
@@ -37,5 +37,61 @@ describe('isRequestExpired', () => {
 
   it('treats expiresAt exactly equal to now as expired', () => {
     expect(isRequestExpired({ expiresAt: '2026-08-18T12:00:00.000Z' }, now)).toBe(true);
+  });
+});
+
+describe('findNewlyExpiredPendingRequestIds', () => {
+  const now = new Date('2026-08-18T12:00:00.000Z');
+
+  function req(id: string, status: string, expiresAt: string | null) {
+    return { id, status, expiresAt };
+  }
+
+  it('returns a still-pending request past its expiry', () => {
+    const ids = findNewlyExpiredPendingRequestIds([req('r1', 'pending', '2026-08-18T11:00:00.000Z')], new Set(), now);
+    expect(ids).toEqual(['r1']);
+  });
+
+  it('excludes a request that is not yet expired', () => {
+    const ids = findNewlyExpiredPendingRequestIds([req('r1', 'pending', '2026-08-19T00:00:00.000Z')], new Set(), now);
+    expect(ids).toEqual([]);
+  });
+
+  it('excludes a paid request even if its expiry has passed', () => {
+    const ids = findNewlyExpiredPendingRequestIds([req('r1', 'paid', '2026-08-18T11:00:00.000Z')], new Set(), now);
+    expect(ids).toEqual([]);
+  });
+
+  it('excludes a confirming request -- a payment is already in flight, it is not meaningfully "expired"', () => {
+    const ids = findNewlyExpiredPendingRequestIds([req('r1', 'confirming', '2026-08-18T11:00:00.000Z')], new Set(), now);
+    expect(ids).toEqual([]);
+  });
+
+  it('excludes a cancelled request', () => {
+    const ids = findNewlyExpiredPendingRequestIds([req('r1', 'cancelled', '2026-08-18T11:00:00.000Z')], new Set(), now);
+    expect(ids).toEqual([]);
+  });
+
+  it('excludes an id already in the alreadyAttempted set -- never re-fires for the same request every poll (duplicate prevention)', () => {
+    const ids = findNewlyExpiredPendingRequestIds(
+      [req('r1', 'pending', '2026-08-18T11:00:00.000Z')],
+      new Set(['r1']),
+      now
+    );
+    expect(ids).toEqual([]);
+  });
+
+  it('returns only the newly-expired ones out of a mixed list', () => {
+    const ids = findNewlyExpiredPendingRequestIds(
+      [
+        req('r1', 'pending', '2026-08-18T11:00:00.000Z'), // expired, new
+        req('r2', 'pending', '2026-08-19T00:00:00.000Z'), // not expired
+        req('r3', 'paid', '2026-08-18T11:00:00.000Z'), // paid
+        req('r4', 'pending', '2026-08-17T00:00:00.000Z'), // expired, already attempted
+      ],
+      new Set(['r4']),
+      now
+    );
+    expect(ids).toEqual(['r1']);
   });
 });

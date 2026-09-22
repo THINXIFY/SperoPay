@@ -49,3 +49,7 @@ yarn-error.*
 
 # Supabase CLI local state (project link cache, version info) -- machine-specific, never project source
 supabase/.temp/
+# Same, but the CLI was run from inside supabase/ at some point, creating a
+# nested supabase/supabase/.temp/ that the rule above doesn't match. Contains
+# a real pooler connection string/project ref -- must never be committed.
+supabase/supabase/

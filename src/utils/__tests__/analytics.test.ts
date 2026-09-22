@@ -6,6 +6,7 @@ import {
   getTopCustomers,
   getRevenueTrend,
 } from '../analytics';
+import { getOutstandingSummary as getReportsOutstandingSummary } from '../reportsCalculations';
 import type { PaymentRequest, Transaction } from '../../types';
 
 const NOW = new Date('2026-03-15T12:00:00.000Z');
@@ -78,9 +79,65 @@ describe('getOutstandingSummary', () => {
       req({ id: 'c', amount: 200, status: 'paid' }),
       req({ id: 'd', amount: 30, status: 'cancelled' }),
     ];
-    const result = getOutstandingSummary(requests);
+    const result = getOutstandingSummary(requests, []);
     expect(result.amount).toBe(150);
     expect(result.count).toBe(2);
+  });
+
+  it('an unpaid pending request with no transactions contributes its full amount', () => {
+    const requests = [req({ id: 'a', amount: 300, status: 'pending' })];
+    const result = getOutstandingSummary(requests, []);
+    expect(result.amount).toBe(300);
+  });
+
+  it('a fully paid request contributes 0 (not counted in outstanding at all)', () => {
+    const requests = [req({ id: 'a', amount: 1000, status: 'paid' })];
+    const transactions = [tx({ requestId: 'a', amount: 1000 })];
+    const result = getOutstandingSummary(requests, transactions);
+    expect(result.amount).toBe(0);
+    expect(result.count).toBe(0);
+  });
+
+  it('a partially paid request contributes its REMAINING balance, not the original amount (spec example: 1,000 total, 400 paid -> 600 outstanding)', () => {
+    const requests = [req({ id: 'a', amount: 1000, status: 'pending', allowPartialPayments: true })];
+    const transactions = [tx({ requestId: 'a', amount: 400 })];
+    const result = getOutstandingSummary(requests, transactions);
+    expect(result.amount).toBe(600);
+    expect(result.count).toBe(1);
+  });
+
+  it('multiple partial payments against the same request accumulate before being subtracted', () => {
+    const requests = [req({ id: 'a', amount: 1000, status: 'pending', allowPartialPayments: true })];
+    const transactions = [
+      tx({ requestId: 'a', amount: 250, paidAt: '2026-03-01T00:00:00.000Z' }),
+      tx({ requestId: 'a', amount: 150, paidAt: '2026-03-02T00:00:00.000Z' }),
+    ];
+    const result = getOutstandingSummary(requests, transactions);
+    expect(result.amount).toBe(600);
+  });
+
+  it('a cancelled request never contributes to outstanding, even with a prior partial payment', () => {
+    const requests = [req({ id: 'a', amount: 1000, status: 'cancelled' })];
+    const transactions = [tx({ requestId: 'a', amount: 400 })];
+    const result = getOutstandingSummary(requests, transactions);
+    expect(result.amount).toBe(0);
+    expect(result.count).toBe(0);
+  });
+
+  it('Analytics and Reports agree on the outstanding total for the same dataset', () => {
+    const requests = [
+      req({ id: 'a', amount: 1000, status: 'pending', allowPartialPayments: true }),
+      req({ id: 'b', amount: 200, status: 'pending' }),
+      req({ id: 'c', amount: 500, status: 'paid' }),
+      req({ id: 'd', amount: 300, status: 'cancelled' }),
+    ];
+    const transactions = [tx({ requestId: 'a', amount: 400 }), tx({ requestId: 'c', amount: 500 })];
+
+    const analyticsResult = getOutstandingSummary(requests, transactions);
+    const reportsResult = getReportsOutstandingSummary(requests, transactions, NOW);
+
+    expect(analyticsResult.amount).toBe(reportsResult.totalOutstanding);
+    expect(analyticsResult.amount).toBe(800); // (1000 - 400) remaining on a, plus b's untouched 200
   });
 });
 

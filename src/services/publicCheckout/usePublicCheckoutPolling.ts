@@ -60,7 +60,7 @@ export function usePublicCheckoutPolling(
 
   useEffect(() => {
     if (!token) {
-      setResult({ ok: false, code: 'invalid_token', message: 'This payment link is invalid.' });
+      setResult({ ok: false, code: 'invalid_token', message: 'The link is malformed or incomplete.' });
       return;
     }
 

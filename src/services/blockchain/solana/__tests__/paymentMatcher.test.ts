@@ -38,7 +38,7 @@ function fakeSuccessfulTx(): ParsedTransactionWithMeta {
 // agree (see the "mismatched" test below for the case where they don't).
 const expected: ExpectedPayment = {
   network: 'mainnet-beta',
-  usdcMint: USDC_MINT,
+  mint: USDC_MINT,
   destinationWallet: MERCHANT_WALLET,
   amountBaseUnits: 10_500_000n,
   notAfter: null,
@@ -141,16 +141,16 @@ describe('matchPayment', () => {
     expect(result).toEqual({ valid: false, reason: 'insufficient_confirmation' });
   });
 
-  it('throws synchronously if the caller constructs an ExpectedPayment whose mint does not match its own network', async () => {
+  it('throws synchronously if the caller constructs an ExpectedPayment whose mint is not a supported asset mint for its network', async () => {
     const provider: SolanaRpcProvider = {
       getParsedTransaction: jest.fn(),
       getSignatureStatus: jest.fn(),
     };
-    const mismatched: ExpectedPayment = { ...expected, network: 'devnet' }; // usdcMint is still the mainnet mint
+    const mismatched: ExpectedPayment = { ...expected, network: 'devnet' }; // mint is still the mainnet mint
 
     await expect(
       matchPayment('sig-1', mismatched, { rpcProvider: provider, isSignatureAlreadyUsed: jest.fn() })
-    ).rejects.toThrow(/does not match the USDC mint configured for/);
+    ).rejects.toThrow(/is not a supported asset mint for network/);
     expect(provider.getParsedTransaction).not.toHaveBeenCalled();
   });
 });

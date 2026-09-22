@@ -37,6 +37,7 @@ function makeTemplate(overrides: Partial<Template> = {}): Template {
     currency: 'USDC',
     expiryOption: '7d',
     remindersEnabled: true,
+    reminderPreset: 'standard',
     isFavorite: false,
     isArchived: false,
     usageCount: 0,
@@ -62,6 +63,8 @@ describe('loadForUser', () => {
           expiry_option: '7d',
           customer_id: 'cust-1',
           reminders_enabled: false,
+          reminder_preset: 'standard',
+          reminder_custom_rules: null,
           is_favorite: true,
           is_archived: false,
           usage_count: 3,
@@ -84,6 +87,8 @@ describe('loadForUser', () => {
         expiryOption: '7d',
         customerId: 'cust-1',
         remindersEnabled: false,
+        reminderPreset: 'standard',
+        reminderCustomRules: undefined,
         isFavorite: true,
         isArchived: false,
         usageCount: 3,
@@ -104,6 +109,8 @@ describe('loadForUser', () => {
           expiry_option: 'never',
           customer_id: null,
           reminders_enabled: true,
+          reminder_preset: 'standard',
+          reminder_custom_rules: null,
           is_favorite: false,
           is_archived: false,
           usage_count: 0,
@@ -143,12 +150,61 @@ describe('addTemplate / updateTemplate / deleteTemplate', () => {
 
     const result = await useTemplateStore
       .getState()
-      .addTemplate('user-1', { name: 'SEO', amount: 500, expiryOption: '7d', customerId: 'cust-2', remindersEnabled: true });
+      .addTemplate('user-1', {
+        name: 'SEO',
+        amount: 500,
+        expiryOption: '7d',
+        customerId: 'cust-2',
+        remindersEnabled: true,
+        reminderPreset: 'standard',
+      });
 
     expect(builder.insert).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 'user-1', name: 'SEO', amount: 500, customer_id: 'cust-2', reminders_enabled: true })
     );
     expect(result.id).toBe('t2');
+  });
+
+  // Phase 7: a template created with an explicit EURC currency must write
+  // EURC, not silently default to USDC.
+  it('addTemplate writes the given EURC currency, not the USDC default', async () => {
+    const builder = makeQueryBuilder({
+      data: {
+        id: 't-eurc',
+        name: 'Retainer',
+        amount: '1000',
+        currency: 'EURC',
+        description: null,
+        expiry_option: '7d',
+        customer_id: null,
+        reminders_enabled: true,
+        is_favorite: false,
+        is_archived: false,
+        usage_count: 0,
+        last_used_at: null,
+      },
+      error: null,
+    });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    const result = await useTemplateStore
+      .getState()
+      .addTemplate('user-1', { name: 'Retainer', amount: 1000, currency: 'EURC', expiryOption: '7d', remindersEnabled: true, reminderPreset: 'standard' });
+
+    expect(builder.insert).toHaveBeenCalledWith(expect.objectContaining({ currency: 'EURC' }));
+    expect(result.currency).toBe('EURC');
+  });
+
+  it('addTemplate defaults to USDC when no currency is given', async () => {
+    const builder = makeQueryBuilder({
+      data: { id: 't-default', name: 'X', amount: '1', currency: 'USDC', description: null, expiry_option: '7d', customer_id: null, reminders_enabled: true, is_favorite: false, is_archived: false, usage_count: 0, last_used_at: null },
+      error: null,
+    });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useTemplateStore.getState().addTemplate('user-1', { name: 'X', expiryOption: '7d', remindersEnabled: true, reminderPreset: 'standard' });
+
+    expect(builder.insert).toHaveBeenCalledWith(expect.objectContaining({ currency: 'USDC' }));
   });
 
   it('addTemplate writes a null amount for a flexible-amount template', async () => {
@@ -171,7 +227,9 @@ describe('addTemplate / updateTemplate / deleteTemplate', () => {
     });
     mockedSupabase.from.mockReturnValue(builder as never);
 
-    await useTemplateStore.getState().addTemplate('user-1', { name: 'Flexible', expiryOption: '7d', remindersEnabled: true });
+    await useTemplateStore
+      .getState()
+      .addTemplate('user-1', { name: 'Flexible', expiryOption: '7d', remindersEnabled: true, reminderPreset: 'standard' });
 
     expect(builder.insert).toHaveBeenCalledWith(expect.objectContaining({ amount: null }));
   });
@@ -241,6 +299,26 @@ describe('duplicateTemplate', () => {
 
   it('rejects when the source template is not found', async () => {
     await expect(useTemplateStore.getState().duplicateTemplate('user-1', 'missing')).rejects.toThrow();
+  });
+
+  // Phase 7: duplicating a EURC template must preserve EURC, not reset to
+  // the USDC default (same "preserve the original currency" rule as
+  // creating a request from a template).
+  it('preserves the source template\'s EURC currency on the copy', async () => {
+    useTemplateStore.setState({
+      templates: [makeTemplate({ id: 't1', name: 'Monthly Retainer', currency: 'EURC' })],
+      status: 'loaded',
+      error: null,
+    });
+    const builder = makeQueryBuilder({
+      data: { id: 't-copy', name: 'Monthly Retainer (Copy)', amount: '1', currency: 'EURC', description: null, expiry_option: '7d', customer_id: null, reminders_enabled: true, is_favorite: false, is_archived: false, usage_count: 0, last_used_at: null },
+      error: null,
+    });
+    mockedSupabase.from.mockReturnValue(builder as never);
+
+    await useTemplateStore.getState().duplicateTemplate('user-1', 't1');
+
+    expect(builder.insert).toHaveBeenCalledWith(expect.objectContaining({ currency: 'EURC' }));
   });
 });
 

@@ -8,6 +8,7 @@ import { useAuthStore } from '../authStore';
 import { useRequestStore } from '../requestStore';
 import { useTransactionStore } from '../transactionStore';
 import { useRequestEventStore } from '../requestEventStore';
+import { useNotificationsFeedStore } from '../notificationsFeedStore';
 
 function signIn() {
   useAuthStore.setState({ user: { id: 'user-1', fullName: 'Ada', email: 'ada@example.com', createdAt: '2026-01-01T00:00:00.000Z' } });
@@ -24,6 +25,7 @@ describe('useRefreshMerchantPaymentData', () => {
     const requestSpy = jest.spyOn(useRequestStore.getState(), 'loadForUser').mockResolvedValue(undefined);
     const txSpy = jest.spyOn(useTransactionStore.getState(), 'loadForUser').mockResolvedValue(undefined);
     const eventSpy = jest.spyOn(useRequestEventStore.getState(), 'loadForUser').mockResolvedValue(undefined);
+    const notificationSpy = jest.spyOn(useNotificationsFeedStore.getState(), 'loadForUser').mockResolvedValue(undefined);
 
     const { result } = await renderHook(() => useRefreshMerchantPaymentData());
     await act(async () => {
@@ -33,6 +35,7 @@ describe('useRefreshMerchantPaymentData', () => {
     expect(requestSpy).toHaveBeenCalledWith('user-1');
     expect(txSpy).toHaveBeenCalledWith('user-1');
     expect(eventSpy).toHaveBeenCalledWith('user-1');
+    expect(notificationSpy).toHaveBeenCalledWith('user-1');
   });
 
   it('does nothing when no user is signed in', async () => {
@@ -57,6 +60,7 @@ describe('useRefreshMerchantPaymentData', () => {
     );
     jest.spyOn(useTransactionStore.getState(), 'loadForUser').mockResolvedValue(undefined);
     jest.spyOn(useRequestEventStore.getState(), 'loadForUser').mockResolvedValue(undefined);
+    jest.spyOn(useNotificationsFeedStore.getState(), 'loadForUser').mockResolvedValue(undefined);
 
     const { result } = await renderHook(() => useRefreshMerchantPaymentData());
     expect(result.current.isRefreshing).toBe(false);
@@ -85,6 +89,7 @@ describe('useRefreshMerchantPaymentData', () => {
     );
     const txSpy = jest.spyOn(useTransactionStore.getState(), 'loadForUser').mockResolvedValue(undefined);
     const eventSpy = jest.spyOn(useRequestEventStore.getState(), 'loadForUser').mockResolvedValue(undefined);
+    jest.spyOn(useNotificationsFeedStore.getState(), 'loadForUser').mockResolvedValue(undefined);
 
     const { result } = await renderHook(() => useRefreshMerchantPaymentData());
 

@@ -1,5 +1,5 @@
 import { getSolanaEnvironment } from './config';
-import { getUsdcConfig } from './usdc';
+import { getAssetMint, getAssetDecimals, type AssetSymbol } from '../../../config/assets';
 import { isValidSolanaAddress } from './walletValidation';
 import { fromBaseUnits, toBaseUnits } from './amount';
 
@@ -12,6 +12,8 @@ export interface SolanaPayRequestParams {
   recipient: string;
   reference: string;
   amount: number;
+  /** Phase 7: which supported asset (src/config/assets.ts) this payment is denominated in -- determines the spl-token mint. */
+  asset: AssetSymbol;
   label?: string;
   message?: string;
 }
@@ -25,11 +27,12 @@ export function buildSolanaPayUrl(params: SolanaPayRequestParams): string {
   }
 
   const network = getSolanaEnvironment();
-  const { mint, decimals } = getUsdcConfig(network);
+  const mint = getAssetMint(params.asset, network);
+  const decimals = getAssetDecimals(params.asset);
 
   // Round-trip through base units so the encoded amount always has exactly
   // the token's decimal precision and never a floating-point artifact
-  // (spec section 2's "correct USDC amount" -- reuses the same bigint
+  // (spec section 2's "correct amount" -- reuses the same bigint
   // conversion payment verification will use, rather than inventing a
   // second, looser way to format an amount).
   const normalizedAmount = fromBaseUnits(toBaseUnits(params.amount, decimals), decimals);

@@ -1,0 +1,28 @@
+-- Phase 5A: End-to-End Devnet Validation & Payment Hardening.
+--
+-- Audit finding: the pre-Solana "simulate payment" demo flow (Phase 1B2B,
+-- migration 0003) -- complete_payment / begin_payment_confirmation -- lets
+-- an authenticated merchant move their OWN request straight to
+-- 'confirming'/'paid' with no blockchain transaction involved at all. It
+-- predates Phase 3D's real, server-verified payment architecture entirely,
+-- and was never removed once that architecture shipped.
+--
+-- Its only UI entry point (app/pay/demo.tsx, reached via
+-- app/request/invoice.tsx's "View Payment Request" button) has been
+-- repointed to the real public checkout page (/p/[token]) as part of this
+-- same hardening pass. Revoking these two RPCs' EXECUTE grant here closes
+-- the remaining gap: previously, an authenticated caller invoking either
+-- RPC directly -- via the Supabase client SDK or a raw REST call, entirely
+-- outside the app's own UI -- could still fake a 'confirming'/'paid'
+-- transition with zero on-chain verification. That is exactly what this
+-- phase's audit requires never being possible: "Client state must NEVER be
+-- trusted to mark a request Paid."
+--
+-- Both functions remain defined (app/pay/demo.tsx is left in place as
+-- dead/orphaned code, not deleted, per this phase's "don't rewrite working
+-- architecture unnecessarily" scope) -- only the grant is revoked. Every
+-- other RPC's grants are untouched: cancel_payment_request (also
+-- SECURITY INVOKER, also authenticated-callable) only ever sets
+-- status = 'cancelled', never 'paid', so it is not part of this finding.
+revoke execute on function public.complete_payment(uuid, boolean, text) from authenticated;
+revoke execute on function public.begin_payment_confirmation(uuid) from authenticated;

@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../../src/theme/useTheme';
 import { AppHeader } from '../../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../../src/components/BottomNavigation';
 import { EmptyState } from '../../../../src/components/EmptyState';
 import { ConfirmationModal } from '../../../../src/components/ConfirmationModal';
 import { PaymentTemplateCard } from '../../../../src/components/PaymentTemplateCard';
@@ -104,7 +105,7 @@ export default function ArchivedTemplatesScreen() {
       <FlatList
         data={archivedTemplates}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: spacing.xl, gap: spacing.md, flexGrow: 1 }}
+        contentContainerStyle={{ padding: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl, gap: spacing.md, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <EmptyState

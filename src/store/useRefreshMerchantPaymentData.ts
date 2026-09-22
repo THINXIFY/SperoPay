@@ -3,6 +3,7 @@ import { useAuthStore } from './authStore';
 import { useRequestStore } from './requestStore';
 import { useTransactionStore } from './transactionStore';
 import { useRequestEventStore } from './requestEventStore';
+import { useNotificationsFeedStore } from './notificationsFeedStore';
 
 interface UseRefreshMerchantPaymentDataResult {
   refresh: () => Promise<void>;
@@ -39,6 +40,7 @@ export function useRefreshMerchantPaymentData(): UseRefreshMerchantPaymentDataRe
         useRequestStore.getState().loadForUser(userId),
         useTransactionStore.getState().loadForUser(userId),
         useRequestEventStore.getState().loadForUser(userId),
+        useNotificationsFeedStore.getState().loadForUser(userId),
       ]);
     } finally {
       inFlightRef.current = false;

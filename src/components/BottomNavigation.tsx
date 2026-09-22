@@ -22,6 +22,20 @@ const LABELS: Record<string, string> = {
   profile: 'Profile',
 };
 
+// requests/customers/profile are each backed by a nested Stack (index +
+// detail/sub screens, see their own _layout.tsx) -- a plain
+// navigation.navigate(route.name) resumes whatever screen was LAST active
+// in that stack, not its list/index screen. That's the exact bug this
+// fixes: open a request's detail, tap the Requests tab again, and a plain
+// navigate() lands back on that same detail screen instead of the list.
+// Explicitly targeting the nested `index` screen makes the tab button
+// always return to the list, popping any detail screen above it (a stack
+// navigator pops to an already-mounted route when navigated to directly)
+// -- the behavior every tab button is expected to have. `home` has no
+// nested stack (it's a single screen), so it's left out and still
+// resolved with a plain navigate.
+const TAB_ROUTES_WITH_INDEX = new Set(['requests', 'customers', 'profile']);
+
 // The bar's own content height, above the device safe-area inset: container paddingTop
 // (spacing.sm = 8) + a tab's paddingVertical (6+6=12) + icon (22) + label gap
 // (spacing.xs / 2 = 2) + caption lineHeight (16) + dot gap (3) + dot (4) + container
@@ -43,6 +57,7 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
+  const defaultCurrency = usePaymentDefaultsStore((state) => state.defaultCurrency);
 
   const visibleRoutes = state.routes.filter((route) => route.name !== 'request-action');
   const leftRoutes = visibleRoutes.slice(0, 2);
@@ -58,7 +73,11 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
     return (
       <Pressable
         key={route.key}
-        onPress={() => navigation.navigate(route.name)}
+        onPress={() =>
+          TAB_ROUTES_WITH_INDEX.has(route.name)
+            ? navigation.navigate(route.name, { screen: 'index' })
+            : navigation.navigate(route.name)
+        }
         style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -103,7 +122,7 @@ export function BottomNavigation({ state, navigation }: BottomTabBarProps) {
       <View style={styles.centerWrap}>
         <Pressable
           onPress={() => {
-            startFresh(defaultExpiryOption);
+            startFresh(defaultExpiryOption, defaultCurrency);
             router.push('/request/amount');
           }}
           style={({ pressed }) => [

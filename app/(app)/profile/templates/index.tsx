@@ -6,8 +6,10 @@ import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../../src/theme/useTheme';
 import { AppHeader } from '../../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../../src/components/BottomNavigation';
 import { AppBottomSheet } from '../../../../src/components/AppBottomSheet';
 import { AppActionSheet, type ActionSheetItem } from '../../../../src/components/AppActionSheet';
+import { ReminderPresetSheet } from '../../../../src/components/ReminderPresetSheet';
 import { TextField } from '../../../../src/components/TextField';
 import { SelectField } from '../../../../src/components/SelectField';
 import { PrimaryButton } from '../../../../src/components/PrimaryButton';
@@ -17,13 +19,17 @@ import { AppRefreshControl } from '../../../../src/components/AppRefreshControl'
 import { ConfirmationModal } from '../../../../src/components/ConfirmationModal';
 import { CustomerAvatar } from '../../../../src/components/CustomerAvatar';
 import { PaymentTemplateCard } from '../../../../src/components/PaymentTemplateCard';
+import { CurrencySelectSheet } from '../../../../src/components/CurrencySelectSheet';
 import { useTemplateStore } from '../../../../src/store/templateStore';
 import { useCustomerStore } from '../../../../src/store/customerStore';
 import { useRequestDraftStore } from '../../../../src/store/requestDraftStore';
 import { useAuthStore } from '../../../../src/store/authStore';
+import { usePaymentDefaultsStore } from '../../../../src/store/paymentDefaultsStore';
 import { useRefreshTemplateData } from '../../../../src/store/useRefreshTemplateData';
 import { isValidAmount } from '../../../../src/utils/validators';
-import type { ExpiryOption, Template } from '../../../../src/types';
+import { reminderScheduleSummary, rulesForPreset } from '../../../../src/utils/reminderSchedule';
+import { DEFAULT_ASSET, type AssetSymbol } from '../../../../src/config/assets';
+import type { ExpiryOption, ReminderPreset, Template } from '../../../../src/types';
 
 const EXPIRY_OPTIONS: { value: ExpiryOption; label: string }[] = [
   { value: '1h', label: '1 hour' },
@@ -69,6 +75,7 @@ export default function PaymentTemplatesScreen() {
   const customers = useCustomerStore((state) => state.customers);
   const prefillDraft = useRequestDraftStore((state) => state.prefillFrom);
   const userId = useAuthStore((state) => state.user?.id);
+  const defaultCurrency = usePaymentDefaultsStore((state) => state.defaultCurrency);
   const { refresh, isRefreshing } = useRefreshTemplateData();
 
   const formSheetRef = useRef<BottomSheet>(null);
@@ -79,10 +86,12 @@ export default function PaymentTemplatesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState<AssetSymbol>(DEFAULT_ASSET);
   const [description, setDescription] = useState('');
   const [expiryOption, setExpiryOption] = useState<ExpiryOption>('7d');
   const [customerId, setCustomerId] = useState<string | undefined>(undefined);
   const [remindersEnabled, setRemindersEnabled] = useState(true);
+  const [reminderPreset, setReminderPreset] = useState<ReminderPreset>('standard');
   const [customerSearch, setCustomerSearch] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
@@ -99,6 +108,10 @@ export default function PaymentTemplatesScreen() {
   const [isExpirySheetMounted, setIsExpirySheetMounted] = useState(false);
   const [isCustomerSheetMounted, setIsCustomerSheetMounted] = useState(false);
   const [isActionsSheetMounted, setIsActionsSheetMounted] = useState(false);
+  const reminderPresetSheetRef = useRef<BottomSheet>(null);
+  const [isReminderPresetSheetMounted, setIsReminderPresetSheetMounted] = useState(false);
+  const currencySheetRef = useRef<BottomSheet>(null);
+  const [isCurrencySheetMounted, setIsCurrencySheetMounted] = useState(false);
 
   function openFormSheet() {
     if (isFormSheetMounted) formSheetRef.current?.expand();
@@ -108,10 +121,18 @@ export default function PaymentTemplatesScreen() {
     if (isExpirySheetMounted) expirySheetRef.current?.expand();
     else setIsExpirySheetMounted(true);
   }
+  function openCurrencySheet() {
+    if (isCurrencySheetMounted) currencySheetRef.current?.expand();
+    else setIsCurrencySheetMounted(true);
+  }
   function openCustomerSheet() {
     setCustomerSearch('');
     if (isCustomerSheetMounted) customerSheetRef.current?.expand();
     else setIsCustomerSheetMounted(true);
+  }
+  function openReminderPresetSheet() {
+    if (isReminderPresetSheetMounted) reminderPresetSheetRef.current?.expand();
+    else setIsReminderPresetSheetMounted(true);
   }
 
   // Defense in depth for a reused/backgrounded screen instance whose sheet
@@ -122,6 +143,8 @@ export default function PaymentTemplatesScreen() {
       expirySheetRef.current?.forceClose();
       customerSheetRef.current?.forceClose();
       actionsSheetRef.current?.forceClose();
+      reminderPresetSheetRef.current?.forceClose();
+      currencySheetRef.current?.forceClose();
     }, [])
   );
 
@@ -130,10 +153,12 @@ export default function PaymentTemplatesScreen() {
     setEditingId(null);
     setName('');
     setAmount('');
+    setCurrency(defaultCurrency);
     setDescription('');
     setExpiryOption('7d');
     setCustomerId(undefined);
     setRemindersEnabled(true);
+    setReminderPreset('standard');
     setError(undefined);
     openFormSheet();
   }
@@ -142,10 +167,12 @@ export default function PaymentTemplatesScreen() {
     setEditingId(template.id);
     setName(template.name);
     setAmount(template.amount != null ? String(template.amount) : '');
+    setCurrency(template.currency);
     setDescription(template.description ?? '');
     setExpiryOption(template.expiryOption);
     setCustomerId(template.customerId);
     setRemindersEnabled(template.remindersEnabled);
+    setReminderPreset(template.reminderPreset);
     setError(undefined);
     openFormSheet();
   }
@@ -166,10 +193,12 @@ export default function PaymentTemplatesScreen() {
     const input = {
       name: name.trim(),
       amount: numericAmount,
+      currency,
       description: description.trim() || undefined,
       expiryOption,
       customerId,
       remindersEnabled,
+      reminderPreset,
     };
     setIsSaving(true);
     try {
@@ -203,12 +232,32 @@ export default function PaymentTemplatesScreen() {
     if (busyId) return;
     prefillDraft({
       amount: template.amount != null ? String(template.amount) : undefined,
+      currency: template.currency,
       description: template.description,
       customerId: template.customerId,
       expiryOption: template.expiryOption,
       sourceTemplateId: template.id,
+      remindersEnabled: template.remindersEnabled,
+      reminderPreset: template.reminderPreset,
+      reminderCustomRules: template.reminderCustomRules,
     });
     router.push('/request/amount');
+  }
+
+  function handleMakeRecurring(template: Template) {
+    // Only a snapshot origin is passed (see recurring_payment_plans'
+    // source_template_id) -- the create screen reads these once to seed its
+    // own local state, then never looks back at the template again.
+    router.push({
+      pathname: '/recurring/create',
+      params: {
+        templateId: template.id,
+        amount: template.amount != null ? String(template.amount) : undefined,
+        currency: template.currency,
+        description: template.description ?? undefined,
+        reminderPreset: template.reminderPreset,
+      },
+    });
   }
 
   async function handleToggleFavorite(template: Template) {
@@ -280,6 +329,12 @@ export default function PaymentTemplatesScreen() {
           onPress: () => runTemplateAction(() => handleDuplicate(actionsTarget)),
         },
         {
+          key: 'make-recurring',
+          label: 'Make recurring',
+          icon: 'repeat-outline',
+          onPress: () => runTemplateAction(() => handleMakeRecurring(actionsTarget)),
+        },
+        {
           key: 'archive',
           label: 'Archive',
           icon: 'archive-outline',
@@ -329,7 +384,12 @@ export default function PaymentTemplatesScreen() {
       <FlatList
         data={activeTemplates}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, gap: spacing.md, flexGrow: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl,
+          gap: spacing.md,
+          flexGrow: 1,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={<AppRefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         ListEmptyComponent={
@@ -391,12 +451,16 @@ export default function PaymentTemplatesScreen() {
           </Text>
           <TextField label="Template Name" value={name} onChangeText={setName} error={error} placeholder="Template name" />
           <TextField
-            label="Amount (USDC) — Optional"
+            label={`Amount (${currency}) — Optional`}
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"
             placeholder="Leave blank for a flexible amount"
           />
+          <View style={{ marginBottom: spacing.base }}>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginBottom: spacing.xs }]}>Currency</Text>
+            <SelectField icon="ellipse" label={currency} onPress={openCurrencySheet} />
+          </View>
           <TextField
             label="Description (Optional)"
             value={description}
@@ -421,7 +485,7 @@ export default function PaymentTemplatesScreen() {
           <View
             style={[
               styles.reminderRow,
-              { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginBottom: spacing.lg },
+              { borderColor: colors.border, borderRadius: radius.md, padding: spacing.base, marginBottom: spacing.base },
             ]}
           >
             <View style={{ flex: 1, marginRight: spacing.md }}>
@@ -438,12 +502,57 @@ export default function PaymentTemplatesScreen() {
               accessibilityLabel="Payment reminders"
             />
           </View>
+          {remindersEnabled ? (
+            <View style={{ marginBottom: spacing.lg }}>
+              <Text style={[typography.caption, { color: colors.textSecondary, marginBottom: spacing.xs }]}>
+                Reminder Schedule
+              </Text>
+              <SelectField
+                icon="alarm-outline"
+                label={reminderPreset === 'custom' ? 'Custom' : `${reminderPreset[0].toUpperCase()}${reminderPreset.slice(1)}`}
+                onPress={openReminderPresetSheet}
+              />
+              {reminderPreset !== 'custom' ? (
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
+                  {reminderScheduleSummary(rulesForPreset(reminderPreset, undefined))}
+                </Text>
+              ) : (
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
+                  Choose exact reminder timing when creating a request from this template.
+                </Text>
+              )}
+            </View>
+          ) : null}
           <PrimaryButton
             label={editingId ? 'Save Changes' : 'Save Template'}
             onPress={handleSave}
             loading={isSaving}
           />
         </AppBottomSheet>
+      ) : null}
+
+      {isReminderPresetSheetMounted ? (
+        <ReminderPresetSheet
+          ref={reminderPresetSheetRef}
+          initialIndex={0}
+          value={reminderPreset}
+          onSelect={(preset) => {
+            setReminderPreset(preset);
+            reminderPresetSheetRef.current?.close();
+          }}
+        />
+      ) : null}
+
+      {isCurrencySheetMounted ? (
+        <CurrencySelectSheet
+          ref={currencySheetRef}
+          initialIndex={0}
+          value={currency}
+          onSelect={(asset) => {
+            setCurrency(asset);
+            currencySheetRef.current?.close();
+          }}
+        />
       ) : null}
 
       {isExpirySheetMounted ? (

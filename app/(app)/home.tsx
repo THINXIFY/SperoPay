@@ -8,20 +8,25 @@ import { ThemeAwareCard } from '../../src/components/ThemeAwareCard';
 import { PrimaryButton } from '../../src/components/PrimaryButton';
 import { SecondaryButton } from '../../src/components/SecondaryButton';
 import { SectionHeader } from '../../src/components/SectionHeader';
-import { ActivityRow } from '../../src/components/ActivityRow';
 import { UserAvatar } from '../../src/components/UserAvatar';
 import { AppRefreshControl } from '../../src/components/AppRefreshControl';
+import { MiniRevenueSparkline } from '../../src/components/MiniRevenueSparkline';
 import { TAB_BAR_CONTENT_HEIGHT } from '../../src/components/BottomNavigation';
 import { useProfileStore } from '../../src/store/profileStore';
 import { useRequestStore } from '../../src/store/requestStore';
-import { useCustomerStore } from '../../src/store/customerStore';
 import { useTransactionStore } from '../../src/store/transactionStore';
+import { useNotificationsFeedStore } from '../../src/store/notificationsFeedStore';
+import { useNotificationStore } from '../../src/store/notificationStore';
 import { useRequestDraftStore } from '../../src/store/requestDraftStore';
 import { usePaymentDefaultsStore } from '../../src/store/paymentDefaultsStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useRefreshMerchantPaymentData } from '../../src/store/useRefreshMerchantPaymentData';
 import { formatCurrency } from '../../src/utils/formatCurrency';
 import { resolveDisplayName } from '../../src/utils/resolveDisplayName';
+import { getNotificationPresentation, notificationToneColorKey } from '../../src/utils/notificationPresentation';
+import { filterNotificationsByPreferences } from '../../src/utils/notificationFilters';
+import { formatRelativeTime } from '../../src/utils/formatRelativeTime';
+import { getRevenueSummary, getRevenueTrend } from '../../src/utils/analytics';
 
 function StatColumn({
   dotColor,
@@ -67,10 +72,12 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useProfileStore((state) => state.profile);
   const requests = useRequestStore((state) => state.requests);
-  const customers = useCustomerStore((state) => state.customers);
   const transactions = useTransactionStore((state) => state.transactions);
+  const notifications = useNotificationsFeedStore((state) => state.notifications);
+  const preferences = useNotificationStore((state) => state.preferences);
   const startFresh = useRequestDraftStore((state) => state.startFresh);
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
+  const defaultCurrency = usePaymentDefaultsStore((state) => state.defaultCurrency);
   // Narrowed to the two primitive fields actually used below, not the whole
   // `user` object -- that object is rebuilt on every Supabase auth event,
   // including silent background token refreshes with no real change to the
@@ -93,30 +100,42 @@ export default function HomeScreen() {
       return paidDate.getFullYear() === now.getFullYear() && paidDate.getMonth() === now.getMonth();
     });
   }, [transactions, now]);
-  const receivedThisMonth = useMemo(
-    () => monthTransactions.reduce((sum, t) => sum + t.amount, 0),
-    [monthTransactions]
-  );
   const monthLabel = useMemo(() => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now), [now]);
+  // Reused directly from analytics.ts (the same functions the Analytics
+  // screen's own Revenue card/chart already use) rather than re-deriving
+  // "this month vs last month" and "last 6 months" here a second time.
+  const revenue = useMemo(() => getRevenueSummary(transactions, now), [transactions, now]);
+  const revenueTrend = useMemo(() => getRevenueTrend(transactions, '6M', now), [transactions, now]);
+  // null changePercent means no last-month baseline to compare against
+  // (getRevenueSummary's own documented "never invent a percentage against
+  // a zero baseline" rule) -- shown as a plain "first payment" note instead
+  // of a trend, and omitted entirely when there's nothing to say yet.
+  const isRevenueUp = revenue.changePercent !== null && revenue.changePercent >= 0;
+  const revenueTrendLabel =
+    revenue.changePercent !== null
+      ? `${isRevenueUp ? '+' : ''}${Math.round(revenue.changePercent)}% vs last month`
+      : revenue.thisMonth > 0
+        ? 'First payment this month'
+        : null;
 
+  // Phase 6C: the latest 3-5 important business events (payments, reminders,
+  // recurring activity, etc.), not just paid requests -- the notifications
+  // feed is already sorted newest-first at the source, but re-sorted
+  // defensively here in case a future load ever returns it otherwise. A
+  // category the merchant disabled in Notification Preferences is excluded
+  // here too, same as the Notifications screen itself.
+  const visibleNotifications = useMemo(() => filterNotificationsByPreferences(notifications, preferences), [notifications, preferences]);
   const recentActivity = useMemo(
-    () =>
-      requests
-        .filter((r) => r.status === 'paid')
-        .map((r) => ({
-          request: r,
-          activityAt: transactions.find((t) => t.requestId === r.id)?.paidAt ?? r.createdAt,
-        }))
-        .sort((a, b) => new Date(b.activityAt).getTime() - new Date(a.activityAt).getTime())
-        .slice(0, 4),
-    [requests, transactions]
+    () => [...visibleNotifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
+    [visibleNotifications]
   );
+  const unreadCount = useMemo(() => visibleNotifications.filter((n) => !n.isRead).length, [visibleNotifications]);
 
   const resolvedName = resolveDisplayName(profile?.displayName, authUserFullName, authUserEmail) || 'there';
   const firstName = resolvedName.split(' ')[0];
 
   function handleRequestPayment() {
-    startFresh(defaultExpiryOption);
+    startFresh(defaultExpiryOption, defaultCurrency);
     router.push('/request/amount');
   }
 
@@ -140,7 +159,12 @@ export default function HomeScreen() {
           >
             <UserAvatar name={resolvedName} avatarUri={profile?.avatarUri} borderStyle={profile?.avatarBorderStyle} size={40} />
             <View style={[styles.headerTextWrap, { marginLeft: spacing.sm }]}>
-              <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
+              <Text
+                style={[typography.h2, { fontSize: 20, lineHeight: 26, color: colors.textPrimary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 Welcome, {firstName}
               </Text>
               <Text
@@ -171,7 +195,7 @@ export default function HomeScreen() {
               <Ionicons name="bar-chart-outline" size={20} color={colors.textPrimary} />
             </Pressable>
             <Pressable
-              onPress={() => Alert.alert('Notifications', "You're all caught up.")}
+              onPress={() => router.push('/notifications')}
               style={({ pressed }) => [
                 styles.notificationButton,
                 {
@@ -182,10 +206,22 @@ export default function HomeScreen() {
                 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
               hitSlop={6}
             >
               <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
+              {unreadCount > 0 ? (
+                <View
+                  style={[
+                    styles.unreadBadge,
+                    { backgroundColor: colors.primaryAction, borderRadius: radius.full, borderColor: colors.background },
+                  ]}
+                >
+                  <Text style={[typography.caption, { color: colors.primaryActionText, fontSize: 10, lineHeight: 12 }]}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           </View>
         </View>
@@ -210,10 +246,47 @@ export default function HomeScreen() {
                 Received this month
               </Text>
             </View>
-            <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
-              {formatCurrency(receivedThisMonth)}
-            </Text>
-            <View style={[styles.heroFooterOuterRow, { marginTop: spacing.sm }]}>
+            <View style={styles.heroAmountRow}>
+              <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.xs }]}>
+                {formatCurrency(revenue.thisMonth)}
+              </Text>
+              {revenueTrendLabel ? (
+                <View
+                  style={[
+                    styles.trendPill,
+                    {
+                      backgroundColor: isRevenueUp ? `${colors.primaryAction}26` : 'transparent',
+                      borderRadius: radius.full,
+                      marginTop: spacing.xs,
+                    },
+                  ]}
+                >
+                  {revenue.changePercent !== null ? (
+                    <Ionicons
+                      name={isRevenueUp ? 'arrow-up' : 'arrow-down'}
+                      size={11}
+                      color={isRevenueUp ? colors.primaryAction : colors.heroSurfaceTextMuted}
+                    />
+                  ) : null}
+                  <Text
+                    style={[
+                      typography.caption,
+                      { color: isRevenueUp ? colors.primaryAction : colors.heroSurfaceTextMuted, marginLeft: revenue.changePercent !== null ? 2 : 0 },
+                    ]}
+                  >
+                    {revenueTrendLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {revenueTrend.some((p) => p.value > 0) ? (
+              <View style={{ marginTop: spacing.base }}>
+                <MiniRevenueSparkline points={revenueTrend} />
+              </View>
+            ) : null}
+
+            <View style={[styles.heroFooterOuterRow, { marginTop: spacing.base }]}>
               <Text style={[typography.caption, { color: colors.heroSurfaceTextMuted }]}>
                 {monthTransactions.length} payment{monthTransactions.length === 1 ? '' : 's'} · {monthLabel}
               </Text>
@@ -234,24 +307,29 @@ export default function HomeScreen() {
           />
         </View>
 
-        <ThemeAwareCard style={{ marginTop: spacing.lg, padding: 0, overflow: 'hidden' }}>
-          <View style={styles.statsRow}>
-            <StatColumn dotColor={colors.success} label="Paid" value={paidCount} supporting={formatCurrency(paidTotal)} isFirst />
-            <StatColumn
-              dotColor={colors.pending}
-              label="Pending"
-              value={pendingCount}
-              supporting={formatCurrency(pendingTotal)}
-              isFirst={false}
-            />
-          </View>
-        </ThemeAwareCard>
+        {/* Quick stats -- deliberately borderless/unboxed (spec: card
+            hierarchy). A hero card and a real content list (Recent Activity
+            below) earn a card treatment; two supporting numbers sitting
+            right under the hero don't need to be boxed again too -- that
+            was reading as "yet another card" stacked directly under the
+            hero, flattening the whole screen into a wall of identical
+            boxes. */}
+        <View style={[styles.statsRow, { marginTop: spacing.lg, paddingVertical: spacing.xs }]}>
+          <StatColumn dotColor={colors.success} label="Paid" value={paidCount} supporting={formatCurrency(paidTotal)} isFirst />
+          <StatColumn
+            dotColor={colors.pending}
+            label="Pending"
+            value={pendingCount}
+            supporting={formatCurrency(pendingTotal)}
+            isFirst={false}
+          />
+        </View>
 
         <View style={{ marginTop: spacing.lg }}>
           <SectionHeader
             title="Recent Activity"
             actionLabel={recentActivity.length > 0 ? 'View All' : undefined}
-            onActionPress={() => router.push('/(app)/requests')}
+            onActionPress={() => router.push('/notifications')}
           />
           {recentActivity.length === 0 ? (
             <ThemeAwareCard style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
@@ -272,7 +350,7 @@ export default function HomeScreen() {
                   { color: colors.textMuted, marginTop: spacing.xs / 2, textAlign: 'center' },
                 ]}
               >
-                Your completed payments will appear here.
+                Important payment and business activity will appear here.
               </Text>
               <Pressable
                 onPress={handleRequestPayment}
@@ -285,31 +363,52 @@ export default function HomeScreen() {
               </Pressable>
             </ThemeAwareCard>
           ) : (
-            recentActivity.map(({ request, activityAt }, index) => {
-              const customer = customers.find((c) => c.id === request.customerId);
-              return (
-                <View key={request.id}>
-                  {index > 0 ? <View style={{ height: 1, backgroundColor: colors.border }} /> : null}
+            <ThemeAwareCard style={{ padding: 0, overflow: 'hidden' }}>
+              {recentActivity.map((notification, index) => {
+                const presentation = getNotificationPresentation(notification.type);
+                const toneColor = colors[notificationToneColorKey(presentation.tone)];
+                return (
                   <Pressable
-                    onPress={() => router.push(`/(app)/requests/${request.id}`)}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                    key={notification.id}
+                    onPress={() => router.push('/notifications')}
+                    style={({ pressed }) => [
+                      styles.activityRow,
+                      {
+                        paddingHorizontal: spacing.base,
+                        paddingVertical: spacing.sm + spacing.xs,
+                        borderTopWidth: index === 0 ? 0 : 1,
+                        borderTopColor: colors.border,
+                        opacity: pressed ? 0.6 : 1,
+                      },
+                    ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`View request from ${customer?.name ?? 'Unknown'}`}
+                    accessibilityLabel={notification.title}
                   >
-                    <ActivityRow
-                      customerName={customer?.name ?? 'Unknown'}
-                      avatarColor={customer?.avatarColor ?? 'blue'}
-                      avatarUrl={customer?.avatarUrl}
-                      imageType={customer?.imageType}
-                      amount={request.amount}
-                      currency={request.currency}
-                      status={request.status}
-                      createdAt={activityAt}
-                    />
+                    {/* Same tone-accent device as the Notifications screen's
+                        own rows -- ties the two screens' activity feeds
+                        together visually instead of Home reinventing its
+                        own, third icon treatment. */}
+                    <View style={[styles.activityAccentBar, { backgroundColor: toneColor, borderRadius: radius.full, marginRight: spacing.sm }]} />
+                    <View style={[styles.activityIconChip, { width: 32, height: 32, borderRadius: radius.full, backgroundColor: colors.background }]}>
+                      <Ionicons name={presentation.icon} size={14} color={toneColor} />
+                    </View>
+                    <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                      <Text style={[typography.bodySmall, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {notification.title}
+                      </Text>
+                      {notification.message ? (
+                        <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]} numberOfLines={1}>
+                          {notification.message}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={[typography.caption, { color: colors.textMuted, marginLeft: spacing.sm }]}>
+                      {formatRelativeTime(notification.createdAt)}
+                    </Text>
                   </Pressable>
-                </View>
-              );
-            })
+                );
+              })}
+            </ThemeAwareCard>
           )}
         </View>
       </ScrollView>
@@ -319,11 +418,34 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
+  // flex: 1 -- headerActions (two fixed 40px icon buttons) is auto-sized,
+  // so this deterministically claims exactly "everything left after
+  // headerActions" instead of a content-based shrink-to-fit box, which is
+  // what lets the nested headerTextWrap's own flex: 1 resolve to a real,
+  // stable width for adjustsFontSizeToFit to measure against.
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
-  headerTextWrap: { flexShrink: 1 },
+  // flex: 1 (not just flexShrink) so this always resolves to a definite
+  // width -- "everything left in headerLeft after the avatar" -- which is
+  // what adjustsFontSizeToFit needs to reliably measure against. Without a
+  // definite box, a long display name could still clip before the shrink
+  // kicked in on some widths.
+  headerTextWrap: { flex: 1 },
   notificationButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  unreadBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
   heroLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  heroAmountRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8 },
+  trendPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3 },
   heroFooterOuterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterRow: { flexDirection: 'row', alignItems: 'center' },
   heroIconWrap: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
@@ -332,4 +454,7 @@ const styles = StyleSheet.create({
   statHeader: { flexDirection: 'row', alignItems: 'center' },
   statDot: { width: 8, height: 8 },
   emptyIconWrap: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  activityRow: { flexDirection: 'row', alignItems: 'center' },
+  activityAccentBar: { width: 3, alignSelf: 'stretch' },
+  activityIconChip: { alignItems: 'center', justifyContent: 'center' },
 });

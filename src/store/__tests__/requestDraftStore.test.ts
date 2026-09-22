@@ -73,4 +73,44 @@ describe('requestDraftStore', () => {
 
     expect(useRequestDraftStore.getState().sourceTemplateId).toBeUndefined();
   });
+
+  // Phase 7 -----------------------------------------------------------------
+
+  it('defaults to USDC', () => {
+    expect(useRequestDraftStore.getState().currency).toBe('USDC');
+  });
+
+  it('startFresh seeds the business default currency when given', () => {
+    useRequestDraftStore.getState().setCurrency('EURC');
+
+    useRequestDraftStore.getState().startFresh('7d', 'EURC');
+
+    expect(useRequestDraftStore.getState().currency).toBe('EURC');
+  });
+
+  it('startFresh falls back to USDC when no default currency is passed', () => {
+    useRequestDraftStore.getState().setCurrency('EURC');
+
+    useRequestDraftStore.getState().startFresh('7d');
+
+    expect(useRequestDraftStore.getState().currency).toBe('USDC');
+  });
+
+  // "Creating a request from that template must preserve EURC" (spec
+  // section 8) -- prefillFrom is what Use Template calls.
+  it('prefillFrom preserves an explicit EURC currency (Use Template)', () => {
+    useRequestDraftStore.getState().setCurrency('USDC');
+
+    useRequestDraftStore.getState().prefillFrom({ amount: '1000', currency: 'EURC', sourceTemplateId: 'template-1' });
+
+    expect(useRequestDraftStore.getState().currency).toBe('EURC');
+  });
+
+  it('prefillFrom falls back to USDC when the source has no currency of its own', () => {
+    useRequestDraftStore.getState().setCurrency('EURC');
+
+    useRequestDraftStore.getState().prefillFrom({ amount: '100' });
+
+    expect(useRequestDraftStore.getState().currency).toBe('USDC');
+  });
 });

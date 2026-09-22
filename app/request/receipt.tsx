@@ -13,6 +13,7 @@ import { BusinessLogo } from '../../src/components/BusinessLogo';
 import { Logo } from '../../src/components/Logo';
 import { EmptyState } from '../../src/components/EmptyState';
 import { AppRefreshControl } from '../../src/components/AppRefreshControl';
+import { ExplorerLinkRow } from '../../src/components/ExplorerLinkRow';
 import { useRequestStore } from '../../src/store/requestStore';
 import { useCustomerStore } from '../../src/store/customerStore';
 import { useProfileStore } from '../../src/store/profileStore';
@@ -98,10 +99,7 @@ export default function ReceiptScreen() {
             Verified on {request.network}
           </Text>
           <Text style={[typography.heroNumber, { color: colors.heroSurfaceText, marginTop: spacing.lg }]}>
-            {request.amount} {request.currency}
-          </Text>
-          <Text style={[typography.bodySmall, { color: colors.heroSurfaceTextMuted, marginTop: spacing.xs }]}>
-            ≈ {formatCurrency(request.amount)}
+            {formatCurrency(request.amount)} {request.currency}
           </Text>
         </ThemeAwareCard>
 
@@ -136,7 +134,10 @@ export default function ReceiptScreen() {
             <DetailRow label="Network" value={request.network} last={!transaction} />
             {transaction ? <DetailRow label="Paid Date" value={formatDocumentDate(transaction.paidAt)} /> : null}
             {transaction ? (
-              <DetailRow label="Transaction" value={truncateHash(transaction.txHash)} last />
+              <>
+                <DetailRow label="Transaction" value={truncateHash(transaction.txHash)} />
+                <ExplorerLinkRow txHash={transaction.txHash} last />
+              </>
             ) : (
               // The request's own status already says paid -- a real payment
               // is verified and its transaction row written atomically, so

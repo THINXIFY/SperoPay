@@ -6,10 +6,12 @@ import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 import { AppBottomSheet } from '../../../src/components/AppBottomSheet';
 import { usePaymentDefaultsStore } from '../../../src/store/paymentDefaultsStore';
 import { useWalletStore } from '../../../src/store/walletStore';
+import { CurrencySelectSheet } from '../../../src/components/CurrencySelectSheet';
 import type { ExpiryOption } from '../../../src/types';
 
 const EXPIRY_OPTIONS: { value: ExpiryOption; label: string }[] = [
@@ -23,8 +25,20 @@ export default function PaymentDefaultsScreen() {
   const { colors, spacing, radius, typography } = useTheme();
   const defaultExpiryOption = usePaymentDefaultsStore((state) => state.defaultExpiryOption);
   const setDefaultExpiryOption = usePaymentDefaultsStore((state) => state.setDefaultExpiryOption);
+  const defaultCurrency = usePaymentDefaultsStore((state) => state.defaultCurrency);
+  const setDefaultCurrency = usePaymentDefaultsStore((state) => state.setDefaultCurrency);
   const wallet = useWalletStore((state) => state.wallet);
   const expirySheetRef = useRef<BottomSheet>(null);
+  const currencySheetRef = useRef<BottomSheet>(null);
+  const [isCurrencySheetMounted, setIsCurrencySheetMounted] = useState(false);
+
+  function openCurrencySheet() {
+    if (isCurrencySheetMounted) {
+      currencySheetRef.current?.expand();
+    } else {
+      setIsCurrencySheetMounted(true);
+    }
+  }
 
   // Not rendered at all until first opened -- see request/amount.tsx for
   // why this is the correct fix: gorhom's imperative .expand() silently
@@ -46,6 +60,7 @@ export default function PaymentDefaultsScreen() {
   useFocusEffect(
     useCallback(() => {
       expirySheetRef.current?.forceClose();
+      currencySheetRef.current?.forceClose();
     }, [])
   );
 
@@ -54,17 +69,32 @@ export default function PaymentDefaultsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Payment Defaults" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl, gap: spacing.md }}>
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
-          <ThemeAwareCard style={{ flex: 1 }}>
-            <Text style={[typography.caption, { color: colors.textMuted }]}>Default Stablecoin</Text>
-            <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>USDC</Text>
-          </ThemeAwareCard>
+          <Pressable
+            onPress={openCurrencySheet}
+            accessibilityRole="button"
+            accessibilityLabel={`Default Stablecoin, ${defaultCurrency}`}
+            style={{ flex: 1 }}
+          >
+            <ThemeAwareCard>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Default Stablecoin</Text>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>{defaultCurrency}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </ThemeAwareCard>
+          </Pressable>
           <ThemeAwareCard style={{ flex: 1 }}>
             <Text style={[typography.caption, { color: colors.textMuted }]}>Default Network</Text>
             <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginTop: spacing.xs }]}>Solana</Text>
           </ThemeAwareCard>
         </View>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          Applies to new requests only -- existing requests keep the currency they were created with.
+        </Text>
 
         <Pressable
           onPress={openExpirySheet}
@@ -114,6 +144,18 @@ export default function PaymentDefaultsScreen() {
             </Pressable>
           ))}
         </AppBottomSheet>
+      ) : null}
+
+      {isCurrencySheetMounted ? (
+        <CurrencySelectSheet
+          ref={currencySheetRef}
+          initialIndex={0}
+          value={defaultCurrency}
+          onSelect={(asset) => {
+            setDefaultCurrency(asset);
+            currencySheetRef.current?.close();
+          }}
+        />
       ) : null}
     </SafeAreaView>
   );

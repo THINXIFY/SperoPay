@@ -45,4 +45,16 @@ describe('buildPaymentRequestPayload', () => {
     expect(isValidSolanaAddress(first.solanaReference)).toBe(true);
     expect(first.solanaReference).not.toBe(second.solanaReference);
   });
+
+  // Phase 7 -----------------------------------------------------------------
+
+  it('defaults to USDC when no currency is given', () => {
+    const payload = buildPaymentRequestPayload({ amount: 100, expiryOption: '7d' }, now);
+    expect(payload.currency).toBe('USDC');
+  });
+
+  it('uses an explicitly chosen EURC currency', () => {
+    const payload = buildPaymentRequestPayload({ amount: 100, currency: 'EURC', expiryOption: '7d' }, now);
+    expect(payload.currency).toBe('EURC');
+  });
 });

@@ -6,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { TextField } from '../../../src/components/TextField';
 import { SelectField } from '../../../src/components/SelectField';
 import { PrimaryButton } from '../../../src/components/PrimaryButton';
@@ -200,7 +201,7 @@ export default function EditProfileScreen() {
             <AvatarBorderPicker value={avatarBorderStyle} onChange={setAvatarBorderStyle} />
           </View>
         </ScrollView>
-        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }}>
+        <View style={{ paddingHorizontal: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.sm }}>
           <PrimaryButton label="Save Changes" onPress={handleSave} loading={isSaving} />
         </View>
       </KeyboardAvoidingView>

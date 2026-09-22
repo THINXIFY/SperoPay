@@ -40,7 +40,7 @@ function processedStatus(): SignatureStatus {
 
 const expected: ExpectedPayment = {
   network: 'mainnet-beta',
-  usdcMint: USDC_MINT,
+  mint: USDC_MINT,
   destinationWallet: MERCHANT_WALLET,
   amountBaseUnits: 10_500_000n,
   notAfter: null,

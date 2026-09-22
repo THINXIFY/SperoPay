@@ -13,6 +13,21 @@ interface TransactionState {
   error: string | null;
   loadForUser: (userId: string) => Promise<void>;
   getTransactionForRequest: (requestId: string) => Transaction | undefined;
+  // Every verified payment against a request, oldest first -- for the
+  // Payment Progress / Payments list UI (Phase 4C). The singular getter
+  // above is untouched and still returns just the latest (correct as-is
+  // for every existing single-payment call site).
+  //
+  // Safe to call imperatively (inside an event handler, another store
+  // action, etc.) -- NOT safe to call directly inside a React
+  // `useTransactionStore(state => state.getTransactionsForRequest(id))`
+  // selector: `.filter().sort()` allocates a new array every call, so a
+  // selector built on it never compares equal to its own last result and
+  // re-renders forever ("Maximum update depth exceeded" -- hit this once
+  // already, see app/(app)/requests/[id].tsx's own comment on the fix).
+  // From a component, select the stable `transactions` array instead and
+  // derive the per-request list with useMemo.
+  getTransactionsForRequest: (requestId: string) => Transaction[];
   addLocal: (transaction: Transaction) => void;
   reset: () => void;
 }
@@ -65,6 +80,11 @@ export const useTransactionStore = create<TransactionState>()((set, get) => ({
   },
 
   getTransactionForRequest: (requestId) => get().transactions.find((t) => t.requestId === requestId),
+
+  getTransactionsForRequest: (requestId) =>
+    get()
+      .transactions.filter((t) => t.requestId === requestId)
+      .sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime()),
 
   // Written server-side only (inside complete_payment) — this merges the
   // RPC's returned row into the local cache, it never inserts directly.

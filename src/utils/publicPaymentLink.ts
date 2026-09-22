@@ -9,15 +9,11 @@
 // public_token can only be known after insert, and why the link is always
 // computed fresh from it rather than trusted from a stored string.
 //
-// EXPO_PUBLIC_CHECKOUT_BASE_URL is unset in local/dev environments — the
-// fallback below is the app's real intended production domain (already
-// referenced elsewhere, e.g. support@speropay.app), NOT a verified,
-// deployed URL. See this phase's final report for the explicit
-// implementation-vs-deployment distinction.
-const DEFAULT_CHECKOUT_BASE_URL = 'https://pay.speropay.app';
+// Domain resolution itself lives in checkoutBaseUrl.ts (Phase 5B) -- shared
+// with getCustomerPortalUrl, so both link types can never drift to
+// different domains.
+import { getCheckoutBaseUrl } from './checkoutBaseUrl.ts';
 
 export function getPublicPaymentUrl(publicToken: string): string {
-  const base = process.env.EXPO_PUBLIC_CHECKOUT_BASE_URL || DEFAULT_CHECKOUT_BASE_URL;
-  const trimmedBase = base.replace(/\/+$/, '');
-  return `${trimmedBase}/p/${publicToken}`;
+  return `${getCheckoutBaseUrl()}/p/${publicToken}`;
 }

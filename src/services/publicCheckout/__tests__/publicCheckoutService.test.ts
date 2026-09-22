@@ -3,7 +3,7 @@ jest.mock('../../../lib/supabase', () => ({
 }));
 
 import { supabase } from '../../../lib/supabase';
-import { fetchPublicCheckout, isValidPublicToken } from '../publicCheckoutService';
+import { fetchPublicCheckout, isValidPublicToken, recordRequestViewed } from '../publicCheckoutService';
 
 const mockedSupabase = jest.mocked(supabase);
 
@@ -22,6 +22,11 @@ function rpcRow(overrides: Record<string, unknown> = {}) {
     merchant_logo_url: 'https://bfilrksvaprlnumpchqc.supabase.co/storage/v1/object/public/avatars/businesses/owner-uuid/1.jpg',
     destination_wallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
     solana_reference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
+    allow_partial_payments: false,
+    deposit_type: null,
+    deposit_value: null,
+    verified_paid_amount: 0,
+    remaining_amount: '10.50',
     ...overrides,
   };
 }
@@ -70,6 +75,11 @@ describe('fetchPublicCheckout', () => {
         merchantLogoUrl: 'https://bfilrksvaprlnumpchqc.supabase.co/storage/v1/object/public/avatars/businesses/owner-uuid/1.jpg',
         destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
         solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
+        allowPartialPayments: false,
+        depositType: null,
+        depositValue: null,
+        verifiedPaidAmount: 0,
+        remainingAmount: 10.5,
       },
     });
   });
@@ -145,8 +155,35 @@ describe('fetchPublicCheckout', () => {
           'merchantLogoUrl',
           'destinationWallet',
           'solanaReference',
+          'allowPartialPayments',
+          'depositType',
+          'depositValue',
+          'verifiedPaidAmount',
+          'remainingAmount',
         ].sort()
       );
     }
+  });
+});
+
+describe('recordRequestViewed', () => {
+  it('calls the record_request_viewed RPC with the token', async () => {
+    mockedSupabase.rpc.mockResolvedValue({ data: null, error: null } as never);
+
+    await recordRequestViewed(VALID_TOKEN);
+
+    expect(mockedSupabase.rpc).toHaveBeenCalledWith('record_request_viewed', { p_token: VALID_TOKEN });
+  });
+
+  it('never calls the RPC for a malformed token', async () => {
+    await recordRequestViewed('not-a-real-token');
+
+    expect(mockedSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('never throws even when the RPC call fails -- a payer\'s checkout experience must never be affected', async () => {
+    mockedSupabase.rpc.mockRejectedValue(new Error('boom'));
+
+    await expect(recordRequestViewed(VALID_TOKEN)).resolves.toBeUndefined();
   });
 });

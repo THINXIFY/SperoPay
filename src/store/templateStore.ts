@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { registerResettable } from './dataLifecycle';
 import { createStaleGuard } from './staleGuard';
 import { getDataErrorMessage } from '../utils/getDataErrorMessage';
-import type { ExpiryOption, Template } from '../types';
+import { DEFAULT_ASSET, type AssetSymbol } from '../config/assets';
+import type { ExpiryOption, ReminderPreset, ReminderRule, Template } from '../types';
 
 type Status = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -15,10 +16,16 @@ type Status = 'idle' | 'loading' | 'loaded' | 'error';
 export interface TemplateInput {
   name: string;
   amount?: number;
+  // Defaults to DEFAULT_ASSET (USDC) when omitted, matching every
+  // pre-Phase-7 caller and the payment_templates.currency column's own
+  // default.
+  currency?: AssetSymbol;
   description?: string;
   expiryOption: ExpiryOption;
   customerId?: string;
   remindersEnabled: boolean;
+  reminderPreset: ReminderPreset;
+  reminderCustomRules?: ReminderRule[];
 }
 
 interface TemplateState {
@@ -47,6 +54,8 @@ function mapRow(row: {
   expiry_option: Template['expiryOption'];
   customer_id: string | null;
   reminders_enabled: boolean;
+  reminder_preset: ReminderPreset;
+  reminder_custom_rules: ReminderRule[] | null;
   is_favorite: boolean;
   is_archived: boolean;
   usage_count: number;
@@ -56,11 +65,13 @@ function mapRow(row: {
     id: row.id,
     name: row.name,
     amount: row.amount === null ? undefined : Number(row.amount),
-    currency: (row.currency as Template['currency']) ?? 'USDC',
+    currency: (row.currency as Template['currency']) ?? DEFAULT_ASSET,
     description: row.description ?? undefined,
     expiryOption: row.expiry_option,
     customerId: row.customer_id ?? undefined,
     remindersEnabled: row.reminders_enabled,
+    reminderPreset: row.reminder_preset,
+    reminderCustomRules: row.reminder_custom_rules ?? undefined,
     isFavorite: row.is_favorite,
     isArchived: row.is_archived,
     usageCount: row.usage_count,
@@ -72,10 +83,13 @@ function toDbPatch(input: Partial<TemplateInput>): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   if ('name' in input) patch.name = input.name;
   if ('amount' in input) patch.amount = input.amount ?? null;
+  if ('currency' in input) patch.currency = input.currency ?? DEFAULT_ASSET;
   if ('description' in input) patch.description = input.description ?? null;
   if ('expiryOption' in input) patch.expiry_option = input.expiryOption;
   if ('customerId' in input) patch.customer_id = input.customerId ?? null;
   if ('remindersEnabled' in input) patch.reminders_enabled = input.remindersEnabled;
+  if ('reminderPreset' in input) patch.reminder_preset = input.reminderPreset;
+  if ('reminderCustomRules' in input) patch.reminder_custom_rules = input.reminderCustomRules ?? null;
   return patch;
 }
 
@@ -110,10 +124,13 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
         user_id: userId,
         name: input.name,
         amount: input.amount ?? null,
+        currency: input.currency ?? DEFAULT_ASSET,
         description: input.description ?? null,
         expiry_option: input.expiryOption,
         customer_id: input.customerId ?? null,
         reminders_enabled: input.remindersEnabled,
+        reminder_preset: input.reminderPreset,
+        reminder_custom_rules: input.reminderCustomRules ?? null,
       })
       .select('*')
       .single();
@@ -157,10 +174,13 @@ export const useTemplateStore = create<TemplateState>()((set, get) => ({
     return get().addTemplate(userId, {
       name: `${source.name} (Copy)`,
       amount: source.amount,
+      currency: source.currency,
       description: source.description,
       expiryOption: source.expiryOption,
       customerId: source.customerId,
       remindersEnabled: source.remindersEnabled,
+      reminderPreset: source.reminderPreset,
+      reminderCustomRules: source.reminderCustomRules,
     });
   },
 

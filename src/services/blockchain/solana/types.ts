@@ -24,9 +24,26 @@ export type ConfirmationLevel = 'processed' | 'confirmed' | 'finalized';
 
 export interface ExpectedPayment {
   network: SolanaEnvironment;
-  usdcMint: string;
+  mint: string;
   destinationWallet: string;
+  /**
+   * Full-payment-only requests (the default, and every request that
+   * existed before Phase 4C): the transfer must match this exactly.
+   * Ignored when minAmountBaseUnits/maxAmountBaseUnits are both set.
+   */
   amountBaseUnits: bigint;
+  /**
+   * Set together, only for a partial-payment-enabled request: any transfer
+   * whose amount falls within [min, max] (inclusive) is accepted instead
+   * of requiring an exact match against amountBaseUnits. `max` is always
+   * the request's current remaining balance — this is also what prevents
+   * crediting a transfer that would overpay the request (see
+   * paymentVerifier.ts). `min` is the required deposit's base units for a
+   * request's first payment, or 1n (any nonzero amount) once at least one
+   * payment has already been credited.
+   */
+  minAmountBaseUnits?: bigint;
+  maxAmountBaseUnits?: bigint;
   /** Payment requests expire — a transaction confirmed after this instant does not count. */
   notAfter: Date | null;
 }

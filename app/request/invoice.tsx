@@ -151,10 +151,7 @@ export default function InvoiceScreen() {
             <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Total</Text>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={[typography.h2, { color: colors.textPrimary }]}>
-                {request.amount} {request.currency}
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs / 2 }]}>
-                ≈ {formatCurrency(request.amount)}
+                {formatCurrency(request.amount)} {request.currency}
               </Text>
             </View>
           </View>
@@ -174,7 +171,14 @@ export default function InvoiceScreen() {
             icon={copiedLink ? 'checkmark' : 'link-outline'}
             onPress={handleCopyLink}
           />
-          <SecondaryButton label="View Payment Request" onPress={() => router.push(`/pay/${request.id}`)} />
+          {/* Opens the REAL public checkout (Solana Pay + server-verified
+              status) -- never the legacy /pay/[id] mock-payment simulator,
+              which lets a client mark a request "Paid" with no on-chain
+              verification at all. See Phase 5A's payment-hardening audit. */}
+          <SecondaryButton
+            label="View Payment Request"
+            onPress={() => router.push(`/p/${request.publicToken}`)}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>

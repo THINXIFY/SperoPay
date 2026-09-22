@@ -1,5 +1,6 @@
 import type { PaymentRequest, Transaction } from '../types';
 import { isRequestExpired } from './expiry';
+import { computePaymentAccounting } from './paymentAccounting';
 
 // Every "this month" / "last month" split in this file uses the same local
 // calendar-month convention already established by home.tsx's
@@ -49,10 +50,18 @@ export interface OutstandingSummary {
 
 // Same "unpaid" definition as getCustomerStats.ts's outstanding field:
 // pending or confirming, i.e. every request that hasn't resolved to paid,
-// cancelled, or (client-derived) expired yet.
-export function getOutstandingSummary(requests: PaymentRequest[]): OutstandingSummary {
+// cancelled, or (client-derived) expired yet. The AMOUNT contributed by
+// each is its REMAINING balance (computePaymentAccounting), not its
+// original `amount` -- a $1,000 request with $400 already verified paid
+// contributes $600 here, not $1,000. Before this fix this summed the raw
+// request amount, which silently overcounted Outstanding for any
+// partially paid request and disagreed with Reports' own (correct)
+// figure for the same data -- see reportsCalculations.ts's
+// getOutstandingSummary, the source of truth this now matches.
+export function getOutstandingSummary(requests: PaymentRequest[], transactions: Transaction[]): OutstandingSummary {
   const unpaid = requests.filter((r) => r.status === 'pending' || r.status === 'confirming');
-  return { amount: unpaid.reduce((sum, r) => sum + r.amount, 0), count: unpaid.length };
+  const amount = unpaid.reduce((sum, r) => sum + computePaymentAccounting(r, transactions).remainingAmount, 0);
+  return { amount, count: unpaid.length };
 }
 
 export interface AvgPaymentTimeSummary {

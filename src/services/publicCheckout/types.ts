@@ -1,4 +1,5 @@
-import type { PaymentRequestStatus } from '../../types';
+import type { PaymentRequestStatus, DepositType } from '../../types';
+import type { AssetSymbol } from '../../config/assets';
 
 // Mirrors get_public_payment_request's exact return shape
 // (supabase/migrations/0005_phase3a_payment_foundation.sql) — deliberately
@@ -8,7 +9,7 @@ import type { PaymentRequestStatus } from '../../types';
 export interface PublicCheckoutData {
   paymentCode: string;
   amount: number;
-  currency: string;
+  currency: AssetSymbol;
   network: string;
   description: string | null;
   status: PaymentRequestStatus;
@@ -17,6 +18,14 @@ export interface PublicCheckoutData {
   merchantLogoUrl: string | null;
   destinationWallet: string | null;
   solanaReference: string | null;
+  allowPartialPayments: boolean;
+  depositType: DepositType | null;
+  depositValue: number | null;
+  // Server-derived from real transactions -- see get_public_payment_request
+  // (migration 0012). Never computed client-side; this is the number the
+  // checkout page's "Paid" / "Remaining" figures come from directly.
+  verifiedPaidAmount: number;
+  remainingAmount: number;
 }
 
 export type PublicCheckoutResult =

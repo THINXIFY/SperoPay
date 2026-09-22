@@ -18,19 +18,28 @@ const mockedTriggerVerification = jest.mocked(triggerPaymentVerification);
 const TOKEN = 'a1b2c3d4-e5f6-4789-a012-3456789abcde';
 const POLL_INTERVAL_MS = 1000;
 
+const BASE_CHECKOUT_DATA: PublicCheckoutData = {
+  paymentCode: 'SP-AAAAA',
+  amount: 10.5,
+  currency: 'USDC',
+  network: 'Solana',
+  description: null,
+  status: 'pending',
+  expiresAt: null,
+  merchantName: 'Acme Co',
+  merchantLogoUrl: null,
+  destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
+  solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
+  allowPartialPayments: false,
+  depositType: null,
+  depositValue: null,
+  verifiedPaidAmount: 0,
+  remainingAmount: 10.5,
+};
+
 function checkoutData(overrides: Partial<PublicCheckoutData> = {}): PublicCheckoutData {
   return {
-    paymentCode: 'SP-AAAAA',
-    amount: 10.5,
-    currency: 'USDC',
-    network: 'Solana',
-    description: null,
-    status: 'pending',
-    expiresAt: null,
-    merchantName: 'Acme Co',
-    merchantLogoUrl: null,
-    destinationWallet: '7fUAJdStEuGbc3sM84cKRL6yYaYr3wgHKmqwn9LFTQuu',
-    solanaReference: 'GsbwXfJraMomNxBcpR5TVQaaB6WcU9v4rTUgHTKfyG3g',
+    ...BASE_CHECKOUT_DATA,
     ...overrides,
   };
 }

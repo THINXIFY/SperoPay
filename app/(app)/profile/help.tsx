@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useTheme } from '../../../src/theme/useTheme';
 import { AppHeader } from '../../../src/components/AppHeader';
+import { TAB_BAR_CONTENT_HEIGHT } from '../../../src/components/BottomNavigation';
 import { ThemeAwareCard } from '../../../src/components/ThemeAwareCard';
 
 export default function HelpScreen() {
@@ -11,7 +12,7 @@ export default function HelpScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <AppHeader title="Help & Support" onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: TAB_BAR_CONTENT_HEIGHT + spacing.xl, gap: spacing.md }}>
         <ThemeAwareCard>
           <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>Contact Support</Text>
           <Text style={[typography.bodySmall, { color: colors.textSecondary, marginTop: spacing.xs }]}>
