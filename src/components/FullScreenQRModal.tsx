@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Modal, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, Modal, Pressable, Alert, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -42,6 +42,16 @@ export function FullScreenQRModal({
 }: FullScreenQRModalProps) {
   const { colors, spacing, radius, typography } = useTheme();
   const { boost, restore } = useTemporaryBrightness();
+  // Clamped to whatever actually fits: this content area has
+  // `paddingHorizontal: spacing.xl` on both sides (see `content` style
+  // below) and QRCodeCard adds its own `spacing.base` padding on both
+  // sides again -- at a fixed 260 those two together (48 + 32) push the
+  // real rendered width to 340px, wider than a 320px device. Falls back to
+  // the original 260 default the instant there's room for it (every
+  // device this app has actually shipped to until now), so this is a
+  // strict fix, not a redesign of the modal for larger screens.
+  const { width: windowWidth } = useWindowDimensions();
+  const qrSize = Math.max(180, Math.min(260, windowWidth - 2 * spacing.xl - 2 * spacing.base));
   // Mounted lazily on first open (avoids building the large QR before the
   // merchant has actually asked to see it) and stays mounted after that so
   // the modal's native fade-out on close has real content to animate,
@@ -136,7 +146,7 @@ export function FullScreenQRModal({
                 accessibilityLabel="Copy the raw Solana Pay URI for diagnostics"
                 delayLongPress={500}
               >
-                <QRCodeCard value={solanaPayUri} size={260} />
+                <QRCodeCard value={solanaPayUri} size={qrSize} />
                 <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs, textAlign: 'center' }]}>
                   {uriCopied ? 'URI copied' : 'Hold to copy raw URI'}
                 </Text>
@@ -145,7 +155,7 @@ export function FullScreenQRModal({
               <View
                 style={[
                   styles.qrPlaceholder,
-                  { width: 260, height: 260, backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg },
+                  { width: qrSize, height: qrSize, backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.lg },
                 ]}
               >
                 <Ionicons name="qr-code-outline" size={40} color={colors.textMuted} />

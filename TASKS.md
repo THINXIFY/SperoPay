@@ -1,102 +1,105 @@
-# Phase 3E (corrected) — Production Web Deployment, integrated onto phase-avatars
+# Premium Web UX Pass — pay.speropay.app root + /p/[token]
 
-## Critical correction from the original plan
+Scope: pure presentational redesign of exactly 2 screens. No changes to payment
+verification, Supabase RPCs/security, Solana logic, or any other app screen.
 
-The original Phase 3E work was built on a stale `master` branch that turned out to be
-47 commits behind `phase-avatars`. Worse: `phase-avatars` itself had 194 uncommitted
-files (migrations 0011-0022, the real `/c/[token]` client portal, `checkoutBaseUrl.ts`,
-reminders, recurring/partial payments, notifications, multi-currency, archive, reports)
-that were never committed — now committed as `dd7ffa7` on `phase-avatars` (user-approved).
-
-**Audited and confirmed already built on phase-avatars — do NOT rebuild these:**
-- [x] `/p/[token]` checkout — anonymous-safe, no AuthGate, already web-safe (inline
-      "Copied" state, not `Alert.alert`)
-- [x] `/c/[token]` client portal — anonymous-safe, superior design (lazy/revocable
-      `customers.portal_token`, separate RPCs for requests/payments/recurring, partial
-      payment accounting), merchant UI to get/copy/share/regenerate already wired up
-- [x] Centralized URL helpers — `checkoutBaseUrl.ts` + `publicPaymentLink.ts` +
-      `customerPortalLink.ts`, same pattern already correct
-- [x] `webRouteGuard.ts` — separate allowlist gating `(app)`/other routes on web builds
-- [x] Vercel hosting config (`vercel.json`) — build command, SPA rewrite, security
-      headers already present. **User confirmed: keep Vercel, do not add Netlify config.**
+## Understood before coding
+- `WebLandingScreen.tsx` renders for `/` AND every non-allowlisted web path (the
+  catch-all in `app/_layout.tsx` via `webRouteGuard.ts`) — redesigning it in place
+  serves both "real root visit" and "broken/unknown link" cases; not splitting this,
+  out of scope.
+- `/p/[token].tsx`'s data (`PublicCheckoutData`) has **no `customerName` field** — the
+  RPC doesn't return one. Cannot show "customer name" without a backend/RPC change,
+  which is explicitly out of scope. Flagged in final report, not fabricated.
+- Same RPC has **no `txHash`/`paidAt`** — "transaction time" and a working Explorer
+  link on the Paid state aren't achievable from checkout data alone. Existing
+  `/receipt/[token]` page already has both (its own RPC). Solved by adding a "View
+  Receipt" button on Paid that navigates to `/receipt/<token>` (pure navigation, no
+  backend change) rather than fabricating a partial in-place Explorer link.
+- All state-machine logic (`usePublicCheckoutPolling`, `usePayWithWallet`,
+  `canPayRequest`, `recordRequestViewed`, partial-payment amount validation,
+  `buildSolanaPayUrl`) stays byte-for-byte — only JSX/styling around it changed.
+- `FullScreenQRModal`'s fixed QR size (260) + modal padding could exceed 320px width.
+  Fixed responsively; shared with 2 native screens (Request Created, Request Detail),
+  strictly additive there too (falls back to the same 260 the instant there's room).
 
 ## COMPLETED
 
-### Public documents
-- [x] New migration `supabase/migrations/0023_public_invoice_receipt.sql` (next number
-      after 0022) — `get_public_invoice` + `get_public_receipt` RPCs, same
-      SECURITY DEFINER pattern as the rest of the codebase.
-- [x] `app/invoice/[token].tsx` + `_layout.tsx` — public invoice page.
-- [x] `app/receipt/[token].tsx` + `_layout.tsx` — public receipt page (one line per
-      verified transaction, supports partial payments).
-- [x] Registered `invoice`/`receipt` in root `app/_layout.tsx` + `webRouteGuard.ts`
-      allowlist (+ tests).
-- [x] Added `getPublicInvoiceUrl`/`getPublicReceiptUrl` to the centralized link helper
-      (`publicInvoiceLink.ts`/`publicReceiptLink.ts`, mirroring `customerPortalLink.ts`'s
-      one-function-per-file convention) — wired into both the public pages' own
-      Share/Copy actions and the merchant-facing invoice/receipt screens' share messages
-      (neither previously linked back to itself).
-- [x] Web-safe Share/Copy — inline confirmation state throughout, `Share.share` failures
-      (no Web Share API) fall back to clipboard copy with visible feedback, never
-      `Alert.alert` (a no-op on react-native-web).
-- [x] `src/services/publicDocuments/` — types + invoiceService + receiptService (composes
-      `get_public_invoice`+`get_public_receipt` in parallel, mirroring
-      `customerPortalService`'s multi-RPC pattern) + hooks + 22 new tests.
-- [x] Extracted `CustomerFacingStatusPill` out of `app/c/[token].tsx`'s inline
-      component so the invoice page reuses the same customer-facing status logic.
+### Root page (`src/components/WebLandingScreen.tsx`)
+- [x] Reworked copy: tagline, "Secure crypto payments for modern businesses."
+- [x] Added 3-step flow (Open payment link → Pay from your wallet → Receive confirmation)
+- [x] Added trust points row/grid (Non-custodial / Direct to business wallet / USDC on Solana / Verified on-chain)
+- [x] Added subtle "Learn more about Spero" CTA linking to `https://speropay.app`
+- [x] Added polished footer
+- [x] Preserved existing Google Play CTA / "coming soon" logic untouched
 
-### Bug fix (flagged by audit, in scope — broken/hardcoded production link)
-- [x] `supabase/functions/process-recurring-plans/index.ts:151` hardcoded
-      `https://pay.speropay.app/r/${paymentCode}` — now routed through the shared
-      `getCheckoutBaseUrl()` instead of a second hardcoded domain copy (the `/r/` path
-      itself is an established, deliberately-unused legacy placeholder, same as
-      `buildPaymentRequest.ts`'s identical pattern — not a new route to build).
+### Checkout page (`app/p/[token].tsx`)
+- [x] Header: Spero mark + "Secure checkout" trust pill, separate from merchant identity in the hero
+- [x] Payment hero rebuilt as one cohesive card: merchant row, dominant amount, StatusBadge,
+      description, network/Devnet badge, reference, expiry — replaces the old split of a bare
+      text block + a separate bottom "general details" card repeating some of the same facts
+- [x] Primary CTA restructure: dominant Pay with Wallet; secondary row (Show QR / Copy Link);
+      wallet address stays the de-emphasized "Manual payment (fallback)" card
+- [x] Wired `getPublicPaymentUrl(token)` into FullScreenQRModal's `publicLink` prop
+- [x] Paid state: "Verified on-chain" badge + "View Receipt" → `/receipt/<token>`
+- [x] Submitted/confirming copy updated to match spec wording exactly
+- [x] `payError` (wallet-unavailable) upgraded to a polished inline banner (icon + soft-red background)
+- [x] Temporary network error now visually distinct from unavailable-link (blue card + Try Again
+      vs. neutral EmptyState) — verified both render correctly, see Verification
+- [x] Trust messaging kept near the CTA, restyled with a lock icon
 
-### Hosting verification (Vercel, not Netlify)
-- [x] Verified via an actual `expo export -p web` (not assumed): the default
-      `expo.web.output` (unset) already produces a single index.html + single JS bundle
-      with absolute root-relative paths — exactly what `vercel.json`'s catch-all rewrite
-      expects. **No `app.json` change needed.**
-- [x] `EXPO_PUBLIC_CHECKOUT_BASE_URL` guidance confirmed for Vercel env vars (see final report).
+### Shared component fix
+- [x] `FullScreenQRModal.tsx`: QR size now clamped to `windowWidth - 2*spacing.xl - 2*spacing.base`
+      (min 180, max 260) — can no longer overflow at 320px, unchanged on any wider screen
 
-### Verification
-- [x] `npx tsc --noEmit` — clean.
-- [x] Full Jest suite — 95 suites / 813 tests (up from the 93/793 baseline).
-- [x] `npx expo export -p web` — succeeds.
-- [x] Confirmed all 3 Edge Function directories still present (verify-payment,
-      process-reminders, process-recurring-plans) — untouched except the one link fix.
-- [x] Holistic code-review pass — found and fixed: receipt page's Share had no link back
-      to itself, its web fallback gave no "Copied" feedback, and `getPublicInvoiceUrl`
-      was dead code (nothing linked to the invoice page itself) — all fixed; deduped
-      `isKnownStatus` between invoiceService/receiptService.
-- [x] Final report delivered to user.
+### Explicitly not implemented (flagged, not silently skipped)
+- **Sticky bottom CTA**: attempted, then removed. `position: 'sticky'` inside an RN-Web
+  `ScrollView`'s content is genuinely uncertain territory with no existing precedent in this
+  codebase, and I have no way to visually verify it wouldn't render broken (floating over
+  content, disappearing, etc.). Shipping unverified experimental positioning felt riskier than
+  leaving the button in normal flow, which was already working. The CTA sits high in the page
+  (right after the hero card), so the scroll distance to it is short regardless.
 
-## Post-report fix: orphaned artifacts from the abandoned old branch
+## Holistic review pass — 3 real bugs found and fixed
+- [x] **`WebLandingScreen.tsx`'s `justifyContent: 'center'`** on the new (taller) scroll
+      content: on a viewport shorter than the content, this centers overflow
+      symmetrically above/below the box — the portion pushed above sits at a negative
+      scroll offset the browser never lets the user reach, permanently hiding the
+      logo/headline. Fixed by dropping `justifyContent: 'center'` (kept
+      `alignItems: 'center'` for horizontal centering), matching the checkout page's
+      own already-correct pattern. **Re-verified with an actual short-viewport
+      (320×480) screenshot after the fix** — logo/headline now render at the very top,
+      fully visible, `scrollY` correctly bottoms out at 0.
+- [x] **`adjustsFontSizeToFit` on the checkout amount** — not implemented by
+      react-native-web at all (silently ignored); combined with `numberOfLines={1}` it
+      would hard-truncate a long amount with an ellipsis on the web build, on exactly
+      the platform this pass targets, instead of the auto-shrink the prop implies.
+      Removed both props — reverts to natural wrapping, the same safe behavior the
+      original code already had before this pass touched it.
+- [x] **`Linking.openURL` with no error handling** on the new "Learn more about Spero"
+      button (a rejected promise — e.g. a popup blocker — would be an unhandled
+      rejection with silent failure). Added a small `openExternal()` helper
+      (try/catch, silent swallow — this is a non-critical marketing link, not a
+      payment action) and applied it to both the new button and the pre-existing
+      Google Play button for consistency within the file.
 
-Running migration 0023 against the live database failed: `get_public_invoice(uuid)`
-already existed with a different shape. Root cause: the OLD, abandoned
-`phase-3e-web-production` branch's migration `0008_phase3e_web_production.sql` (which
-independently reinvented the client portal before the real one on `phase-avatars` was
-discovered) had already been run against this same database earlier in this session,
-before the duplication was caught. Confirmed via grep that nothing in the current
-codebase references `customers.public_token` or `get_public_client_portal` — pure
-orphaned cruft. Migration 0023 now:
-- Drops the orphaned `get_public_client_portal(uuid)` function.
-- Drops the orphaned `customers.public_token` column (the real one is
-  `customers.portal_token`, from 0014).
-- Drop-then-creates `get_public_invoice`/`get_public_receipt` (the established pattern
-  this codebase already uses whenever a `RETURNS TABLE` shape changes).
-The whole file is idempotent — safe to re-run in full even though part of the original
-version may have already executed before erroring.
+## Verification
 
-**Confirmed applied by the user** ("Success. No rows returned") — `get_public_invoice`/
-`get_public_receipt` are live with the correct shape, and the orphaned
-`get_public_client_portal`/`customers.public_token` artifacts are gone.
-
-## Known, deliberately-not-fixed (flagged, not silently dropped)
-- The server-side "verified paid amount" accounting (sum transactions, clamp at 0) is
-  now duplicated across 4 SQL functions (`get_public_payment_request` 0012,
-  `get_customer_portal_requests` 0014/0022, and this phase's `get_public_invoice`).
-  Consolidating into one shared SQL helper would require touching already-applied
-  migrations, which is explicitly out of scope for this task ("do not modify
-  already-applied migrations") — flagged for a future dedicated migration if desired.
+- [x] `npx tsc --noEmit` — clean
+- [x] Full Jest suite — 95 suites / 813 tests, unchanged from baseline (no logic touched)
+- [x] `npm run export:web` — succeeds
+- [x] **Real browser verification performed** (not just code review): installed Playwright +
+      headless Chromium (redirected to E: drive, given C: has ~275MB free), started the actual
+      Expo web dev server, and screenshotted both pages at 320/360/390/430/1280px. Checked
+      `document.body/documentElement.scrollWidth` against viewport width at every size (zero
+      overflow anywhere) and browser console for errors (none). Actually looked at every
+      screenshot, not just the numbers.
+  - Root page: verified at all 5 widths — matches brand, no overflow, reads as premium.
+  - Checkout page: verified top bar, the network_error state (blue card, Try Again — confirmed
+    working), and the invalid_token state (neutral EmptyState) — confirmed the two are visually
+    distinct as required.
+  - **Not verified**: the payable/pending/confirming/paid hero states, QR modal, and
+    partial-payment UI — this environment has no real payment token from the live database to
+    load, and I'm not going to claim these look right without having seen them. Code-reviewed
+    carefully (same components/patterns already proven in the states I did see), but that's a
+    weaker claim than an actual screenshot — flagged explicitly in the final report.
